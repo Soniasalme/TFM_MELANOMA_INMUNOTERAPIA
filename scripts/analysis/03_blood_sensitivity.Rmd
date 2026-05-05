@@ -36,7 +36,7 @@ La pregunta no es descubrir biomarcadores tumorales en sangre, sino evaluar si l
 ```{r librerias}
 required_packages <- c(
   "SummarizedExperiment", "limma", "dplyr", "tibble",
-  "ggplot2", "knitr", "matrixStats", "tidyr"
+  "ggplot2", "knitr", "matrixStats", "tidyr", "here"
 )
 
 for (pkg in required_packages) {
@@ -53,12 +53,13 @@ library(ggplot2)
 library(knitr)
 library(matrixStats)
 library(tidyr)
+library(here)
 ```
 
 # Rutas y carga
 
 ```{r rutas_carga}
-project_root <- "C:/Users/sonia/Desktop/2_TFM_MELANOMA"
+project_root <- here::here()
 output_dir <- file.path(project_root, "resultados", "sensitivity_blood")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -111,6 +112,10 @@ prepare_expression <- function(se_obj) {
   genes <- expr_collapsed$gene_symbol
   expr_mat <- as.matrix(expr_collapsed[, setdiff(colnames(expr_collapsed), "gene_symbol"), drop = FALSE])
   rownames(expr_mat) <- genes
+
+  # Los datos de GEO están en escala lineal (TPM/counts normalizados):
+  # se aplica log2(x+1) para estabilizar varianza y cumplir supuestos de limma.
+  expr_mat <- log2(expr_mat + 1)
 
   na_genes <- rowSums(is.na(expr_mat)) > 0
   zero_var_genes <- matrixStats::rowVars(expr_mat, na.rm = TRUE) == 0

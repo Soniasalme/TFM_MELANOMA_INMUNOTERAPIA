@@ -1,1 +1,2 @@
 "gene","logFC_discovery","P_discovery","adjP_discovery","logFC_validation","P_validation","adjP_validation","same_direction"
+"AXL",-1.40949843736967,0.0021970285183911,0.999999999999986,0.154166501299824,0.0111743211277084,0.0413096486652052,FALSE

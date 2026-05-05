@@ -49,7 +49,8 @@ required_packages <- c(
   "ggplot2",
   "knitr",
   "matrixStats",
-  "tidyr"
+  "tidyr",
+  "here"
 )
 
 for (pkg in required_packages) {
@@ -66,12 +67,13 @@ library(ggplot2)
 library(knitr)
 library(matrixStats)
 library(tidyr)
+library(here)
 ```
 
 # Rutas y carga de datos
 
 ```{r rutas_carga}
-project_root <- "C:/Users/sonia/Desktop/2_TFM_MELANOMA"
+project_root <- here::here()
 se_path <- file.path(project_root, "SummarizedExperiment_objects", "se_gse78220.rds")
 output_dir <- file.path(project_root, "resultados", "discovery_GSE78220")
 
@@ -143,6 +145,10 @@ prepare_expression <- function(se_obj) {
   genes <- expr_collapsed$gene_symbol
   expr_mat <- as.matrix(expr_collapsed[, setdiff(colnames(expr_collapsed), "gene_symbol"), drop = FALSE])
   rownames(expr_mat) <- genes
+
+  # Los datos de GSE78220 están en escala TPM lineal: se aplica log2(x+1)
+  # para estabilizar la varianza y cumplir los supuestos de limma.
+  expr_mat <- log2(expr_mat + 1)
 
   na_genes <- rowSums(is.na(expr_mat)) > 0
   zero_var_genes <- matrixStats::rowVars(expr_mat, na.rm = TRUE) == 0

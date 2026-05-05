@@ -133,8 +133,9 @@ Resultados generados:
 
 Resumen preliminar:
 
-- En `GSE78220` no hay genes significativos tras FDR, pero hay genes nominales que pueden usarse como candidatos exploratorios.
-- El modelo exploratorio LOOCV con top 5 genes obtiene AUC aproximada de 0.66.
-- En `GSE215868`, algunos genes candidatos de `GSE78220` solapan y mantienen direccion de efecto.
-- En `GSE211645`, el solapamiento con el top 50 de discovery es nulo, probablemente por la composicion del panel NanoString y por el cambio biologico anti-PD-1 vs anti-CTLA-4.
+- Tras revisar la escala de expresion, los analisis se rehacen con `log2(expr + 1)` antes de aplicar `limma`.
+- En `GSE78220` no hay genes significativos tras FDR, pero hay 505 genes nominales con `P < 0.05` y `|logFC| >= 0.5` que pueden usarse como candidatos exploratorios.
+- El modelo exploratorio LOOCV con top 5 genes obtiene AUC aproximada de 0.67. Debe interpretarse como preliminar por el bajo tamano muestral.
+- En `GSE215868`, 4 genes del top 50 de `GSE78220` solapan con el panel y el 75% mantiene la direccion de efecto.
+- En `GSE211645`, 1 gen del top 50 de `GSE78220` solapa con el panel, pero no mantiene direccion. Esto refuerza que anti-CTLA-4 debe interpretarse como generalizacion biologica exploratoria, no como validacion directa anti-PD-1.
 - En `GSE91061`, el analisis queda interpretado como sensibilidad en sangre, no como descubrimiento tumoral.

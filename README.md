@@ -98,7 +98,7 @@ Se incluyen algunos objetos clave para facilitar la revision:
 
 ## Resultados actuales
 
-El DEA integrado tumoral no identifica genes significativos tras correccion FDR, lo que es coherente con:
+El DEA integrado tumoral previo no identifica genes significativos tras correccion FDR, lo que es coherente con:
 
 - tamano muestral limitado,
 - heterogeneidad entre cohortes,
@@ -114,3 +114,5 @@ Esa separacion ya queda iniciada en `scripts/analysis/`:
 - `GSE211645`: generalizacion a anti-CTLA-4.
 - `GSE91061`: sensibilidad en sangre.
 - `GSE94873`: pendiente de valorar/procesar.
+
+Los analisis de `scripts/analysis/` aplican `log2(expr + 1)` antes de `limma` para trabajar en una escala compatible con los supuestos del modelo lineal. En `GSE78220` no aparecen genes significativos tras FDR, aunque si candidatos nominales para exploracion y validacion.

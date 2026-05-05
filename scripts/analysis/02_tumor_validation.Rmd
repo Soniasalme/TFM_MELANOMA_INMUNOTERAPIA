@@ -37,7 +37,7 @@ Este informe valida los genes/firma derivados de `GSE78220` en cohortes tumorale
 ```{r librerias}
 required_packages <- c(
   "SummarizedExperiment", "limma", "dplyr", "tibble",
-  "ggplot2", "knitr", "matrixStats", "tidyr"
+  "ggplot2", "knitr", "matrixStats", "tidyr", "here"
 )
 
 for (pkg in required_packages) {
@@ -54,12 +54,13 @@ library(ggplot2)
 library(knitr)
 library(matrixStats)
 library(tidyr)
+library(here)
 ```
 
 # Rutas y carga
 
 ```{r rutas_carga}
-project_root <- "C:/Users/sonia/Desktop/2_TFM_MELANOMA"
+project_root <- here::here()
 output_dir <- file.path(project_root, "resultados", "validation_tumor")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -123,6 +124,10 @@ prepare_expression <- function(se_obj) {
   expr_mat <- as.matrix(expr_collapsed[, setdiff(colnames(expr_collapsed), "gene_symbol"), drop = FALSE])
   rownames(expr_mat) <- genes
 
+  # Los datos de GEO (NanoString y RNA-seq) están en escala lineal:
+  # se aplica log2(x+1) para estabilizar varianza y cumplir supuestos de limma.
+  expr_mat <- log2(expr_mat + 1)
+
   na_genes <- rowSums(is.na(expr_mat)) > 0
   zero_var_genes <- matrixStats::rowVars(expr_mat, na.rm = TRUE) == 0
   expr_mat[!na_genes & !zero_var_genes, , drop = FALSE]
@@ -172,7 +177,7 @@ calc_auc <- function(scores, labels) {
 score_discovery_signature <- function(expr_matrix, discovery_results, top_n = 20) {
   signature <- discovery_results %>%
     arrange(P.Value) %>%
-    slice_head(n = top_n) %>%
+    head(top_n) %>%
     mutate(
       gene = toupper(gene),
       direction = ifelse(logFC >= 0, 1, -1)
@@ -223,7 +228,7 @@ validation_results <- lapply(names(se_list), function(dataset_name) {
     ) %>%
     mutate(same_direction = sign(logFC_discovery) == sign(logFC_validation))
 
-  signature_score <- score_discovery_signature(expr, discovery, top_n = 20)
+  signature_score <- score_discovery_signature(expr, discovery, top_n = 100)
   signature_auc <- calc_auc(signature_score[keep_response], response[keep_response])
 
   score_df <- tibble(
@@ -287,19 +292,30 @@ for (dataset_name in names(validation_results)) {
 ```
 
 ```{r plot_signature}
-bind_rows(lapply(validation_results, function(x) x$scores)) %>%
+signature_plot_df <- bind_rows(lapply(validation_results, function(x) x$scores)) %>%
   filter(!is.na(response), !is.na(signature_score)) %>%
-  ggplot(aes(x = response, y = signature_score, color = response)) +
-  geom_boxplot(outlier.shape = NA, alpha = 0.25) +
-  geom_jitter(width = 0.12, size = 2.3, alpha = 0.85) +
-  facet_wrap(~ dataset, scales = "free_y") +
-  labs(
-    title = "Score de firma GSE78220 en cohortes tumorales de validacion",
-    x = "Respuesta",
-    y = "Score de firma"
-  ) +
-  theme_minimal(base_size = 13) +
-  theme(legend.position = "none")
+  mutate(response = factor(response, levels = c("No_responder", "Responder")))
+
+if (nrow(signature_plot_df) > 0) {
+  ggplot(signature_plot_df, aes(x = response, y = signature_score, color = response)) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.25) +
+    geom_jitter(width = 0.12, size = 2.3, alpha = 0.85) +
+    facet_wrap(~ dataset, scales = "free_y") +
+    labs(
+      title = "Score de firma GSE78220 en cohortes tumorales de validacion",
+      subtitle = "Firma calculada con los top 100 genes de discovery disponibles en cada panel",
+      x = "Respuesta",
+      y = "Score de firma"
+    ) +
+    theme_minimal(base_size = 13) +
+    theme(legend.position = "none")
+} else {
+  cat(
+    "No se genera grafico de score porque la firma de discovery no tiene ",
+    "suficientes genes solapados con los paneles de validacion tras aplicar log2(x+1). ",
+    "Esto se interpreta como limitacion de validacion por panel NanoString.\n"
+  )
+}
 ```
 
 # Checklist final
