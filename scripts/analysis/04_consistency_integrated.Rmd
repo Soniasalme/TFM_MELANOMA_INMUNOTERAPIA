@@ -1,0 +1,544 @@
+---
+title: "Consistencia multi-cohorte: genes comunes en tumor"
+author: "TFM Melanoma Inmunoterapia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    theme: readable
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.width = 9, fig.height = 6)
+```
+
+# Objetivo
+
+Este informe evalúa la **consistencia** de los efectos transcriptómicos entre respondedores y no respondedores en las tres cohortes tumorales, limitándose a los **genes comunes** presentes en todos los paneles.
+
+El análisis es complementario al descubrimiento en GSE78220 (transcriptoma completo): aquí la pregunta no es descubrir genes nuevos, sino comprobar si la dirección del efecto observada en GSE78220 se reproduce en GSE215868 y GSE211645 con el subconjunto de genes que comparten las tres cohortes.
+
+## Ficha del informe
+
+| Elemento | Detalle |
+|---|---|
+| Genes analizados | 200 genes comunes (intersección de paneles NanoString y RNA-seq) |
+| Cohorte 1 | GSE78220 — RNA-seq, tumor, anti-PD-1 |
+| Cohorte 2 | GSE215868 — NanoString, tumor, anti-PD-1 |
+| Cohorte 3 | GSE211645 — NanoString, tumor, anti-CTLA-4 |
+| Escala de expresión | GSE78220: log2(TPM+1); GSE215868/GSE211645: log-NanoString (ya normalizado) |
+| Salida | `resultados/consistency_integrated/` |
+| Interpretación | La dirección del logFC es comparable entre cohortes; la magnitud no lo es (escalas distintas) |
+
+# Librerías
+
+```{r librerias}
+required_packages <- c(
+  "SummarizedExperiment", "limma", "dplyr", "tibble",
+  "ggplot2", "knitr", "matrixStats", "tidyr", "here", "pheatmap", "purrr"
+)
+
+for (pkg in required_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    stop(paste("Falta instalar el paquete:", pkg))
+  }
+}
+
+library(SummarizedExperiment)
+library(limma)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(knitr)
+library(matrixStats)
+library(tidyr)
+library(here)
+library(pheatmap)
+library(purrr)
+```
+
+# Rutas y carga
+
+```{r rutas_carga}
+project_root <- here::here()
+output_dir   <- file.path(project_root, "resultados", "consistency_integrated")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Objeto integrado — solo para extraer la lista de genes comunes
+integrated_path <- file.path(project_root, "integrated_dataset",
+                              "se_integrated_geo_tumor.rds")
+
+# Objetos individuales por cohorte
+se_paths <- c(
+  GSE78220  = file.path(project_root, "SummarizedExperiment_objects", "se_gse78220.rds"),
+  GSE215868 = file.path(project_root, "SummarizedExperiment_objects", "se_gse215868.rds"),
+  GSE211645 = file.path(project_root, "SummarizedExperiment_objects", "se_gse211645.rds")
+)
+
+# Resultados del descubrimiento (transcriptoma completo GSE78220)
+discovery_path <- file.path(project_root, "resultados", "discovery_GSE78220",
+                             "GSE78220_DEA_limma_response.csv")
+
+stopifnot(file.exists(integrated_path))
+stopifnot(all(file.exists(se_paths)))
+stopifnot(file.exists(discovery_path))
+
+se_integrated <- readRDS(integrated_path)
+se_list       <- lapply(se_paths, readRDS)
+discovery     <- read.csv(discovery_path)
+
+cat("Objeto integrado — genes comunes:", nrow(se_integrated), "\n")
+cat("Muestras integradas:", ncol(se_integrated), "\n")
+```
+
+# Genes comunes e información de plataformas
+
+```{r genes_comunes}
+common_genes <- rownames(se_integrated)
+cat("Total genes comunes:", length(common_genes), "\n")
+
+platform_summary <- imap_dfr(se_list, function(se_obj, dataset_name) {
+  cd <- as.data.frame(colData(se_obj))
+  tibble(
+    dataset   = dataset_name,
+    platform  = paste(unique(cd$platform), collapse = ", "),
+    n_genes_original = nrow(se_obj),
+    n_genes_comunes  = sum(rownames(se_obj) %in% common_genes |
+                           as.character(rowData(se_obj)$gene_symbol) %in% common_genes),
+    n_samples = ncol(se_obj)
+  )
+})
+
+kable(platform_summary, caption = "Cohortes y genes comunes disponibles")
+```
+
+# Funciones auxiliares
+
+```{r funciones}
+# Nota sobre escalas: GSE78220 almacena TPM lineal → aplicar log2(x+1).
+# GSE215868 y GSE211645 son NanoString ya en escala log (rango típico -4 a 20).
+# La dirección del logFC es comparable entre cohortes; la magnitud no.
+
+derive_response <- function(response_raw, response_binary = NULL) {
+  resp <- as.character(response_binary)
+  raw  <- toupper(trimws(as.character(response_raw)))
+
+  resp[is.na(resp) | resp == ""] <- NA_character_
+  resp[is.na(resp) & grepl("^CR|^PR|COMPLETE|PARTIAL|PRCR", raw)] <- "Responder"
+  resp[is.na(resp) & grepl("^PD|^SD|PROGRESS|STABLE",       raw)] <- "No_responder"
+  resp[grepl("^UK|^UNK|UNKNOWN|^NA$", raw)]                        <- NA_character_
+
+  factor(resp, levels = c("No_responder", "Responder"))
+}
+
+prepare_cohort <- function(se_obj, dataset_name, common_genes) {
+  cd <- as.data.frame(colData(se_obj))
+
+  # Identificar gene_symbol
+  rd <- as.data.frame(rowData(se_obj))
+  gene_col <- if ("gene_symbol" %in% names(rd)) rd$gene_symbol else rownames(se_obj)
+  gene_col  <- toupper(trimws(as.character(gene_col)))
+
+  # Extraer y ordenar expresión
+  expr <- assay(se_obj, if ("expr" %in% assayNames(se_obj)) "expr" else assayNames(se_obj)[1])
+  expr <- as.matrix(expr)
+  mode(expr) <- "numeric"
+  rownames(expr) <- gene_col
+
+  # Colapsar duplicados por media antes de filtrar
+  if (anyDuplicated(rownames(expr))) {
+    expr_df <- as.data.frame(expr, check.names = FALSE)
+    expr_df$gene <- rownames(expr)
+    expr_df <- expr_df %>%
+      group_by(gene) %>%
+      summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)), .groups = "drop")
+    genes_tmp <- expr_df$gene
+    expr <- as.matrix(expr_df[, -1, drop = FALSE])
+    rownames(expr) <- genes_tmp
+  }
+
+  # Restringir a genes comunes
+  genes_present <- intersect(common_genes, rownames(expr))
+  expr <- expr[genes_present, , drop = FALSE]
+
+  # Transformación logarítmica solo para RNA-seq (TPM lineal)
+  if (dataset_name == "GSE78220") {
+    expr <- log2(expr + 1)
+  }
+
+  # Respuesta
+  response <- derive_response(cd$response_raw, cd$response_binary)
+
+  list(
+    dataset      = dataset_name,
+    expr         = expr,
+    response     = response,
+    genes_used   = genes_present,
+    n_genes      = length(genes_present),
+    n_responder  = sum(response == "Responder",    na.rm = TRUE),
+    n_no_resp    = sum(response == "No_responder", na.rm = TRUE),
+    n_na         = sum(is.na(response))
+  )
+}
+
+run_limma_cohort <- function(cohort_data) {
+  expr     <- cohort_data$expr
+  response <- cohort_data$response
+
+  # Filtrar NAs de respuesta
+  keep <- !is.na(response)
+  expr     <- expr[, keep, drop = FALSE]
+  response <- droplevels(response[keep])
+
+  if (nlevels(response) != 2) {
+    message("Solo un nivel de respuesta en ", cohort_data$dataset, " — DEA omitido.")
+    return(NULL)
+  }
+
+  # Genes sin varianza suficiente
+  zero_var <- matrixStats::rowVars(expr, na.rm = TRUE) == 0
+  expr <- expr[!zero_var, , drop = FALSE]
+
+  design   <- model.matrix(~ 0 + response)
+  colnames(design) <- make.names(colnames(design))
+
+  contrast <- makeContrasts(responseResponder - responseNo_responder, levels = design)
+
+  fit  <- lmFit(expr, design)
+  fit2 <- contrasts.fit(fit, contrast)
+  fit2 <- eBayes(fit2)
+
+  topTable(fit2, coef = 1, number = Inf, adjust.method = "BH", sort.by = "none") %>%
+    rownames_to_column("gene") %>%
+    arrange(P.Value)
+}
+```
+
+# Preparación y DEA por cohorte
+
+```{r preparar_cohorts}
+cohorts <- imap(se_list, prepare_cohort, common_genes = common_genes)
+
+cohort_summary <- imap_dfr(cohorts, function(co, nm) {
+  tibble(
+    dataset     = nm,
+    genes_comunes_disponibles = co$n_genes,
+    n_responder   = co$n_responder,
+    n_no_responder = co$n_no_resp,
+    n_na_response = co$n_na
+  )
+})
+
+kable(cohort_summary, caption = "Muestras y genes por cohorte tras restricción a genes comunes")
+```
+
+```{r dea_por_cohorte}
+dea_list <- lapply(cohorts, run_limma_cohort)
+
+# Guardar DEAs individuales
+iwalk(dea_list, function(res, nm) {
+  if (!is.null(res)) {
+    write.csv(res, file.path(output_dir, paste0(nm, "_DEA_common_genes.csv")), row.names = FALSE)
+  }
+})
+
+# Resumen por cohorte
+dea_summary <- imap_dfr(dea_list, function(res, nm) {
+  if (is.null(res)) return(tibble(dataset = nm, n_genes_testados = 0,
+                                   n_nominal_P05 = 0, n_fdr_05 = 0))
+  tibble(
+    dataset          = nm,
+    n_genes_testados = nrow(res),
+    n_nominal_P05    = sum(res$P.Value < 0.05 & abs(res$logFC) >= 0.5, na.rm = TRUE),
+    n_fdr_05         = sum(res$adj.P.Val < 0.05 & abs(res$logFC) >= 0.5, na.rm = TRUE)
+  )
+})
+
+kable(dea_summary, caption = "Resumen DEA por cohorte (genes comunes)")
+```
+
+# Tabla cruzada de logFC y dirección
+
+```{r tabla_cruzada}
+# Construir tabla con logFC y P de cada cohorte para cada gen
+build_cross_table <- function(dea_list, common_genes) {
+  dfs <- imap(dea_list, function(res, nm) {
+    if (is.null(res)) {
+      tibble(gene = common_genes,
+             !!paste0("logFC_", nm)   := NA_real_,
+             !!paste0("P_", nm)       := NA_real_,
+             !!paste0("adjP_", nm)    := NA_real_)
+    } else {
+      res %>%
+        select(gene,
+               !!paste0("logFC_", nm) := logFC,
+               !!paste0("P_", nm)     := P.Value,
+               !!paste0("adjP_", nm)  := adj.P.Val)
+    }
+  })
+
+  Reduce(function(a, b) full_join(a, b, by = "gene"), dfs)
+}
+
+cross_table <- build_cross_table(dea_list, common_genes)
+
+# Concordancia de dirección (solo cohorts con datos)
+cohorts_with_data <- names(dea_list)[!sapply(dea_list, is.null)]
+logfc_cols <- paste0("logFC_", cohorts_with_data)
+
+cross_table <- cross_table %>%
+  mutate(
+    n_cohorts_up   = rowSums(across(all_of(logfc_cols), ~ .x > 0), na.rm = TRUE),
+    n_cohorts_down = rowSums(across(all_of(logfc_cols), ~ .x < 0), na.rm = TRUE),
+    n_cohorts_tested = rowSums(across(all_of(logfc_cols), ~ !is.na(.x))),
+    direction_concordant = case_when(
+      n_cohorts_up   == n_cohorts_tested ~ "Up en todas",
+      n_cohorts_down == n_cohorts_tested ~ "Down en todas",
+      n_cohorts_tested == 1              ~ "Solo 1 cohorte",
+      TRUE                               ~ "Discordante"
+    )
+  )
+
+# Cross-referencia con discovery (transcriptoma completo)
+discovery_top50 <- discovery %>%
+  arrange(P.Value) %>%
+  slice_head(n = 50) %>%
+  mutate(gene = toupper(gene)) %>%
+  pull(gene)
+
+discovery_top100 <- discovery %>%
+  arrange(P.Value) %>%
+  slice_head(n = 100) %>%
+  mutate(gene = toupper(gene)) %>%
+  pull(gene)
+
+cross_table <- cross_table %>%
+  mutate(
+    in_discovery_top50  = gene %in% discovery_top50,
+    in_discovery_top100 = gene %in% discovery_top100
+  ) %>%
+  arrange(
+    desc(in_discovery_top50),
+    desc(in_discovery_top100),
+    desc(n_cohorts_up + n_cohorts_down)
+  )
+
+write.csv(cross_table, file.path(output_dir, "cross_cohort_logFC_table.csv"), row.names = FALSE)
+
+cat("Genes en top 50 del descubrimiento presentes en los genes comunes:",
+    sum(cross_table$in_discovery_top50), "\n")
+cat("Genes en top 100 del descubrimiento presentes en los genes comunes:",
+    sum(cross_table$in_discovery_top100), "\n")
+```
+
+## Tabla resumen por dirección de efecto
+
+```{r tabla_direccion}
+cross_table %>%
+  count(direction_concordant, name = "n_genes") %>%
+  arrange(desc(n_genes)) %>%
+  kable(caption = "Concordancia de dirección del efecto en los genes comunes")
+```
+
+## Top genes con dirección concordante en todas las cohortes
+
+```{r top_concordantes}
+concordant_all <- cross_table %>%
+  filter(direction_concordant %in% c("Up en todas", "Down en todas")) %>%
+  select(gene, starts_with("logFC_"), starts_with("P_"), direction_concordant,
+         in_discovery_top50, in_discovery_top100) %>%
+  mutate(min_P = pmin(P_GSE78220, P_GSE215868, P_GSE211645, na.rm = TRUE)) %>%
+  arrange(direction_concordant, min_P)
+
+cat("Genes concordantes en todas las cohortes testadas:", nrow(concordant_all), "\n")
+
+concordant_all %>%
+  head(40) %>%
+  kable(digits = 3, caption = "Genes con dirección concordante en todas las cohortes")
+```
+
+## Genes del top 50 discovery presentes en los genes comunes
+
+```{r genes_discovery_en_comunes}
+cross_table %>%
+  filter(in_discovery_top50) %>%
+  select(gene, starts_with("logFC_"), starts_with("P_"), direction_concordant) %>%
+  kable(digits = 3,
+        caption = "Top 50 genes discovery (GSE78220 completo) que aparecen en los genes comunes")
+```
+
+# Visualización
+
+## Heatmap de logFC por gen y cohorte
+
+```{r heatmap_logfc}
+# Seleccionar genes informativos: varianza de logFC > 0 entre cohortes
+logfc_mat <- cross_table %>%
+  filter(!is.na(logFC_GSE78220) | !is.na(logFC_GSE215868)) %>%
+  select(gene, all_of(logfc_cols)) %>%
+  column_to_rownames("gene") %>%
+  as.matrix()
+
+# Eliminar filas con todos NA
+logfc_mat <- logfc_mat[rowSums(!is.na(logfc_mat)) >= 2, , drop = FALSE]
+
+# Normalizar logFC de GSE78220 a rango similar al NanoString para comparar visual
+# (solo para el heatmap; la tabla original conserva los valores reales)
+scale_to_range <- function(x, ref) {
+  if (all(is.na(x))) return(x)
+  sd_ref <- sd(ref, na.rm = TRUE)
+  sd_x   <- sd(x,   na.rm = TRUE)
+  if (sd_x == 0 || is.na(sd_x)) return(x)
+  x * (sd_ref / sd_x)
+}
+
+logfc_display <- logfc_mat
+if ("logFC_GSE78220" %in% colnames(logfc_display) && ncol(logfc_display) > 1) {
+  ref_col <- setdiff(colnames(logfc_display), "logFC_GSE78220")[1]
+  logfc_display[, "logFC_GSE78220"] <- scale_to_range(
+    logfc_display[, "logFC_GSE78220"],
+    logfc_display[, ref_col]
+  )
+}
+
+# Anotación de filas: si está en discovery top 50/100
+row_ann <- cross_table %>%
+  filter(gene %in% rownames(logfc_display)) %>%
+  select(gene, in_discovery_top50, in_discovery_top100) %>%
+  mutate(
+    discovery = case_when(
+      in_discovery_top50  ~ "Top50",
+      in_discovery_top100 ~ "Top100",
+      TRUE                ~ "No"
+    )
+  ) %>%
+  select(gene, discovery) %>%
+  column_to_rownames("gene")
+
+row_ann <- row_ann[rownames(logfc_display), , drop = FALSE]
+
+ann_colors <- list(
+  discovery = c(Top50 = "#d62728", Top100 = "#ff7f0e", No = "#aec7e8")
+)
+
+colnames(logfc_display) <- gsub("logFC_", "", colnames(logfc_display))
+
+# Limitar a 80 genes con mayor varianza entre cohortes para legibilidad
+if (nrow(logfc_display) > 80) {
+  gene_var <- apply(logfc_display, 1, var, na.rm = TRUE)
+  top_genes_hm <- names(sort(gene_var, decreasing = TRUE))[1:80]
+  logfc_display <- logfc_display[top_genes_hm, , drop = FALSE]
+  row_ann       <- row_ann[top_genes_hm, , drop = FALSE]
+}
+
+pheatmap(
+  logfc_display,
+  annotation_row = row_ann,
+  annotation_colors = ann_colors,
+  cluster_cols = FALSE,
+  show_rownames = nrow(logfc_display) <= 80,
+  main = "logFC por cohorte (genes comunes)\nlogFC GSE78220 reescalado para comparación visual",
+  color = colorRampPalette(c("#2166ac", "white", "#d6604d"))(100),
+  na_col = "grey90",
+  fontsize_row = 7
+)
+```
+
+## Barplot de concordancia
+
+```{r barplot_concordancia}
+cross_table %>%
+  count(direction_concordant) %>%
+  ggplot(aes(x = reorder(direction_concordant, n), y = n, fill = direction_concordant)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  labs(
+    title = "Concordancia de dirección del efecto entre cohortes (genes comunes)",
+    x = NULL,
+    y = "Número de genes"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+## Scatter logFC GSE78220 vs GSE215868
+
+```{r scatter_78220_215868}
+if (all(c("logFC_GSE78220", "logFC_GSE215868") %in% colnames(cross_table))) {
+  cross_table %>%
+    filter(!is.na(logFC_GSE78220), !is.na(logFC_GSE215868)) %>%
+    mutate(highlight = case_when(
+      in_discovery_top50  ~ "Top50 discovery",
+      in_discovery_top100 ~ "Top100 discovery",
+      TRUE                ~ "Resto"
+    )) %>%
+    ggplot(aes(x = logFC_GSE78220, y = logFC_GSE215868,
+               color = highlight, size = highlight)) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey60") +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey60") +
+    geom_point(alpha = 0.8) +
+    scale_color_manual(values = c("Top50 discovery" = "#d62728",
+                                  "Top100 discovery" = "#ff7f0e",
+                                  "Resto"            = "#aec7e8")) +
+    scale_size_manual(values  = c("Top50 discovery" = 3.5,
+                                  "Top100 discovery" = 2.5,
+                                  "Resto"            = 1.5)) +
+    labs(
+      title = "Concordancia logFC entre GSE78220 y GSE215868",
+      subtitle = "Puntos en el Q1 y Q3 → misma dirección en ambas cohortes anti-PD-1",
+      x = "logFC GSE78220 (RNA-seq, log2 TPM+1)",
+      y = "logFC GSE215868 (NanoString, log-normalizado)",
+      color = NULL, size = NULL
+    ) +
+    theme_minimal(base_size = 13)
+}
+```
+
+# Checklist final
+
+```{r checklist}
+checks <- tibble(
+  comprobacion = c(
+    "Objeto integrado cargado para extraer genes comunes",
+    "GSE78220 restringido a genes comunes",
+    "GSE215868 restringido a genes comunes",
+    "GSE211645 restringido a genes comunes",
+    "DEA GSE78220 ejecutado",
+    "DEA GSE215868 ejecutado",
+    "Tabla cruzada construida",
+    "Tabla cruzada guardada",
+    "Cross-referencia con discovery realizada"
+  ),
+  estado = c(
+    nrow(se_integrated) > 0,
+    cohorts$GSE78220$n_genes > 0,
+    cohorts$GSE215868$n_genes > 0,
+    cohorts$GSE211645$n_genes > 0,
+    !is.null(dea_list$GSE78220),
+    !is.null(dea_list$GSE215868),
+    nrow(cross_table) > 0,
+    file.exists(file.path(output_dir, "cross_cohort_logFC_table.csv")),
+    "in_discovery_top50" %in% colnames(cross_table)
+  )
+)
+
+kable(checks, caption = "Checklist final del análisis de consistencia")
+
+if (!all(checks$estado)) {
+  stop("Alguno de los checks finales no se cumple.")
+}
+```
+
+# Conclusión metodológica
+
+Este análisis evalúa si los efectos observados en el descubrimiento (GSE78220, transcriptoma completo) son consistentes en el subconjunto de genes comunes que comparten las tres cohortes tumorales.
+
+Puntos clave de interpretación:
+
+- **Las magnitudes de logFC no son directamente comparables** entre cohortes: GSE78220 usa log2(TPM+1) y las NanoString usan su propia escala logarítmica de normalización.
+- **La dirección del efecto (signo del logFC) sí es comparable** entre cohortes y es el indicador principal de consistencia.
+- Los genes concordantes en las tres cohortes son los candidatos más sólidos para la memoria, independientemente de si alcanzan significación estadística individual.
+- GSE211645 (anti-CTLA-4) permite evaluar si la señal se generaliza a un mecanismo de checkpoint distinto.

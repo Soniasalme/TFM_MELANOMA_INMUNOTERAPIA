@@ -107,7 +107,7 @@ Esto alinea mejor el TFM con un esquema estandar de estudios de biomarcadores.
 
 ## Implementacion realizada
 
-Se han creado tres informes nuevos en `scripts/analysis/`:
+Se han creado cuatro informes nuevos en `scripts/analysis/`:
 
 1. `01_GSE78220_discovery.Rmd`
    - Usa `GSE78220` como cohorte principal de descubrimiento.
@@ -125,11 +125,18 @@ Se han creado tres informes nuevos en `scripts/analysis/`:
    - Deriva respondedores desde `response_raw`.
    - Deja `GSE94873` documentado como pendiente.
 
+4. `04_consistency_integrated.Rmd`
+   - Usa el objeto integrado tumoral como analisis de consistencia.
+   - Compara `GSE78220`, `GSE215868` y `GSE211645` en los 200 genes comunes.
+   - Genera una tabla cruzada de logFC, P-valor y concordancia de direccion por cohorte.
+   - Mantiene este bloque como apoyo exploratorio, no como descubrimiento principal.
+
 Resultados generados:
 
 - `resultados/discovery_GSE78220/`
 - `resultados/validation_tumor/`
 - `resultados/sensitivity_blood/`
+- `resultados/consistency_integrated/`
 
 Resumen preliminar:
 
@@ -139,3 +146,4 @@ Resumen preliminar:
 - En `GSE215868`, 4 genes del top 50 de `GSE78220` solapan con el panel y el 75% mantiene la direccion de efecto.
 - En `GSE211645`, 1 gen del top 50 de `GSE78220` solapa con el panel, pero no mantiene direccion. Esto refuerza que anti-CTLA-4 debe interpretarse como generalizacion biologica exploratoria, no como validacion directa anti-PD-1.
 - En `GSE91061`, el analisis queda interpretado como sensibilidad en sangre, no como descubrimiento tumoral.
+- En el analisis de consistencia integrado hay 200 genes comunes: 61 mantienen direccion positiva en todas las cohortes, 8 direccion negativa en todas y 131 son discordantes. Solo 1 gen del top 50 de descubrimiento (`AXL`) y 2 del top 100 (`AXL`, `IL10`) aparecen en el conjunto comun, y ambos muestran discordancia entre cohortes. Esto apoya la decision metodologica de no usar el dataset integrado como base principal de descubrimiento.

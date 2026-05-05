@@ -21,4 +21,9 @@ Orden recomendado:
    Cohorte disponible: GSE91061.
    GSE94873 queda documentada como pendiente.
 
+4. 04_consistency_integrated.Rmd
+   Analisis de consistencia exploratoria con el dataset integrado tumoral.
+   Usa los 200 genes comunes entre GSE78220, GSE215868 y GSE211645.
+   Compara la direccion del logFC por cohorte y genera una tabla cruzada.
+
 La integracion multi-cohorte previa se conserva como analisis exploratorio/de consistencia, pero no como base principal de descubrimiento.
