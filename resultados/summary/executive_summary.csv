@@ -1,0 +1,6 @@
+"Bloque","Resultado_clave"
+"Descubrimiento GSE78220 (n=25)","505 genes nominalmente sig. (P<0.05, |logFC|>=0.5); 0 FDR (esperado con n=25); LOOCV AUC=0.667 (top 5 genes)"
+"Validacion GSE215868 anti-PD-1 (n=105)","4/50 genes discovery presentes en panel; 75% misma direccion; AUC firma=0.519"
+"Validacion GSE211645 anti-CTLA-4 (n=40)","1/50 genes discovery en panel (AXL); 0% misma direccion (AXL discordante); AUC firma=0.301; limitacion: panel NanoString diferente"
+"Sensibilidad sangre GSE91061 (n=51)","AUC firma tumoral en sangre=0.5; señal debil esperada dado que la firma es tumoral"
+"Consistencia multi-cohorte (200 genes)","69/200 genes concordantes en las 3 cohortes (61 Up, 8 Down); firma IFN-gamma/MHC-I (HLA-A/B/C/E/F, PSMB8, IFNGR1) consistentemente Up en respondedores en las 3 cohortes"

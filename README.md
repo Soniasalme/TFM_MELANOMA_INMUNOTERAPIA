@@ -38,6 +38,7 @@ Implementacion actual:
 2. `scripts/analysis/02_tumor_validation.html`
 3. `scripts/analysis/03_blood_sensitivity.html`
 4. `scripts/analysis/04_consistency_integrated.html`
+5. `scripts/analysis/05_summary_table.html`
 
 ## Cohortes incluidas en el trabajo actual
 
@@ -76,6 +77,7 @@ Los informes mas importantes para revisar el estado actual son:
 2. `scripts/analysis/02_tumor_validation.html`
 3. `scripts/analysis/03_blood_sensitivity.html`
 4. `scripts/analysis/04_consistency_integrated.html`
+5. `scripts/analysis/05_summary_table.html`
 
 ### Integracion multi-cohorte previa
 
@@ -121,3 +123,5 @@ Esa separacion ya queda iniciada en `scripts/analysis/`:
 Los analisis de `scripts/analysis/` aplican `log2(expr + 1)` antes de `limma` para trabajar en una escala compatible con los supuestos del modelo lineal. En `GSE78220` no aparecen genes significativos tras FDR, aunque si candidatos nominales para exploracion y validacion.
 
 El informe `04_consistency_integrated.html` usa el objeto integrado tumoral como analisis de apoyo: compara la direccion del logFC en los 200 genes comunes entre `GSE78220`, `GSE215868` y `GSE211645`. Este bloque no se interpreta como descubrimiento principal, sino como comprobacion de consistencia limitada por los paneles NanoString.
+
+El informe `05_summary_table.html` resume los resultados principales de los bloques 01-04 en tablas compactas para revision semanal y para trasladar a la memoria.

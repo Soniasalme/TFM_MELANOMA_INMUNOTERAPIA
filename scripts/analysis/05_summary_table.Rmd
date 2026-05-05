@@ -1,0 +1,467 @@
+---
+title: "Tabla resumen: Descubrimiento, Validacion y Consistencia"
+author: "TFM Melanoma Inmunoterapia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    theme: readable
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width = 9, fig.height = 5)
+```
+
+# Objetivo
+
+Este informe consolida los resultados de los bloques de descubrimiento (01), validacion tumoral (02), sensibilidad en sangre (03) y consistencia integrada (04) en tablas y figuras resumidas para revision.
+
+# Librerias
+
+```{r librerias}
+required_packages <- c("dplyr", "tibble", "ggplot2", "knitr", "tidyr", "here", "kableExtra")
+
+for (pkg in required_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    stop(paste("Falta instalar el paquete:", pkg))
+  }
+}
+
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(knitr)
+library(tidyr)
+library(here)
+library(kableExtra)
+```
+
+# Rutas y carga de resultados
+
+```{r carga}
+project_root <- here::here()
+output_dir   <- file.path(project_root, "resultados", "summary")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Discovery
+discovery_dea  <- read.csv(file.path(project_root, "resultados", "discovery_GSE78220",
+                                      "GSE78220_DEA_limma_response.csv"))
+loocv_summary  <- read.csv(file.path(project_root, "resultados", "discovery_GSE78220",
+                                      "GSE78220_LOOCV_signature_summary.csv"))
+
+# Validation
+val_summary    <- read.csv(file.path(project_root, "resultados", "validation_tumor",
+                                      "validation_tumor_summary.csv"))
+overlap_215868 <- read.csv(file.path(project_root, "resultados", "validation_tumor",
+                                      "GSE215868_overlap_top50_discovery.csv"))
+overlap_211645 <- read.csv(file.path(project_root, "resultados", "validation_tumor",
+                                      "GSE211645_overlap_top50_discovery.csv"))
+scores_215868  <- read.csv(file.path(project_root, "resultados", "validation_tumor",
+                                      "GSE215868_signature_scores.csv"))
+scores_211645  <- read.csv(file.path(project_root, "resultados", "validation_tumor",
+                                      "GSE211645_signature_scores.csv"))
+
+# Blood
+blood_scores   <- read.csv(file.path(project_root, "resultados", "sensitivity_blood",
+                                      "GSE91061_blood_signature_scores.csv"))
+
+# Consistency
+cross_cohort   <- read.csv(file.path(project_root, "resultados", "consistency_integrated",
+                                      "cross_cohort_logFC_table.csv"))
+```
+
+# Resumen de cohortes
+
+```{r tabla_cohortes}
+cohort_overview <- tribble(
+  ~Bloque,        ~Dataset,    ~Tejido,  ~Plataforma,  ~Tratamiento,  ~N_muestras, ~N_respondedores, ~N_no_respondedores,
+  "Descubrimiento", "GSE78220",   "Tumor", "RNA-seq",    "anti-PD-1",    25,          14,               11,
+  "Validacion 1",   "GSE215868",  "Tumor", "NanoString", "anti-PD-1",   105,          45,               59,
+  "Validacion 2",   "GSE211645",  "Tumor", "NanoString", "anti-CTLA-4",  40,          12,               28,
+  "Sensibilidad",   "GSE91061",   "Sangre","RNA-seq",    "varios ICIs",  51,          10,               39
+)
+
+kable(
+  cohort_overview,
+  caption = "Tabla 1. Resumen de cohortes analizadas",
+  align   = "llllllrr"
+) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) %>%
+  column_spec(1, bold = TRUE)
+```
+
+# Descubrimiento: GSE78220
+
+## Top genes por expresion diferencial
+
+```{r tabla_discovery_top}
+p_cutoff    <- 0.05
+logfc_cutoff <- 0.5
+
+n_nominal  <- sum(discovery_dea$P.Value < p_cutoff & abs(discovery_dea$logFC) >= logfc_cutoff, na.rm = TRUE)
+n_fdr      <- sum(discovery_dea$adj.P.Val < p_cutoff & abs(discovery_dea$logFC) >= logfc_cutoff, na.rm = TRUE)
+
+discovery_dea %>%
+  arrange(P.Value) %>%
+  head(20) %>%
+  mutate(
+    logFC     = round(logFC, 3),
+    P.Value   = signif(P.Value, 3),
+    adj.P.Val = signif(adj.P.Val, 3),
+    Direccion = ifelse(logFC > 0, "Up en respondedores", "Down en respondedores")
+  ) %>%
+  select(Gen = gene, logFC, P.Value, adj.P.Val, Direccion) %>%
+  kable(
+    caption = "Tabla 2. Top 20 genes DEA en GSE78220 (n=25; ordenados por P nominal)",
+    align   = "lrrrl"
+  ) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+```
+
+```{r nota_fdr}
+cat(sprintf(
+  "Genes nominalmente significativos (P<0.05, |logFC|>=0.5): %d  |  Significativos FDR (adj.P<0.05): %d\n",
+  n_nominal, n_fdr
+))
+cat("Nota: con n=25 no se alcanzan genes significativos por FDR; los resultados de descubrimiento son hipotesis nominales.")
+```
+
+## Modelo exploratorio LOOCV
+
+```{r loocv}
+loocv_summary %>%
+  arrange(desc(auc)) %>%
+  mutate(
+    auc      = round(auc, 3),
+    accuracy = round(accuracy, 3)
+  ) %>%
+  rename(`N genes firma` = top_n, AUC = auc, Accuracy = accuracy) %>%
+  kable(
+    caption = "Tabla 3. Modelo exploratorio LOOCV en GSE78220 (firma de descubrimiento interna)",
+    align   = "lrr"
+  ) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+```
+
+# Validacion tumoral
+
+## Resumen global de validacion
+
+```{r tabla_val_summary}
+val_summary %>%
+  mutate(
+    pct_same_direction = round(pct_same_direction, 1),
+    signature_auc      = round(signature_auc, 3)
+  ) %>%
+  rename(
+    Dataset          = dataset,
+    Genes            = n_genes,
+    Muestras         = n_samples,
+    No_respondedores = n_no_responder,
+    Respondedores    = n_responder,
+    NA_respuesta     = n_response_na,
+    `Genes solapados (top50)` = n_top50_overlap,
+    `% misma direccion`       = pct_same_direction,
+    `AUC firma discovery`     = signature_auc
+  ) %>%
+  kable(
+    caption = "Tabla 4. Resumen de validacion tumoral (firma derivada de GSE78220)",
+    align   = "lrrrrrrrr"
+  ) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+```
+
+## Genes de discovery solapados en GSE215868
+
+```{r overlap_215868}
+overlap_215868 %>%
+  arrange(P_validation) %>%
+  mutate(
+    logFC_discovery   = round(logFC_discovery, 3),
+    P_discovery       = signif(P_discovery, 3),
+    logFC_validation  = round(logFC_validation, 3),
+    P_validation      = signif(P_validation, 3),
+    `Misma direccion` = ifelse(same_direction, "Si", "No")
+  ) %>%
+  select(
+    Gen = gene,
+    `logFC discovery` = logFC_discovery,
+    `P discovery`     = P_discovery,
+    `logFC GSE215868` = logFC_validation,
+    `P GSE215868`     = P_validation,
+    `Misma direccion`
+  ) %>%
+  kable(
+    caption = "Tabla 5. Genes del top 50 de discovery presentes en el panel GSE215868",
+    align   = "lrrrrl"
+  ) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) %>%
+  row_spec(which(overlap_215868 %>% arrange(P_validation) %>% pull(same_direction)), background = "#e8f5e9")
+```
+
+## Scores de firma: boxplots de validacion
+
+```{r plot_scores_validacion, fig.width=10, fig.height=4.5}
+scores_all <- bind_rows(scores_215868, scores_211645) %>%
+  filter(!is.na(response), response != "NA", !is.na(signature_score)) %>%
+  mutate(
+    response = factor(response, levels = c("No_responder", "Responder")),
+    dataset  = factor(dataset, levels = c("GSE215868", "GSE211645"),
+                      labels = c("GSE215868\n(anti-PD-1, NanoString)",
+                                 "GSE211645\n(anti-CTLA-4, NanoString)"))
+  )
+
+ggplot(scores_all, aes(x = response, y = signature_score, color = response)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.3, width = 0.45) +
+  geom_jitter(width = 0.12, size = 2.2, alpha = 0.8) +
+  facet_wrap(~ dataset) +
+  scale_color_manual(values = c("No_responder" = "#d32f2f", "Responder" = "#1976d2")) +
+  labs(
+    title    = "Score de firma de discovery (GSE78220) evaluado en cohortes de validacion",
+    subtitle = "Firma calculada con top 100 genes de GSE78220 disponibles en cada panel",
+    x        = "Respuesta",
+    y        = "Score de firma (z-score medio)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none")
+```
+
+# Sensibilidad en sangre: GSE91061
+
+```{r tabla_blood}
+blood_auc <- local({
+  df    <- blood_scores %>% filter(!is.na(response), !is.na(signature_score))
+  y     <- as.integer(df$response == "Responder")
+  r     <- rank(df$signature_score, ties.method = "average")
+  np    <- sum(y); nn <- sum(1 - y)
+  (sum(r[y == 1]) - np * (np + 1) / 2) / (np * nn)
+})
+
+blood_summary <- tibble(
+  Dataset                = "GSE91061 (sangre/PBMC)",
+  Plataforma             = "RNA-seq",
+  `N respondedores`     = sum(blood_scores$response == "Responder", na.rm = TRUE),
+  `N no respondedores`  = sum(blood_scores$response == "No_responder", na.rm = TRUE),
+  `AUC firma discovery` = round(blood_auc, 3),
+  Interpretacion        = "Señal debil esperada (firma derivada de tumor)"
+)
+
+kable(blood_summary,
+      caption = "Tabla 6. Sensibilidad de la firma tumoral evaluada en sangre periferica (GSE91061)",
+      align   = "llrrrl") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+# Consistencia multi-cohorte (200 genes comunes)
+
+## Concordancia global
+
+```{r concordancia_global}
+concordance_summary <- cross_cohort %>%
+  count(direction_concordant) %>%
+  mutate(
+    pct = round(n / sum(n) * 100, 1),
+    direction_concordant = factor(direction_concordant,
+                                  levels = c("Up en todas", "Down en todas", "Discordante"))
+  ) %>%
+  arrange(direction_concordant) %>%
+  rename(Concordancia = direction_concordant, N_genes = n, `%` = pct)
+
+kable(concordance_summary,
+      caption = "Tabla 7. Concordancia de direccion de efecto en los 200 genes comunes (3 cohortes tumorales)",
+      align   = "lrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+## Genes concordantes en las 3 cohortes
+
+```{r tabla_concordantes}
+concordant_all <- cross_cohort %>%
+  filter(direction_concordant %in% c("Up en todas", "Down en todas")) %>%
+  arrange(direction_concordant, desc(abs(logFC_GSE78220))) %>%
+  mutate(
+    logFC_GSE78220  = round(logFC_GSE78220, 3),
+    logFC_GSE215868 = round(logFC_GSE215868, 3),
+    logFC_GSE211645 = round(logFC_GSE211645, 3),
+    P_GSE78220      = signif(P_GSE78220, 3),
+    P_GSE215868     = signif(P_GSE215868, 3),
+    P_GSE211645     = signif(P_GSE211645, 3),
+    En_discovery    = ifelse(in_discovery_top50, "Top50", ifelse(in_discovery_top100, "Top100", "-"))
+  ) %>%
+  select(
+    Gen              = gene,
+    Concordancia     = direction_concordant,
+    `logFC GSE78220`  = logFC_GSE78220,
+    `P GSE78220`      = P_GSE78220,
+    `logFC GSE215868` = logFC_GSE215868,
+    `P GSE215868`     = P_GSE215868,
+    `logFC GSE211645` = logFC_GSE211645,
+    `P GSE211645`     = P_GSE211645,
+    `En discovery`    = En_discovery
+  )
+
+kable(concordant_all,
+      caption = paste0("Tabla 8. Los ", nrow(concordant_all),
+                       " genes concordantes en las 3 cohortes (de 200 genes comunes)"),
+      align   = "llrrrrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 12) %>%
+  row_spec(which(concordant_all$Concordancia == "Up en todas"),   background = "#e3f2fd") %>%
+  row_spec(which(concordant_all$Concordancia == "Down en todas"), background = "#fce4ec")
+```
+
+## Firma biologica clave: IFN-gamma / presentacion de antigeno
+
+```{r tabla_firma_biologica}
+genes_interes <- c("HLA-A", "HLA-B", "HLA-C", "HLA-E", "HLA-F",
+                   "PSMB8", "IFNGR1", "SLAMF7", "ICAM1", "STAT2",
+                   "VCAN", "AXL")
+
+firma_bio <- cross_cohort %>%
+  filter(gene %in% genes_interes) %>%
+  mutate(
+    logFC_GSE78220  = round(logFC_GSE78220, 3),
+    logFC_GSE215868 = round(logFC_GSE215868, 3),
+    logFC_GSE211645 = round(logFC_GSE211645, 3),
+    P_GSE78220      = signif(P_GSE78220, 3),
+    P_GSE215868     = signif(P_GSE215868, 3),
+    P_GSE211645     = signif(P_GSE211645, 3),
+    Grupo_biologico = case_when(
+      gene %in% c("HLA-A", "HLA-B", "HLA-C", "HLA-E", "HLA-F") ~ "MHC clase I",
+      gene %in% c("PSMB8", "IFNGR1", "STAT2")                   ~ "Via IFN-gamma",
+      gene %in% c("SLAMF7", "ICAM1")                             ~ "Activacion inmune",
+      gene == "VCAN"                                              ~ "Inmunosupresion",
+      gene == "AXL"                                              ~ "Resistencia (discordante)"
+    )
+  ) %>%
+  arrange(Grupo_biologico, gene) %>%
+  select(
+    Gen              = gene,
+    `Grupo biologico` = Grupo_biologico,
+    Concordancia     = direction_concordant,
+    `logFC GSE78220`  = logFC_GSE78220,
+    `P GSE78220`      = P_GSE78220,
+    `logFC GSE215868` = logFC_GSE215868,
+    `P GSE215868`     = P_GSE215868,
+    `logFC GSE211645` = logFC_GSE211645,
+    `P GSE211645`     = P_GSE211645
+  )
+
+kable(firma_bio,
+      caption = "Tabla 9. Firma biologica de interes: IFN-gamma / presentacion de antigeno / inmunosupresion",
+      align   = "lllrrrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) %>%
+  row_spec(which(firma_bio$`Grupo biologico` == "MHC clase I"),         background = "#e3f2fd") %>%
+  row_spec(which(firma_bio$`Grupo biologico` == "Via IFN-gamma"),       background = "#e8f5e9") %>%
+  row_spec(which(firma_bio$`Grupo biologico` == "Activacion inmune"),   background = "#fff9c4") %>%
+  row_spec(which(firma_bio$`Grupo biologico` == "Inmunosupresion"),     background = "#fce4ec") %>%
+  row_spec(which(firma_bio$`Grupo biologico` == "Resistencia (discordante)"), background = "#f3e5f5")
+```
+
+## Visualizacion: logFC de la firma biologica por cohorte
+
+```{r plot_firma_bio, fig.width=10, fig.height=5}
+firma_plot <- cross_cohort %>%
+  filter(gene %in% genes_interes) %>%
+  select(gene, direction_concordant,
+         GSE78220  = logFC_GSE78220,
+         GSE215868 = logFC_GSE215868,
+         GSE211645 = logFC_GSE211645) %>%
+  pivot_longer(cols = c(GSE78220, GSE215868, GSE211645),
+               names_to = "Dataset", values_to = "logFC") %>%
+  mutate(
+    Dataset = factor(Dataset, levels = c("GSE78220", "GSE215868", "GSE211645")),
+    gene    = factor(gene, levels = rev(genes_interes))
+  )
+
+ggplot(firma_plot, aes(x = logFC, y = gene, fill = logFC)) +
+  geom_col(color = "white", width = 0.7) +
+  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey30") +
+  scale_fill_gradient2(low = "#d32f2f", mid = "white", high = "#1565c0",
+                       midpoint = 0, name = "logFC") +
+  facet_wrap(~ Dataset, nrow = 1) +
+  labs(
+    title    = "logFC de genes de interes biologico por cohorte",
+    subtitle = "Positivo = mayor expresion en respondedores",
+    x        = "logFC (Responder - No_responder)",
+    y        = NULL
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "right",
+        strip.text      = element_text(face = "bold"))
+```
+
+# Guardado de tablas
+
+```{r guardar}
+write.csv(concordant_all,
+          file.path(output_dir, "concordant_genes_3cohorts.csv"),
+          row.names = FALSE)
+write.csv(firma_bio,
+          file.path(output_dir, "biological_signature_key_genes.csv"),
+          row.names = FALSE)
+write.csv(val_summary,
+          file.path(output_dir, "validation_summary.csv"),
+          row.names = FALSE)
+write.csv(cohort_overview,
+          file.path(output_dir, "cohort_overview.csv"),
+          row.names = FALSE)
+write.csv(blood_summary,
+          file.path(output_dir, "blood_sensitivity_summary.csv"),
+          row.names = FALSE)
+write.csv(concordance_summary,
+          file.path(output_dir, "integrated_concordance_summary.csv"),
+          row.names = FALSE)
+
+cat("Tablas guardadas en:", output_dir, "\n")
+list.files(output_dir)
+```
+
+# Resumen ejecutivo para revision
+
+```{r resumen_ejecutivo}
+resumen <- tribble(
+  ~Bloque, ~Resultado_clave,
+  "Descubrimiento GSE78220 (n=25)",
+    paste0(n_nominal, " genes nominalmente sig. (P<0.05, |logFC|>=0.5); 0 FDR (esperado con n=25); LOOCV AUC=",
+           round(max(loocv_summary$auc), 3), " (top 5 genes)"),
+  "Validacion GSE215868 anti-PD-1 (n=105)",
+    paste0("4/50 genes discovery presentes en panel; 75% misma direccion; AUC firma=",
+           round(val_summary$signature_auc[val_summary$dataset == "GSE215868"], 3)),
+  "Validacion GSE211645 anti-CTLA-4 (n=40)",
+    paste0("1/50 genes discovery en panel (AXL); 0% misma direccion (AXL discordante); AUC firma=",
+           round(val_summary$signature_auc[val_summary$dataset == "GSE211645"], 3),
+           "; limitacion: panel NanoString diferente"),
+  "Sensibilidad sangre GSE91061 (n=51)",
+    paste0("AUC firma tumoral en sangre=", round(blood_auc, 3),
+           "; señal debil esperada dado que la firma es tumoral"),
+  "Consistencia multi-cohorte (200 genes)",
+    "69/200 genes concordantes en las 3 cohortes (61 Up, 8 Down); firma IFN-gamma/MHC-I (HLA-A/B/C/E/F, PSMB8, IFNGR1) consistentemente Up en respondedores en las 3 cohortes"
+)
+
+kable(resumen,
+      caption = "Resumen ejecutivo: resultados principales por bloque",
+      col.names = c("Bloque", "Resultado clave")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = TRUE) %>%
+  column_spec(1, bold = TRUE, width = "28%") %>%
+  column_spec(2, width = "72%")
+
+write.csv(resumen,
+          file.path(output_dir, "executive_summary.csv"),
+          row.names = FALSE)
+```
+
+# Conclusiones metodologicas
+
+1. **Descubrimiento**: GSE78220 permite explorar el transcriptoma completo (>22.000 genes testados), pero con n=25 la potencia estadistica es insuficiente para alcanzar significacion FDR. Los genes nominales sirven como hipotesis para validacion.
+
+2. **Validacion directa limitada por panel**: El solapamiento reducido entre genes de discovery y los paneles NanoString de validacion (~718 genes GSE215868, ~418 genes GSE211645) es una limitacion tecnica esperada, no un fallo biologico.
+
+3. **Consistencia multi-cohorte**: El analisis de 200 genes comunes entre las 3 cohortes tumorales revela una firma de activacion IFN-gamma / presentacion de antigeno (HLA-A/B/C/E/F, PSMB8, IFNGR1) consistentemente asociada con respuesta en las 3 cohortes y dos checkpoints distintos. Esta es la principal aportacion biologica del analisis.
+
+4. **Sensibilidad en sangre**: La señal debil en GSE91061 (AUC ~0.5) es coherente con que la firma deriva de tumor, donde los mecanismos de escape inmune son distintos.
+
+5. **Pendiente**: Integracion del bloque pronostico (TCGA-SKCM) y evaluacion formal de GSE94873 (NanoString sangre) si se decide ampliar el analisis de sangre.

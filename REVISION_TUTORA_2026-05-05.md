@@ -107,7 +107,7 @@ Esto alinea mejor el TFM con un esquema estandar de estudios de biomarcadores.
 
 ## Implementacion realizada
 
-Se han creado cuatro informes nuevos en `scripts/analysis/`:
+Se han creado cinco informes nuevos en `scripts/analysis/`:
 
 1. `01_GSE78220_discovery.Rmd`
    - Usa `GSE78220` como cohorte principal de descubrimiento.
@@ -131,12 +131,18 @@ Se han creado cuatro informes nuevos en `scripts/analysis/`:
    - Genera una tabla cruzada de logFC, P-valor y concordancia de direccion por cohorte.
    - Mantiene este bloque como apoyo exploratorio, no como descubrimiento principal.
 
+5. `05_summary_table.Rmd`
+   - Consolida los resultados de los bloques 01-04.
+   - Genera tablas resumen para revision semanal y para trasladar a la memoria.
+   - Resume cohortes, DEA discovery, LOOCV, validacion tumoral, sensibilidad en sangre, consistencia integrada y firma biologica clave.
+
 Resultados generados:
 
 - `resultados/discovery_GSE78220/`
 - `resultados/validation_tumor/`
 - `resultados/sensitivity_blood/`
 - `resultados/consistency_integrated/`
+- `resultados/summary/`
 
 Resumen preliminar:
 

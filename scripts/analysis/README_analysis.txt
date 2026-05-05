@@ -26,4 +26,9 @@ Orden recomendado:
    Usa los 200 genes comunes entre GSE78220, GSE215868 y GSE211645.
    Compara la direccion del logFC por cohorte y genera una tabla cruzada.
 
+5. 05_summary_table.Rmd
+   Tabla resumen final para revision.
+   Consolida descubrimiento, validacion tumoral, sensibilidad en sangre y consistencia integrada.
+   Genera el HTML de sintesis y tablas CSV en resultados/summary/.
+
 La integracion multi-cohorte previa se conserva como analisis exploratorio/de consistencia, pero no como base principal de descubrimiento.
