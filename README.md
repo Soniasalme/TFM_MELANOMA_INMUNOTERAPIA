@@ -1,238 +1,94 @@
-\# TFM: Melanoma – Análisis transcriptómico y predicción de respuesta a inmunoterapia
+# TFM Melanoma e Inmunoterapia
 
+Repositorio del Trabajo de Fin de Master de Sonia Salmeron sobre analisis transcriptomico en melanoma avanzado tratado con inmunoterapia.
 
+El objetivo general es estudiar biomarcadores transcriptomicos asociados a respuesta a inmunoterapia, combinando exploracion de cohortes publicas GEO, construccion de objetos `SummarizedExperiment`, analisis de batch effect, analisis diferencial y modelos predictivos.
 
-\## Descripción
+## Estado actual
 
+El repositorio contiene:
 
+- Exploracion inicial de cohortes GEO.
+- Construccion de objetos `SummarizedExperiment` por cohorte.
+- Integracion inicial multi-cohorte.
+- Reconstruccion por bloques de tejido: tumor y sangre.
+- PCA pre-batch del bloque tumoral.
+- Correccion exploratoria de batch effect.
+- DEA respondedor vs no respondedor en el bloque tumoral integrado.
+- Informes HTML generados desde R Markdown.
 
-Este proyecto corresponde al Trabajo de Fin de Máster (TFM) centrado en el estudio del melanoma avanzado mediante análisis transcriptómico.
+## Ultima revision metodologica
 
+Tras la ultima recomendacion de la tutora, el enfoque se esta refinando hacia un esquema de descubrimiento y validacion:
 
+- Analisis principal: `GSE78220`, tumor, RNA-seq, anti-PD-1.
+- Validacion 1: `GSE215868`, tumor, NanoString, anti-PD-1.
+- Validacion 2: `GSE211645`, tumor, NanoString, anti-CTLA-4.
+- Sensibilidad en sangre: `GSE91061` y posible valoracion de `GSE94873`.
+- Integracion multi-cohorte: analisis exploratorio/de consistencia limitado a genes comunes.
 
-El objetivo principal es:
+La nota completa esta en:
 
+`REVISION_TUTORA_2026-05-05.md`
 
+## Cohortes incluidas en el trabajo actual
 
-\- Identificar biomarcadores transcriptómicos asociados a:
+### Tumor
 
-&#x20; - respuesta a inmunoterapia (anti-PD-1 / anti-CTLA-4)
+- `GSE78220`: tumor, RNA-seq, anti-PD-1.
+- `GSE215868`: tumor, NanoString, anti-PD-1.
+- `GSE211645`: tumor, NanoString, anti-CTLA-4.
 
-&#x20; - características biológicas del tumor
+### Sangre
 
-\- Evaluar la capacidad predictiva de dichos biomarcadores
+- `GSE91061`: sangre/PBMC, RNA-seq, inmunoterapia.
 
+`GSE94873` queda pendiente de valorar como sensibilidad en sangre.
 
+## Estructura del repositorio
 
-El enfoque combina múltiples cohortes GEO y técnicas de integración de datos multi-plataforma.
-
-
-
-\---
-
-
-
-\## Datos utilizados
-
-
-
-Se han integrado varias cohortes públicas de GEO:
-
-
-
-\### Tumor (análisis principal)
-
-\- GSE78220 – anti-PD-1
-
-\- GSE215868 – anti-PD-1
-
-\- GSE211645 – anti-CTLA-4
-
-
-
-\### Sangre (análisis de sensibilidad)
-
-\- GSE91061
-
-
-
-\---
-
-
-
-\## Pipeline de análisis
-
-
-
-El flujo de trabajo incluye:
-
-
-
-\### 1. Exploración de datasets
-
-\- Revisión de variables clínicas
-
-\- Identificación de muestras baseline
-
-\- Definición de variable de respuesta
-
-
-
-\### 2. Construcción de objetos SummarizedExperiment
-
-\- Expresión génica
-
-\- Metadatos clínicos
-
-\- Anotación de genes
-
-
-
-\### 3. Integración de datos
-
-\- Conversión a gene symbol
-
-\- Intersección de genes comunes
-
-\- Construcción de dataset integrado
-
-
-
-\### 4. Separación por tejido
-
-\- Bloque tumoral (análisis principal)
-
-\- Bloque sangre (análisis de sensibilidad)
-
-
-
-\### 5. Análisis exploratorio
-
-\- PCA pre-batch
-
-\- Evaluación de batch effect (dataset/plataforma)
-
-
-
-\### 6. Corrección de batch
-
-\- limma::removeBatchEffect
-
-\- Protección de variable de respuesta
-
-
-
-\### 7. Análisis diferencial (DEA)
-
-\- Modelo lineal con limma
-
-\- Comparación respondedores vs no respondedores
-
-\- Ajuste por cohorte (cuando aplica)
-
-\- Análisis de robustez (con y sin corrección)
-
-
-
-\---
-
-
-
-\## Estructura del repositorio
-
-
-
+```text
+2_TFM_MELANOMA/
+  integrated_dataset/
+  resultados/
+  scripts/
+    GEO/
+    integration/
+  figuras/
+  TFM_memoria/
 ```
 
-2\_TFM\_MELANOMA/
+## Informes centrales
 
-├── integrated\_dataset/
+Los informes mas importantes para revisar el estado actual son:
 
-├── resultados/
+1. `scripts/integration/reconstruccion_GEO_tumor_blood_SummarizedExperiment_v4.html`
+2. `scripts/integration/exploracion_se_integrated_geo_por_bloques.html`
+3. `scripts/integration/pca_prebatch_GEO_tumor_v3.html`
+4. `scripts/integration/batch_correction_pca_postbatch_GEO_tumor.html`
+5. `scripts/integration/DEA_limma_GEO_tumor_response.html`
 
-├── scripts/
+Los `.Rmd` correspondientes estan en la misma carpeta.
 
-│   ├── GEO/
+## Datos y reproducibilidad
 
-│   ├── integration/
+Los datos crudos de GEO no se incluyen en GitHub porque son descargables y ocupan mas espacio. Los objetos intermedios por cohorte tampoco se suben por defecto porque son regenerables desde los R Markdown.
 
-│   └── analysis/
+Se incluyen algunos objetos clave para facilitar la revision:
 
-```
+- `integrated_dataset/se_integrated_geo_tumor.rds`
+- `integrated_dataset/se_integrated_geo_blood_sensitivity.rds`
+- `integrated_dataset/se_integrated_initial_geo.rds`
+- `resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds`
 
+## Resultados actuales
 
+El DEA integrado tumoral no identifica genes significativos tras correccion FDR, lo que es coherente con:
 
-\---
+- tamano muestral limitado,
+- heterogeneidad entre cohortes,
+- mezcla de plataformas,
+- restriccion a genes comunes con paneles NanoString.
 
-
-
-\## Reproducibilidad
-
-
-
-El proyecto es reproducible mediante los scripts RMarkdown (.Rmd).
-
-
-
-Orden recomendado:
-
-
-
-1\. integracion\_inicial\_GEO\_SummarizedExperiment.Rmd  
-
-2\. reconstruccion\_GEO\_tumor\_blood\_SummarizedExperiment.Rmd  
-
-3\. pca\_prebatch\_GEO\_tumor.Rmd  
-
-4\. batch\_correction\_pca\_postbatch\_GEO\_tumor.Rmd  
-
-5\. DEA\_limma\_GEO\_tumor\_response.Rmd  
-
-
-
-\---
-
-
-
-\## Notas importantes
-
-
-
-\- Los datos crudos no se incluyen por tamaño (disponibles en GEO)
-
-\- Algunos objetos intermedios (.rds) no se incluyen por reproducibilidad
-
-\- Se incluyen objetos clave para facilitar la exploración
-
-
-
-\---
-
-
-
-\## Resultados principales
-
-
-
-\- No se identificaron genes diferencialmente expresados tras corrección FDR  
-
-\- Se observa alta heterogeneidad entre cohortes  
-
-\- Posible limitación por tamaño muestral y plataformas  
-
-\- Identificación de genes candidatos a nivel exploratorio  
-
-
-
-\---
-
-
-
-\## Autor
-
-
-
-Sonia Salmerón  
-
-TFM – Análisis bioinformático en melanoma
+Por este motivo, el siguiente paso metodologico sera separar descubrimiento y validacion por cohorte/plataforma/tratamiento.
 

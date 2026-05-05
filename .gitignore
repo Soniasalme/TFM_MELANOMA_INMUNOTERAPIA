@@ -21,41 +21,38 @@ Thumbs.db
 *.tmp
 
 # =========================
-# Raw data (NO subir)
+# Raw data: downloadable from GEO
 # =========================
 GEO_raw/
 raw_data/
 data/raw/
 
 # =========================
-# Intermediate objects (reproducibles)
+# Intermediate objects: reproducible
 # =========================
 SummarizedExperiment_objects/
 intermediate/
 tmp/
 
 # =========================
-# R objects (por defecto NO subir)
+# R objects ignored by default
 # =========================
 *.rds
 *.RData
 
 # =========================
-# EXCEPCIONES (SÍ subir)
+# Exceptions: key objects for review
 # =========================
-# Dataset integrado principal
 !integrated_dataset/se_integrated_geo_tumor.rds
-
-# Dataset tumoral corregido (clave para análisis)
+!integrated_dataset/se_integrated_geo_blood_sensitivity.rds
+!integrated_dataset/se_integrated_initial_geo.rds
 !resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds
 
 # =========================
-# Resultados duplicados dentro de scripts
+# Duplicated/old generated outputs
 # =========================
 scripts/integration/results/
-
-# =========================
-# Código antiguo
-# =========================
 scripts/integration/deprecated/
 scripts/GEO/GSE91061/scripts_old/
+scripts/integration/*--1-.html
+scripts/integration/*\ \(1\).Rmd
