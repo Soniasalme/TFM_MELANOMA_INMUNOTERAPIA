@@ -1,0 +1,505 @@
+---
+title: "Análisis diferencial de expresión: Respondedores vs No Respondedores en bloque tumoral GEO"
+author: "TFM Melanoma Inmunoterapia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    theme: readable
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.width = 8, fig.height = 6)
+```
+
+# Objetivo
+
+Este documento realiza un análisis diferencial de expresión génica entre pacientes respondedores y no respondedores a inmunoterapia en el bloque tumoral GEO.
+
+El análisis se plantea con `limma`, que es más adecuado que `DESeq2` en este caso porque el objeto integrado combina plataformas distintas y trabaja con matrices de expresión ya normalizadas/integradas, no necesariamente con counts crudos homogéneos.
+
+## Ficha del informe
+
+| Elemento | Detalle |
+|---|---|
+| Entrada principal | Objeto tumoral con assay corregido por batch si existe |
+| Comparador de robustez | Matriz `expr` sin corregir ajustando por `dataset` |
+| Salidas | Tablas DEA principal, DEA robustez y comparacion entre estrategias |
+| Carpeta de resultados | `resultados/dea_geo_tumor_response/` |
+| Decision metodologica | Filtrar muestras con respuesta conocida y comparar respondedores vs no respondedores con `limma` |
+| Interpretacion | Priorizar genes consistentes entre estrategia corregida y sin corregir |
+
+# Librerías
+
+```{r librerias}
+required_packages <- c(
+  "SummarizedExperiment", "limma", "dplyr", "tibble",
+  "ggplot2", "knitr", "matrixStats", "pheatmap", "tidyr"
+)
+
+for (pkg in required_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    stop(paste("Falta instalar el paquete:", pkg))
+  }
+}
+
+library(SummarizedExperiment)
+library(limma)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(knitr)
+library(matrixStats)
+library(pheatmap)
+library(tidyr)
+```
+
+# Localización del objeto tumoral
+
+```{r localizar_objeto}
+candidate_paths <- c(
+  "C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds",
+  "C:/Users/sonia/Desktop/2_TFM_MELANOMA/integrated_dataset/se_integrated_geo_tumor.rds",
+  "resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds",
+  "../resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds",
+  "../../resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds",
+  "results/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds",
+  "../results/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds",
+  "../../results/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds",
+  "integrated_dataset/se_integrated_geo_tumor.rds",
+  "../integrated_dataset/se_integrated_geo_tumor.rds",
+  "../../integrated_dataset/se_integrated_geo_tumor.rds",
+  "se_integrated_geo_tumor_batch_corrected_limma.rds",
+  "se_integrated_geo_tumor.rds",
+  "../se_integrated_geo_tumor.rds",
+  "../../se_integrated_geo_tumor.rds"
+)
+
+existing_paths <- candidate_paths[file.exists(candidate_paths)]
+
+if (length(existing_paths) == 0) {
+  stop("No se ha encontrado el objeto tumoral .rds. Revisa las rutas de candidate_paths.")
+}
+
+se_path <- normalizePath(existing_paths[1], winslash = "/", mustWork = TRUE)
+se_path
+
+project_root <- sub("/(integrated_dataset|resultados|scripts)/.*$", "", se_path)
+project_root
+
+se_tumor <- readRDS(se_path)
+stopifnot(inherits(se_tumor, "SummarizedExperiment"))
+se_tumor
+```
+
+# Revisión inicial
+
+```{r revision_inicial}
+dim(se_tumor)
+assayNames(se_tumor)
+colnames(colData(se_tumor))
+```
+
+```{r seleccionar_assays}
+available_assays <- assayNames(se_tumor)
+
+if ("expr_batch_corrected_limma" %in% available_assays) {
+  assay_main <- "expr_batch_corrected_limma"
+} else if ("expr" %in% available_assays) {
+  assay_main <- "expr"
+} else {
+  assay_main <- available_assays[1]
+}
+
+if ("expr" %in% available_assays) {
+  assay_raw <- "expr"
+} else {
+  assay_raw <- assay_main
+}
+
+assay_main
+assay_raw
+```
+
+# Preparación de metadatos
+
+```{r preparar_metadata}
+coldata <- as.data.frame(colData(se_tumor)) %>%
+  rownames_to_column("sample_id_dea")
+
+required_vars <- c("response_binary", "dataset")
+missing_vars <- setdiff(required_vars, colnames(coldata))
+
+if (length(missing_vars) > 0) {
+  stop(paste("Faltan variables necesarias en colData:", paste(missing_vars, collapse = ", ")))
+}
+
+coldata %>%
+  count(response_binary, name = "n_muestras") %>%
+  kable(caption = "Distribución global de response_binary")
+
+coldata %>%
+  count(dataset, response_binary, name = "n") %>%
+  pivot_wider(names_from = response_binary, values_from = n, values_fill = 0) %>%
+  kable(caption = "Balance de respuesta por dataset")
+```
+
+# Filtrado de muestras con respuesta conocida
+
+```{r filtrar_respuesta}
+keep_samples <- !is.na(coldata$response_binary)
+keep_samples <- keep_samples & trimws(as.character(coldata$response_binary)) != ""
+
+table(keep_samples)
+
+se_dea <- se_tumor[, keep_samples]
+coldata_dea <- as.data.frame(colData(se_dea)) %>%
+  rownames_to_column("sample_id_dea")
+
+dim(se_dea)
+
+coldata_dea %>%
+  count(response_binary, name = "n_muestras") %>%
+  kable(caption = "Distribución de muestras incluidas en DEA")
+
+coldata_dea %>%
+  count(dataset, response_binary, name = "n") %>%
+  pivot_wider(names_from = response_binary, values_from = n, values_fill = 0) %>%
+  kable(caption = "Balance de respuesta por dataset tras filtrar NA")
+```
+
+# Normalización de etiquetas de respuesta
+
+```{r normalizar_respuesta}
+response_chr <- as.character(coldata_dea$response_binary)
+unique(response_chr)
+
+response_clean <- tolower(trimws(response_chr))
+
+response_group <- dplyr::case_when(
+  response_clean %in% c("responder", "responders", "response", "r", "yes", "si", "sí", "1", "true", "cr", "pr") ~ "Responder",
+  response_clean %in% c("non_responder", "non-responder", "non responder", "nonresponders", "no_response", "nr", "no", "0", "false", "sd", "pd") ~ "Non_responder",
+  TRUE ~ as.character(coldata_dea$response_binary)
+)
+
+table(response_group)
+
+response_group <- factor(response_group)
+
+if (nlevels(response_group) != 2) {
+  stop("response_binary no tiene exactamente dos grupos tras la limpieza. Revisa los valores mostrados arriba.")
+}
+
+if ("Non_responder" %in% levels(response_group)) {
+  response_group <- relevel(response_group, ref = "Non_responder")
+}
+
+coldata_dea$response_group <- response_group
+colData(se_dea)$response_group <- response_group
+
+n_por_grupo <- table(coldata_dea$response_group)
+n_por_grupo
+stopifnot("Cada grupo necesita al menos 3 muestras para DEA" = all(n_por_grupo >= 3))
+```
+
+# Funciones auxiliares
+
+```{r funciones}
+prepare_expr <- function(se_obj, assay_name) {
+  expr <- assay(se_obj, assay_name)
+  expr <- as.matrix(expr)
+  mode(expr) <- "numeric"
+
+  na_genes <- rowSums(is.na(expr)) > 0
+  zero_var_genes <- matrixStats::rowVars(expr, na.rm = TRUE) == 0
+  keep_genes <- !na_genes & !zero_var_genes
+
+  expr_filt <- expr[keep_genes, , drop = FALSE]
+
+  list(
+    expr = expr_filt,
+    keep_genes = keep_genes,
+    n_na_genes = sum(na_genes),
+    n_zero_var_genes = sum(zero_var_genes)
+  )
+}
+
+run_limma_dea <- function(expr_matrix, metadata, adjust_dataset = TRUE) {
+  metadata <- metadata %>%
+    mutate(
+      response_group = factor(response_group),
+      dataset = factor(dataset)
+    )
+
+  stopifnot(ncol(expr_matrix) == nrow(metadata))
+
+  if (adjust_dataset && nlevels(metadata$dataset) > 1) {
+    design <- model.matrix(~ 0 + response_group + dataset, data = metadata)
+  } else {
+    design <- model.matrix(~ 0 + response_group, data = metadata)
+  }
+
+  colnames(design) <- make.names(colnames(design))
+  group_levels <- make.names(paste0("response_group", levels(metadata$response_group)))
+
+  if (length(group_levels) != 2) {
+    stop("Se esperaban exactamente dos niveles en response_group.")
+  }
+
+  contrast_string <- paste0(group_levels[2], " - ", group_levels[1])
+
+  contrast_matrix <- makeContrasts(contrasts = contrast_string, levels = design)
+
+  fit <- lmFit(expr_matrix, design)
+  fit2 <- contrasts.fit(fit, contrast_matrix)
+  fit2 <- eBayes(fit2)
+
+  res <- topTable(fit2, coef = 1, number = Inf, adjust.method = "BH", sort.by = "none") %>%
+    rownames_to_column("gene") %>%
+    arrange(adj.P.Val, P.Value)
+
+  list(design = design, contrast = contrast_string, fit = fit2, results = res)
+}
+
+plot_volcano <- function(res, title, logfc_cutoff = 0.5, adjp_cutoff = 0.05) {
+  res_plot <- res %>%
+    mutate(
+      neg_log10_adjP = -log10(adj.P.Val),
+      significant = case_when(
+        adj.P.Val < adjp_cutoff & logFC >= logfc_cutoff ~ "Up in responders",
+        adj.P.Val < adjp_cutoff & logFC <= -logfc_cutoff ~ "Down in responders",
+        TRUE ~ "Not significant"
+      )
+    )
+
+  ggplot(res_plot, aes(x = logFC, y = neg_log10_adjP, color = significant)) +
+    geom_point(alpha = 0.75, size = 2) +
+    geom_vline(xintercept = c(-logfc_cutoff, logfc_cutoff), linetype = "dashed") +
+    geom_hline(yintercept = -log10(adjp_cutoff), linetype = "dashed") +
+    labs(
+      title = title,
+      x = "logFC (Responders vs Non-responders)",
+      y = "-log10(adj. P-value)",
+      color = "Significance"
+    ) +
+    theme_minimal(base_size = 13) +
+    theme(plot.title = element_text(face = "bold"), legend.position = "right")
+}
+```
+
+# DEA principal con matriz corregida
+
+```{r dea_principal}
+prep_main <- prepare_expr(se_dea, assay_main)
+
+prep_main$n_na_genes
+prep_main$n_zero_var_genes
+dim(prep_main$expr)
+
+adjust_dataset_main <- assay_main != "expr_batch_corrected_limma"
+
+dea_main <- run_limma_dea(
+  expr_matrix = prep_main$expr,
+  metadata = coldata_dea,
+  adjust_dataset = adjust_dataset_main
+)
+
+dea_main$contrast
+
+res_main <- dea_main$results
+
+res_main %>%
+  head(20) %>%
+  kable(digits = 4, caption = "Top 20 genes DEA principal")
+```
+
+```{r resumen_dea_principal}
+logfc_cutoff <- 0.5
+adjp_cutoff <- 0.05
+
+res_main_summary <- res_main %>%
+  mutate(
+    significant = case_when(
+      adj.P.Val < adjp_cutoff & logFC >= logfc_cutoff ~ "Up in responders",
+      adj.P.Val < adjp_cutoff & logFC <= -logfc_cutoff ~ "Down in responders",
+      TRUE ~ "Not significant"
+    )
+  ) %>%
+  count(significant)
+
+res_main_summary %>%
+  kable(caption = "Resumen de genes significativos en DEA principal")
+```
+
+```{r volcano_principal}
+plot_volcano(
+  res_main,
+  title = paste0("Volcano plot DEA principal - ", assay_main),
+  logfc_cutoff = logfc_cutoff,
+  adjp_cutoff = adjp_cutoff
+)
+```
+
+# Heatmap de genes top
+
+```{r heatmap_top_genes}
+top_n <- min(30, nrow(res_main))
+top_genes <- res_main$gene[seq_len(top_n)]
+
+expr_heatmap <- prep_main$expr[top_genes, , drop = FALSE]
+
+annotation_col <- coldata_dea %>%
+  select(sample_id_dea, response_group, dataset) %>%
+  column_to_rownames("sample_id_dea")
+
+annotation_col <- annotation_col[colnames(expr_heatmap), , drop = FALSE]
+
+pheatmap(
+  expr_heatmap,
+  scale = "row",
+  annotation_col = annotation_col,
+  show_colnames = FALSE,
+  main = paste0("Top ", top_n, " genes - DEA principal")
+)
+```
+
+# DEA de robustez con matriz sin corregir
+
+```{r dea_robustez}
+run_robustness <- assay_raw != assay_main || assay_main == "expr_batch_corrected_limma"
+
+if (run_robustness) {
+  prep_raw <- prepare_expr(se_dea, assay_raw)
+  common_genes <- intersect(rownames(prep_main$expr), rownames(prep_raw$expr))
+  prep_raw_expr_common <- prep_raw$expr[common_genes, , drop = FALSE]
+
+  dea_raw <- run_limma_dea(
+    expr_matrix = prep_raw_expr_common,
+    metadata = coldata_dea,
+    adjust_dataset = TRUE
+  )
+
+  res_raw <- dea_raw$results
+  dea_raw$contrast
+
+  res_raw %>%
+    head(20) %>%
+    kable(digits = 4, caption = "Top 20 genes DEA robustez con matriz sin corregir ajustando por dataset")
+} else {
+  res_raw <- NULL
+  "No se ejecuta robustez porque assay_raw y assay_main son el mismo assay sin corrección adicional."
+}
+```
+
+```{r volcano_robustez}
+if (!is.null(res_raw)) {
+  plot_volcano(
+    res_raw,
+    title = paste0("Volcano plot DEA robustez - ", assay_raw, " ajustado por dataset"),
+    logfc_cutoff = logfc_cutoff,
+    adjp_cutoff = adjp_cutoff
+  )
+}
+```
+
+# Comparación de resultados principal vs robustez
+
+```{r comparar_resultados}
+if (!is.null(res_raw)) {
+  comparison_df <- res_main %>%
+    select(gene, logFC_main = logFC, adjP_main = adj.P.Val, P_main = P.Value) %>%
+    inner_join(
+      res_raw %>% select(gene, logFC_raw = logFC, adjP_raw = adj.P.Val, P_raw = P.Value),
+      by = "gene"
+    ) %>%
+    mutate(
+      direction_same = sign(logFC_main) == sign(logFC_raw),
+      significant_main = adjP_main < adjp_cutoff & abs(logFC_main) >= logfc_cutoff,
+      significant_raw = adjP_raw < adjp_cutoff & abs(logFC_raw) >= logfc_cutoff
+    )
+
+  comparison_df %>%
+    summarise(
+      n_genes_comunes = n(),
+      correlacion_logFC = cor(logFC_main, logFC_raw, use = "complete.obs"),
+      porcentaje_misma_direccion = mean(direction_same, na.rm = TRUE) * 100,
+      significativos_main = sum(significant_main, na.rm = TRUE),
+      significativos_raw = sum(significant_raw, na.rm = TRUE),
+      significativos_ambos = sum(significant_main & significant_raw, na.rm = TRUE)
+    ) %>%
+    kable(digits = 3, caption = "Comparación global entre DEA principal y robustez")
+
+  ggplot(comparison_df, aes(x = logFC_raw, y = logFC_main)) +
+    geom_point(alpha = 0.75, size = 2) +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    geom_vline(xintercept = 0, linetype = "dashed") +
+    labs(
+      title = "Comparación de logFC: matriz sin corregir vs matriz corregida",
+      x = "logFC matriz sin corregir ajustada por dataset",
+      y = "logFC matriz corregida"
+    ) +
+    theme_minimal(base_size = 13) +
+    theme(plot.title = element_text(face = "bold"))
+}
+```
+
+# Guardado de resultados
+
+```{r guardar_resultados}
+output_dir <- file.path(project_root, "resultados", "dea_geo_tumor_response")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+write.csv(res_main, file = file.path(output_dir, "DEA_limma_geo_tumor_response_main.csv"), row.names = FALSE)
+saveRDS(dea_main, file = file.path(output_dir, "DEA_limma_geo_tumor_response_main.rds"))
+
+if (!is.null(res_raw)) {
+  write.csv(res_raw, file = file.path(output_dir, "DEA_limma_geo_tumor_response_robustness_raw_adjusted_dataset.csv"), row.names = FALSE)
+  saveRDS(dea_raw, file = file.path(output_dir, "DEA_limma_geo_tumor_response_robustness_raw_adjusted_dataset.rds"))
+  write.csv(comparison_df, file = file.path(output_dir, "DEA_limma_geo_tumor_main_vs_robustness_comparison.csv"), row.names = FALSE)
+}
+
+list.files(output_dir, full.names = TRUE)
+```
+
+# Checklist final
+
+```{r checklist}
+checks <- tibble(
+  comprobacion = c(
+    "Objeto tumoral cargado",
+    "Variable response_binary disponible",
+    "Variable dataset disponible",
+    "Muestras con response_binary filtradas",
+    "Dos grupos de respuesta definidos",
+    "Assay principal seleccionado",
+    "Genes con NA excluidos",
+    "Genes con varianza cero excluidos",
+    "DEA principal con limma ejecutado",
+    "Resultados principales guardados"
+  ),
+  resultado = c(
+    inherits(se_tumor, "SummarizedExperiment"),
+    "response_binary" %in% colnames(colData(se_tumor)),
+    "dataset" %in% colnames(colData(se_tumor)),
+    ncol(se_dea) > 0,
+    nlevels(coldata_dea$response_group) == 2,
+    assay_main %in% assayNames(se_tumor),
+    prep_main$n_na_genes >= 0,
+    prep_main$n_zero_var_genes >= 0,
+    exists("res_main"),
+    file.exists(file.path(output_dir, "DEA_limma_geo_tumor_response_main.csv"))
+  )
+)
+
+checks %>%
+  kable(caption = "Checklist final del DEA")
+```
+
+# Conclusión
+
+Este análisis evalúa diferencias transcriptómicas entre respondedores y no respondedores en el bloque tumoral GEO integrado.
+
+El análisis principal se realiza con `limma`, usando la matriz corregida por batch cuando está disponible. Además, se incluye un análisis de robustez usando la matriz sin corregir y ajustando por cohorte/dataset en el modelo. Esta comparación permite comprobar si los genes candidatos y la dirección del efecto son estables frente a la estrategia de corrección del efecto batch.

@@ -1,0 +1,442 @@
+---
+title: "Exploración inicial de GSE211645"
+author: "TFM Melanoma Inmunoterapia"
+output: html_document
+---
+
+# 1. Objetivo del documento
+
+El objetivo de este documento es realizar una **exploración inicial completa del dataset GSE211645** para identificar, documentar y justificar todas las decisiones necesarias antes de construir el objeto `SummarizedExperiment`.
+
+Este documento sirve para:
+
+- comprobar el tipo de objeto descargado desde GEO,
+- verificar las dimensiones de la cohorte,
+- inspeccionar la matriz de expresión y su anotación génica,
+- revisar en detalle los metadatos clínicos,
+- detectar posibles columnas de respuesta,
+- detectar posibles columnas de tratamiento,
+- comprobar si existe una variable de `baseline` o pretratamiento,
+- evaluar qué identificador de muestra alinea mejor expresión y metadatos,
+- documentar la disponibilidad de variables clínicas adicionales,
+- y cerrar el diseño metodológico del dataset antes de pasar al Rmd final de construcción del `SummarizedExperiment`.
+
+Este Rmd corresponde, por tanto, a la **fase exploratoria** del pipeline GEO del TFM.
+
+---
+
+# 2. Librerías necesarias
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+pkgs <- c("GEOquery", "dplyr", "stringr", "tibble")
+
+for (p in pkgs) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    if (p == "GEOquery") {
+      BiocManager::install(p, ask = FALSE, update = FALSE)
+    } else {
+      install.packages(p)
+    }
+  }
+}
+
+library(GEOquery)
+library(dplyr)
+library(stringr)
+library(tibble)
+```
+
+---
+
+# 3. Definición automática de rutas del proyecto
+
+Este documento está pensado para ejecutarse desde la carpeta:
+
+`TFM/scripts/GEO/GSE211645/`
+
+Las rutas se definen automáticamente para mantener una estructura homogénea con el resto de datasets GEO del proyecto.
+
+```{r}
+project_root <- normalizePath(file.path("..", "..", ".."), winslash = "/", mustWork = FALSE)
+
+raw_base_dir <- file.path(project_root, "GEO_raw")
+raw_dataset_dir <- file.path(raw_base_dir, "GSE211645")
+
+dir.create(raw_base_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(raw_dataset_dir, recursive = TRUE, showWarnings = FALSE)
+
+project_root
+raw_base_dir
+raw_dataset_dir
+```
+
+---
+
+# 4. Descarga del dataset desde GEO
+
+```{r}
+gse <- getGEO("GSE211645", GSEMatrix = TRUE)
+
+length(gse)
+gse
+```
+
+---
+
+# 5. Selección del objeto ExpressionSet
+
+```{r}
+gse211645_eset <- gse[[1]]
+
+class(gse211645_eset)
+dim(gse211645_eset)
+annotation(gse211645_eset)
+```
+
+---
+
+# 6. Extracción de componentes principales
+
+```{r}
+expr_gse211645 <- Biobase::exprs(gse211645_eset)
+metadata_gse211645 <- Biobase::pData(gse211645_eset)
+feature_gse211645 <- Biobase::fData(gse211645_eset)
+
+dim(expr_gse211645)
+dim(metadata_gse211645)
+dim(feature_gse211645)
+```
+
+---
+
+# 7. Inspección de la matriz de expresión
+
+Este bloque permite comprobar:
+
+- número de genes,
+- número de muestras,
+- formato general de la matriz,
+- nombres de genes,
+- y nombres de muestra.
+
+```{r}
+expr_gse211645[1:min(5, nrow(expr_gse211645)), 1:min(5, ncol(expr_gse211645))]
+rownames(expr_gse211645)[1:20]
+colnames(expr_gse211645)[1:20]
+```
+
+---
+
+# 8. Inspección de la anotación génica
+
+```{r}
+colnames(feature_gse211645)
+head(feature_gse211645)
+```
+
+---
+
+# 9. Inspección general de metadatos clínicos
+
+## 9.1. Nombres de columnas disponibles
+
+```{r}
+colnames(metadata_gse211645)
+```
+
+## 9.2. Vista inicial de los metadatos
+
+```{r}
+head(metadata_gse211645[, 1:min(12, ncol(metadata_gse211645))])
+```
+
+---
+
+# 10. Búsqueda sistemática de columnas candidatas
+
+En este paso se detectan automáticamente columnas que podrían estar relacionadas con:
+
+- respuesta clínica,
+- pretratamiento / baseline,
+- identificadores de muestra o paciente,
+- supervivencia,
+- tratamiento.
+
+```{r}
+candidate_cols <- colnames(metadata_gse211645)
+
+candidate_response <- candidate_cols[grep("response|respond|benefit|responder|clinical|bor", candidate_cols, ignore.case = TRUE)]
+candidate_baseline <- candidate_cols[grep("pre|baseline|time|visit|treat|treatment|biopsy|pretreatment", candidate_cols, ignore.case = TRUE)]
+candidate_id <- candidate_cols[grep("title|geo_accession|sample|patient|id", candidate_cols, ignore.case = TRUE)]
+candidate_survival <- candidate_cols[grep("os|pfs|survival|vital", candidate_cols, ignore.case = TRUE)]
+candidate_treatment <- candidate_cols[grep("itx|treatment|therapy|checkpoint|ipi|ipilimumab", candidate_cols, ignore.case = TRUE)]
+
+candidate_response
+candidate_baseline
+candidate_id
+candidate_survival
+candidate_treatment
+```
+
+---
+
+# 11. Exploración detallada de columnas clínicas clave
+
+Este bloque imprime tablas de frecuencia para las columnas más prometedoras del estudio.  
+Si alguna no existe, simplemente se omitirá.
+
+```{r}
+cols_to_explore <- unique(c(
+  "title",
+  "geo_accession",
+  "bor:ch1",
+  "response:ch1",
+  "itx:ch1",
+  "treatment:ch1",
+  "long-term benefit:ch1",
+  "biopsy time:ch1",
+  "visit (pre or on treatment):ch1",
+  "os_days:ch1",
+  "os_index:ch1",
+  "pfs_days:ch1",
+  "pfs_index:ch1",
+  "prior checkpoint blockade:ch1",
+  "patient id:ch1"
+))
+
+cols_to_explore <- cols_to_explore[cols_to_explore %in% colnames(metadata_gse211645)]
+
+for (cc in cols_to_explore) {
+  cat("\n==============================\n")
+  cat("Columna:", cc, "\n")
+  print(table(metadata_gse211645[[cc]], useNA = "ifany"))
+}
+```
+
+---
+
+# 12. Inspección específica de identificadores de muestra
+
+En esta fase interesa decidir qué columna de metadatos representa mejor a las muestras de la matriz de expresión.
+
+```{r}
+if ("title" %in% colnames(metadata_gse211645)) {
+  head(metadata_gse211645$title, 20)
+}
+
+if ("geo_accession" %in% colnames(metadata_gse211645)) {
+  head(metadata_gse211645$geo_accession, 20)
+}
+
+if ("patient id:ch1" %in% colnames(metadata_gse211645)) {
+  head(metadata_gse211645$`patient id:ch1`, 20)
+}
+
+head(colnames(expr_gse211645), 20)
+```
+
+---
+
+# 13. Solapamiento entre nombres de muestra y columnas candidatas
+
+Se calcula qué columna de metadatos presenta mayor solapamiento con los nombres de las columnas de la matriz de expresión.
+
+```{r}
+expr_ids <- trimws(colnames(expr_gse211645))
+
+candidate_id_cols <- intersect(
+  c("title", "geo_accession", "patient id:ch1"),
+  colnames(metadata_gse211645)
+)
+
+overlap_table <- lapply(candidate_id_cols, function(cc) {
+  vals <- trimws(as.character(metadata_gse211645[[cc]]))
+  data.frame(
+    column = cc,
+    overlap = length(intersect(expr_ids, vals)),
+    stringsAsFactors = FALSE
+  )
+}) %>%
+  bind_rows() %>%
+  arrange(desc(overlap))
+
+overlap_table
+```
+
+---
+
+# 14. Exploración preliminar de respuesta clínica
+
+Se ensayan dos posibles recodificaciones:
+
+- una basada en `bor:ch1`,
+- otra basada en `response:ch1`, si existiera.
+
+```{r}
+make_response_binary <- function(x) {
+  x_clean <- stringr::str_to_upper(trimws(as.character(x)))
+
+  dplyr::case_when(
+    x_clean %in% c("CR", "PR", "COMPLETE RESPONSE", "PARTIAL RESPONSE", "R", "RESPONSE", "RESPONDER", "YES", "BENEFIT") ~ "Responder",
+    x_clean %in% c("SD", "PD", "STABLE DISEASE", "PROGRESSIVE DISEASE", "NR", "NON-RESPONSE", "NON RESPONDER", "NONRESPONDER", "NO RESPONSE", "NO", "NO BENEFIT") ~ "No_responder",
+    TRUE ~ NA_character_
+  )
+}
+
+if ("bor:ch1" %in% colnames(metadata_gse211645)) {
+  metadata_gse211645$response_binary_bor_test <- make_response_binary(metadata_gse211645$`bor:ch1`)
+  table(metadata_gse211645$response_binary_bor_test, useNA = "ifany")
+}
+
+if ("response:ch1" %in% colnames(metadata_gse211645)) {
+  metadata_gse211645$response_binary_response_test <- make_response_binary(metadata_gse211645$`response:ch1`)
+  table(metadata_gse211645$response_binary_response_test, useNA = "ifany")
+}
+```
+
+---
+
+# 15. Exploración preliminar de baseline / pretratamiento
+
+Este bloque intenta comprobar si existe alguna variable que permita distinguir muestras pretratamiento frente a muestras obtenidas durante tratamiento.
+
+```{r}
+is_baseline_sample <- function(x) {
+  x_clean <- stringr::str_to_lower(trimws(as.character(x)))
+
+  dplyr::case_when(
+    stringr::str_detect(x_clean, "baseline") ~ TRUE,
+    stringr::str_detect(x_clean, "pretreatment") ~ TRUE,
+    stringr::str_detect(x_clean, "pre-treatment") ~ TRUE,
+    stringr::str_detect(x_clean, "pre treatment") ~ TRUE,
+    stringr::str_detect(x_clean, "^pre$") ~ TRUE,
+    stringr::str_detect(x_clean, "before treatment") ~ TRUE,
+    stringr::str_detect(x_clean, "on treatment") ~ FALSE,
+    stringr::str_detect(x_clean, "on.?tx") ~ FALSE,
+    stringr::str_detect(x_clean, "post") ~ FALSE,
+    TRUE ~ NA
+  )
+}
+
+baseline_test_cols <- intersect(
+  c("biopsy time:ch1", "visit (pre or on treatment):ch1", "characteristics_ch1"),
+  colnames(metadata_gse211645)
+)
+
+for (cc in baseline_test_cols) {
+  cat("\n==============================\n")
+  cat("Posible columna baseline:", cc, "\n")
+  print(table(metadata_gse211645[[cc]], useNA = "ifany"))
+  print(table(is_baseline_sample(metadata_gse211645[[cc]]), useNA = "ifany"))
+}
+```
+
+---
+
+# 16. Exploración de tratamiento y covariables clínicas
+
+```{r}
+if ("itx:ch1" %in% colnames(metadata_gse211645)) {
+  table(metadata_gse211645$`itx:ch1`, useNA = "ifany")
+}
+
+if ("treatment:ch1" %in% colnames(metadata_gse211645)) {
+  table(metadata_gse211645$`treatment:ch1`, useNA = "ifany")
+}
+
+if ("long-term benefit:ch1" %in% colnames(metadata_gse211645)) {
+  table(metadata_gse211645$`long-term benefit:ch1`, useNA = "ifany")
+}
+
+if ("prior checkpoint blockade:ch1" %in% colnames(metadata_gse211645)) {
+  table(metadata_gse211645$`prior checkpoint blockade:ch1`, useNA = "ifany")
+}
+```
+
+---
+
+# 17. Exploración de variables de supervivencia
+
+Este bloque permite comprobar si el dataset aporta información complementaria de supervivencia.
+
+```{r}
+if ("os_days:ch1" %in% colnames(metadata_gse211645)) {
+  summary(as.numeric(as.character(metadata_gse211645$`os_days:ch1`)))
+}
+
+if ("os_index:ch1" %in% colnames(metadata_gse211645)) {
+  table(metadata_gse211645$`os_index:ch1`, useNA = "ifany")
+}
+
+if ("pfs_days:ch1" %in% colnames(metadata_gse211645)) {
+  summary(as.numeric(as.character(metadata_gse211645$`pfs_days:ch1`)))
+}
+
+if ("pfs_index:ch1" %in% colnames(metadata_gse211645)) {
+  table(metadata_gse211645$`pfs_index:ch1`, useNA = "ifany")
+}
+```
+
+---
+
+# 18. Guardado de metadatos crudos de la exploración
+
+Para mantener trazabilidad del análisis, se guarda una copia tabulada de los metadatos originales en la carpeta del dataset.
+
+```{r}
+raw_metadata_file <- file.path(raw_dataset_dir, "GSE211645_metadata_raw.tsv")
+write.table(metadata_gse211645, raw_metadata_file, sep = "\t", quote = FALSE, row.names = TRUE)
+
+raw_metadata_file
+```
+
+---
+
+# 19. Checklist de exploración inicial
+
+```{r}
+checklist_exploracion_gse211645 <- tibble::tibble(
+  paso = c(
+    "Dataset descargado desde GEO",
+    "ExpressionSet identificado",
+    "Matriz de expresión extraída",
+    "Metadatos clínicos extraídos",
+    "Anotación génica extraída",
+    "Columnas candidatas de respuesta exploradas",
+    "Columnas candidatas de baseline exploradas",
+    "Columnas candidatas de identificador exploradas",
+    "Metadatos crudos guardados"
+  ),
+  estado = c(
+    "Sí",
+    ifelse(exists("gse211645_eset"), "Sí", "No"),
+    ifelse(exists("expr_gse211645"), "Sí", "No"),
+    ifelse(exists("metadata_gse211645"), "Sí", "No"),
+    ifelse(exists("feature_gse211645"), "Sí", "No"),
+    ifelse(length(candidate_response) > 0, "Sí", "Pendiente / no detectado"),
+    ifelse(length(candidate_baseline) > 0, "Sí", "Pendiente / no detectado"),
+    ifelse(length(candidate_id) > 0, "Sí", "Pendiente / no detectado"),
+    ifelse(file.exists(raw_metadata_file), "Sí", "No")
+  )
+)
+
+checklist_exploracion_gse211645
+```
+
+---
+
+# 20. Conclusiones de la exploración inicial
+
+A partir de esta exploración, debería poder cerrarse el diseño preliminar del dataset:
+
+- si el estudio devuelve un único `ExpressionSet`,
+- si la matriz de expresión ya viene contenida en el objeto o requiere archivos suplementarios,
+- cuál es la variable de respuesta más adecuada,
+- si existe una variable explícita de `baseline` o pretratamiento,
+- cuál es el identificador de muestra correcto,
+- y qué variables clínicas adicionales conviene incorporar al `SummarizedExperiment`.
+
+Este documento servirá como base para construir posteriormente la plantilla automatizada específica para `GSE211645`.

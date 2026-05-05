@@ -1,0 +1,519 @@
+---
+title: "Construcción de SummarizedExperiment – GSE91061 (gene symbol)"
+author: "TFM Melanoma Inmunoterapia"
+output: html_document
+---
+
+# 1. Objetivo de este documento
+
+El objetivo de este documento es construir un **contenedor ómico tipo SummarizedExperiment** para la cohorte **GSE91061**, manteniendo la lógica clínica ya validada en versiones previas, pero **corrigiendo la anotación génica** para que la matriz final quede en **gene symbol** y no solo en `gene_id`.
+
+Esta versión está pensada específicamente para facilitar la **integración multi-cohorte**, ya que en el análisis previo de integración se observó que `GSE91061` estaba usando `gene_id` como identificador de filas, mientras que otras cohortes estaban en `gene_symbol`.
+
+En esta versión se hará:
+
+- carga de la matriz **RLD**,
+- selección de muestras **pretratamiento**,
+- construcción de metadatos clínicos,
+- conversión de `gene_id` (Entrez) a **gene symbol**,
+- resolución de símbolos duplicados,
+- construcción del `SummarizedExperiment`,
+- y guardado del objeto final actualizado.
+
+---
+
+# 2. Librerías necesarias
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+pkgs <- c(
+  "GEOquery",
+  "SummarizedExperiment",
+  "S4Vectors",
+  "readr",
+  "dplyr",
+  "tibble",
+  "stringr",
+  "AnnotationDbi",
+  "org.Hs.eg.db"
+)
+
+for (p in pkgs) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    if (p %in% c("GEOquery", "SummarizedExperiment", "S4Vectors", "AnnotationDbi", "org.Hs.eg.db")) {
+      BiocManager::install(p, ask = FALSE, update = FALSE)
+    } else {
+      install.packages(p)
+    }
+  }
+}
+
+library(GEOquery)
+library(SummarizedExperiment)
+library(S4Vectors)
+library(readr)
+library(dplyr)
+library(tibble)
+library(stringr)
+library(AnnotationDbi)
+library(org.Hs.eg.db)
+```
+
+---
+
+# 3. Definición automática de rutas del proyecto
+
+Este documento está pensado para ejecutarse desde la carpeta:
+
+`TFM/scripts/GEO/GSE91061/`
+
+```{r}
+project_root <- normalizePath(file.path("..", "..", ".."), winslash = "/", mustWork = FALSE)
+
+raw_base_dir <- file.path(project_root, "GEO_raw")
+raw_dataset_dir <- file.path(raw_base_dir, "GSE91061")
+se_dir <- file.path(project_root, "SummarizedExperiment_objects")
+
+dir.create(raw_base_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(raw_dataset_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(se_dir, recursive = TRUE, showWarnings = FALSE)
+
+project_root
+raw_base_dir
+raw_dataset_dir
+se_dir
+```
+
+---
+
+# 4. Descarga de metadatos GEO
+
+```{r}
+gse91061_list <- getGEO("GSE91061", GSEMatrix = TRUE)
+length(gse91061_list)
+
+gse91061_eset <- gse91061_list[[1]]
+
+metadata_geo <- Biobase::pData(gse91061_eset)
+
+dim(metadata_geo)
+colnames(metadata_geo)
+```
+
+---
+
+# 5. Descarga o localización de archivos suplementarios
+
+```{r}
+try({
+  GEOquery::getGEOSuppFiles("GSE91061", baseDir = raw_base_dir)
+}, silent = TRUE)
+
+list.files(raw_dataset_dir, recursive = TRUE)
+```
+
+---
+
+# 6. Selección del archivo de expresión
+
+En esta cohorte se trabaja con la matriz **RLD**, adecuada para exploración, integración inicial y modelado.
+
+```{r}
+rld_file <- list.files(
+  raw_dataset_dir,
+  pattern = "rld\\.csv\\.gz$",
+  full.names = TRUE,
+  recursive = TRUE
+)
+
+rld_file
+
+if (length(rld_file) == 0) {
+  stop("No se encontró el archivo rld.csv.gz en GEO_raw/GSE91061/")
+}
+```
+
+---
+
+# 7. Carga de la matriz RLD
+
+```{r}
+expr_raw <- readr::read_csv(rld_file[1], show_col_types = FALSE)
+
+dim(expr_raw)
+colnames(expr_raw)[1:10]
+```
+
+La primera columna contiene los identificadores génicos (`gene_id`, aquí de tipo Entrez/knownGene).
+
+```{r}
+expr_matrix_raw <- as.data.frame(expr_raw)
+rownames(expr_matrix_raw) <- as.character(expr_matrix_raw[[1]])
+expr_matrix_raw <- expr_matrix_raw[, -1, drop = FALSE]
+expr_matrix_raw <- as.matrix(expr_matrix_raw)
+
+dim(expr_matrix_raw)
+rownames(expr_matrix_raw)[1:20]
+colnames(expr_matrix_raw)[1:20]
+```
+
+---
+
+# 8. Definición de columnas clínicas clave
+
+A partir de la exploración previa de esta cohorte, se fijan:
+
+- `title` como identificador de muestra,
+- `response:ch1` como variable de respuesta,
+- `visit (pre or on treatment):ch1` para distinguir baseline / on-treatment.
+
+```{r}
+sample_id_col <- "title"
+patient_id_col <- "title"
+response_col <- "response:ch1"
+baseline_col <- "visit (pre or on treatment):ch1"
+```
+
+---
+
+# 9. Funciones auxiliares
+
+## 9.1. Recodificación de respuesta binaria
+
+```{r}
+make_response_binary <- function(x) {
+  x_clean <- stringr::str_to_upper(trimws(as.character(x)))
+
+  dplyr::case_when(
+    x_clean %in% c("CR", "PR", "COMPLETE RESPONSE", "PARTIAL RESPONSE", "R", "RESPONSE", "RESPONDER", "YES", "BENEFIT") ~ "Responder",
+    x_clean %in% c("SD", "PD", "STABLE DISEASE", "PROGRESSIVE DISEASE", "NR", "NON-RESPONSE", "NON RESPONDER", "NONRESPONDER", "NO RESPONSE", "NO", "NO BENEFIT") ~ "No_responder",
+    TRUE ~ NA_character_
+  )
+}
+```
+
+## 9.2. Detección de baseline
+
+```{r}
+is_baseline_sample <- function(x) {
+  x_clean <- stringr::str_to_lower(trimws(as.character(x)))
+
+  dplyr::case_when(
+    stringr::str_detect(x_clean, "baseline") ~ TRUE,
+    stringr::str_detect(x_clean, "pretreatment") ~ TRUE,
+    stringr::str_detect(x_clean, "pre-treatment") ~ TRUE,
+    stringr::str_detect(x_clean, "pre treatment") ~ TRUE,
+    stringr::str_detect(x_clean, "^pre$") ~ TRUE,
+    stringr::str_detect(x_clean, "before treatment") ~ TRUE,
+    stringr::str_detect(x_clean, "on treatment") ~ FALSE,
+    stringr::str_detect(x_clean, "on.?tx") ~ FALSE,
+    stringr::str_detect(x_clean, "post") ~ FALSE,
+    TRUE ~ NA
+  )
+}
+```
+
+---
+
+# 10. Construcción de metadatos clínicos
+
+```{r}
+metadata_clean <- metadata_geo
+
+metadata_clean$sample_id <- trimws(as.character(metadata_clean[[sample_id_col]]))
+metadata_clean$patient_id <- trimws(as.character(metadata_clean[[patient_id_col]]))
+
+metadata_clean$response_raw <- metadata_clean[[response_col]]
+metadata_clean$response_binary <- make_response_binary(metadata_clean$response_raw)
+
+metadata_clean$is_baseline <- is_baseline_sample(metadata_clean[[baseline_col]])
+
+metadata_clean$dataset <- "GSE91061"
+metadata_clean$tissue <- "Tumor"
+metadata_clean$platform <- "RNA-seq"
+
+metadata_clean
+```
+
+---
+
+# 11. Comprobación de variables clínicas
+
+```{r}
+table(metadata_clean$response_raw, useNA = "ifany")
+table(metadata_clean$response_binary, useNA = "ifany")
+table(metadata_clean$is_baseline, useNA = "ifany")
+```
+
+---
+
+# 12. Filtrado a muestras pretratamiento
+
+```{r}
+metadata_clean <- metadata_clean %>%
+  dplyr::filter(is_baseline %in% TRUE)
+
+metadata_clean
+nrow(metadata_clean)
+```
+
+---
+
+# 13. Alineamiento entre expresión y metadatos
+
+```{r}
+expr_ids <- trimws(colnames(expr_matrix_raw))
+meta_ids <- trimws(metadata_clean$sample_id)
+
+overlap_n <- length(intersect(expr_ids, meta_ids))
+overlap_n
+```
+
+```{r}
+common_samples <- intersect(expr_ids, meta_ids)
+
+if (length(common_samples) == 0) {
+  stop("No hay muestras comunes entre la matriz RLD y los metadatos clínicos.")
+}
+
+expr_matrix_raw <- expr_matrix_raw[, common_samples, drop = FALSE]
+metadata_clean <- metadata_clean %>%
+  dplyr::filter(sample_id %in% common_samples)
+
+rownames(metadata_clean) <- metadata_clean$sample_id
+metadata_clean <- metadata_clean[common_samples, , drop = FALSE]
+
+dim(expr_matrix_raw)
+metadata_clean
+```
+
+---
+
+# 14. Conversión de gene_id a gene symbol
+
+En esta cohorte, las filas de la matriz están en `gene_id` de tipo Entrez / knownGene.  
+Para facilitar la integración con otras cohortes, se convierten a **símbolos génicos oficiales**.
+
+```{r}
+gene_ids <- rownames(expr_matrix_raw)
+
+gene_map <- AnnotationDbi::select(
+  org.Hs.eg.db,
+  keys = unique(gene_ids),
+  columns = c("SYMBOL"),
+  keytype = "ENTREZID"
+)
+
+gene_map <- gene_map %>%
+  dplyr::distinct(ENTREZID, .keep_all = TRUE) %>%
+  dplyr::rename(gene_id = ENTREZID, gene_symbol = SYMBOL)
+
+head(gene_map)
+dim(gene_map)
+```
+
+---
+
+# 15. Construcción de anotación génica
+
+```{r}
+gene_annotation_full <- data.frame(
+  gene_id = gene_ids,
+  stringsAsFactors = FALSE
+) %>%
+  dplyr::left_join(gene_map, by = "gene_id")
+
+rownames(gene_annotation_full) <- gene_ids
+
+head(gene_annotation_full)
+```
+
+Resumen de anotación:
+
+```{r}
+annotation_summary <- tibble::tibble(
+  n_total = nrow(gene_annotation_full),
+  n_gene_symbol_no_na = sum(!is.na(gene_annotation_full$gene_symbol)),
+  n_gene_symbol_na = sum(is.na(gene_annotation_full$gene_symbol)),
+  n_gene_symbol_unique = length(unique(na.omit(gene_annotation_full$gene_symbol)))
+)
+
+annotation_summary
+```
+
+---
+
+# 16. Filtrado a genes con símbolo y colapso de duplicados
+
+Al convertir de `gene_id` a `gene_symbol`, puede ocurrir que:
+
+1. algunos genes no tengan símbolo asignado,
+2. varios `gene_id` se correspondan con el mismo símbolo.
+
+Para obtener una matriz final apta para integración, se:
+
+1. eliminan genes sin símbolo,
+2. y se colapsan duplicados por **media** de expresión.
+
+```{r}
+keep_symbol <- !is.na(gene_annotation_full$gene_symbol) & gene_annotation_full$gene_symbol != ""
+
+expr_symbol <- expr_matrix_raw[keep_symbol, , drop = FALSE]
+gene_annotation_symbol <- gene_annotation_full[keep_symbol, , drop = FALSE]
+
+dim(expr_symbol)
+head(gene_annotation_symbol)
+```
+
+```{r}
+symbol_vector <- gene_annotation_symbol$gene_symbol
+
+expr_sum <- rowsum(expr_symbol, group = symbol_vector, reorder = FALSE)
+symbol_counts <- table(symbol_vector)
+expr_matrix <- expr_sum / as.numeric(symbol_counts[rownames(expr_sum)])
+
+expr_matrix <- as.matrix(expr_matrix)
+
+dim(expr_matrix)
+rownames(expr_matrix)[1:20]
+```
+
+---
+
+# 17. Anotación final de genes
+
+La anotación final queda ya en `gene_symbol`, manteniendo además cuántos identificadores originales se colapsaron en cada símbolo.
+
+```{r}
+gene_annotation <- data.frame(
+  gene_symbol = rownames(expr_matrix),
+  n_collapsed_ids = as.integer(symbol_counts[rownames(expr_matrix)]),
+  stringsAsFactors = FALSE
+)
+
+rownames(gene_annotation) <- rownames(expr_matrix)
+
+head(gene_annotation)
+```
+
+---
+
+# 18. Selección final de columnas clínicas
+
+```{r}
+metadata_clean <- metadata_clean %>%
+  dplyr::select(
+    sample_id,
+    patient_id,
+    response_raw,
+    response_binary,
+    is_baseline,
+    dataset,
+    tissue,
+    platform
+  )
+
+metadata_clean
+```
+
+---
+
+# 19. Verificación previa
+
+```{r}
+stopifnot(identical(colnames(expr_matrix), rownames(metadata_clean)))
+stopifnot(identical(rownames(expr_matrix), rownames(gene_annotation)))
+```
+
+---
+
+# 20. Construcción del SummarizedExperiment
+
+```{r}
+se_gse91061 <- SummarizedExperiment(
+  assays = list(expr = expr_matrix),
+  colData = S4Vectors::DataFrame(metadata_clean),
+  rowData = S4Vectors::DataFrame(gene_annotation)
+)
+
+se_gse91061
+```
+
+---
+
+# 21. Metadatos del preprocesamiento
+
+```{r}
+metadata(se_gse91061)$dataset <- "GSE91061"
+metadata(se_gse91061)$description <- "Melanoma RNA-seq cohort with gene symbols derived from Entrez IDs"
+metadata(se_gse91061)$expression_units <- "RLD"
+metadata(se_gse91061)$sample_id_column <- sample_id_col
+metadata(se_gse91061)$response_column <- response_col
+metadata(se_gse91061)$baseline_column <- baseline_col
+metadata(se_gse91061)$gene_identifier_original <- "ENTREZID"
+metadata(se_gse91061)$gene_identifier_final <- "gene_symbol"
+metadata(se_gse91061)$gene_symbol_conversion <- "Mapped with org.Hs.eg.db; duplicated symbols collapsed by mean"
+metadata(se_gse91061)$date_created <- Sys.Date()
+```
+
+---
+
+# 22. Guardado del objeto final
+
+```{r}
+se_output_file <- file.path(se_dir, "se_gse91061.rds")
+saveRDS(se_gse91061, se_output_file)
+
+se_output_file
+```
+
+---
+
+# 23. Checklist específica de GSE91061
+
+```{r}
+checklist_gse91061 <- tibble::tibble(
+  paso = c(
+    "Metadatos descargados",
+    "Archivos suplementarios descargados",
+    "Matriz RLD cargada",
+    "Respuesta identificada",
+    "Baseline identificado",
+    "Muestras baseline filtradas",
+    "Conversión a gene symbol realizada",
+    "Duplicados colapsados",
+    "SummarizedExperiment construido",
+    "Objeto guardado en carpeta final"
+  ),
+  estado = c(
+    "Sí",
+    "Sí",
+    "Sí",
+    ifelse("response_raw" %in% colnames(metadata_clean), "Sí", "No"),
+    ifelse("is_baseline" %in% colnames(metadata_clean), "Sí", "No"),
+    ifelse(nrow(metadata_clean) > 0, "Sí", "No"),
+    ifelse("gene_symbol" %in% colnames(gene_annotation), "Sí", "No"),
+    "Sí",
+    ifelse(exists("se_gse91061"), "Sí", "No"),
+    ifelse(file.exists(se_output_file), "Sí", "No")
+  )
+)
+
+checklist_gse91061
+```
+
+---
+
+# 24. Conclusión
+
+Con esta versión del documento se reconstruye el `SummarizedExperiment` de **GSE91061** manteniendo la parte clínica ya validada, pero corrigiendo la anotación transcriptómica para que la matriz final quede en **gene symbol**.
+
+Esto mejora de forma directa la compatibilidad de `GSE91061` con:
+
+- `GSE78220`,
+- `GSE215868`,
+- `GSE211645`,
+
+y permite repetir después la integración multi-cohorte con una anotación génica más homogénea.

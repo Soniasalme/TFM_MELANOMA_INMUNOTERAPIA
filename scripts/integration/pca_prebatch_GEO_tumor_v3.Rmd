@@ -1,0 +1,456 @@
+---
+title: "PCA pre-batch del bloque tumoral GEO"
+author: "TFM Melanoma Inmunoterapia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    theme: readable
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 6
+)
+```
+
+# Objetivo
+
+Este documento realiza una exploración mediante **PCA pre-batch** del bloque tumoral de cohortes GEO integrado previamente.
+
+El objetivo es visualizar la estructura global de los datos antes de aplicar cualquier corrección de batch effect, coloreando las muestras por:
+
+- cohorte / dataset GEO,
+- plataforma,
+- respuesta binaria a inmunoterapia,
+- y, si está disponible, tratamiento.
+
+Este análisis permite evaluar si la principal fuente de variación está asociada a diferencias técnicas o de cohorte antes de realizar análisis posteriores como corrección de batch, análisis diferencial o modelos predictivos.
+
+## Ficha del informe
+
+| Elemento | Detalle |
+|---|---|
+| Entrada | `integrated_dataset/se_integrated_geo_tumor.rds` |
+| Salida | Scores PCA, varianza explicada y objeto `prcomp` en `resultados/pca_prebatch/` |
+| Decision metodologica | Explorar la estructura de los datos antes de cualquier correccion |
+| Visualizaciones clave | PCA por dataset, plataforma, respuesta binaria y tratamiento si existe |
+| Uso posterior | Justificar la correccion de batch y comparar con el PCA post-batch |
+
+# Librerías
+
+```{r librerias}
+required_packages <- c(
+  "SummarizedExperiment",
+  "dplyr",
+  "ggplot2",
+  "tibble",
+  "knitr",
+  "here"
+)
+
+missing_packages <- required_packages[!required_packages %in% rownames(installed.packages())]
+
+if (length(missing_packages) > 0) {
+  stop(
+    "Faltan paquetes necesarios: ",
+    paste(missing_packages, collapse = ", "),
+    "\nInstálalos antes de compilar este documento."
+  )
+}
+
+library(SummarizedExperiment)
+library(dplyr)
+library(ggplot2)
+library(tibble)
+library(knitr)
+library(here)
+```
+
+# Localización del objeto tumoral
+
+Este Rmd intenta localizar automáticamente el objeto tumoral generado en la reconstrucción previa.  
+Si tu archivo tiene otro nombre o está en otra carpeta, modifica manualmente `candidate_paths`.
+
+```{r localizar_objeto_tumor}
+# Nombre esperado según el Rmd de reconstrucción v4:
+# integrated_dataset/se_integrated_geo_tumor.rds
+
+object_filename <- "se_integrated_geo_tumor.rds"
+
+possible_roots <- unique(normalizePath(c(
+  getwd(),
+  file.path(getwd(), ".."),
+  file.path(getwd(), "..", ".."),
+  here::here(),
+  "C:/Users/sonia/Desktop/2_TFM_MELANOMA"
+), winslash = "/", mustWork = FALSE))
+
+candidate_paths <- unique(c(
+  file.path(possible_roots, "integrated_dataset", object_filename),
+  file.path(possible_roots, "data", "processed", object_filename),
+  file.path(possible_roots, "results", object_filename),
+  file.path(possible_roots, "objects", object_filename),
+  file.path(possible_roots, object_filename),
+  object_filename
+))
+
+existing_paths <- candidate_paths[file.exists(candidate_paths)]
+
+if (length(existing_paths) == 0) {
+  recursive_hits <- unlist(lapply(possible_roots, function(root) {
+    if (dir.exists(root)) {
+      list.files(
+        path = root,
+        pattern = paste0("^", object_filename, "$"),
+        recursive = TRUE,
+        full.names = TRUE
+      )
+    } else {
+      character(0)
+    }
+  }))
+  existing_paths <- unique(recursive_hits[file.exists(recursive_hits)])
+}
+
+if (length(existing_paths) == 0) {
+  diagnostic <- tibble::tibble(
+    ruta_candidata = candidate_paths,
+    existe = file.exists(candidate_paths)
+  )
+  print(diagnostic)
+  stop(
+    "No se ha encontrado el objeto tumoral .rds.\n",
+    "El archivo esperado es: integrated_dataset/se_integrated_geo_tumor.rds\n",
+    "Comprueba que el Rmd anterior generó ese archivo o actualiza candidate_paths."
+  )
+}
+
+tumor_rds_path <- normalizePath(existing_paths[1], winslash = "/", mustWork = TRUE)
+project_root <- normalizePath(file.path(dirname(tumor_rds_path), ".."), winslash = "/", mustWork = FALSE)
+tumor_rds_path
+project_root
+```
+
+# Carga del objeto tumoral
+
+```{r cargar_objeto_tumor}
+se_tumor <- readRDS(tumor_rds_path)
+
+se_tumor
+```
+
+# Validaciones iniciales
+
+```{r validaciones_iniciales}
+stopifnot(inherits(se_tumor, "SummarizedExperiment"))
+
+assay_names <- assayNames(se_tumor)
+assay_names
+
+if ("expr" %in% assay_names) {
+  assay_to_use <- "expr"
+} else {
+  assay_to_use <- assay_names[1]
+  warning("No existe un assay llamado 'expr'. Se utilizará el primer assay disponible: ", assay_to_use)
+}
+
+expr <- assay(se_tumor, assay_to_use)
+coldata <- as.data.frame(colData(se_tumor))
+
+cat("Assay utilizado:", assay_to_use, "\n")
+cat("Número de genes:", nrow(expr), "\n")
+cat("Número de muestras:", ncol(expr), "\n")
+cat("Número de filas en colData:", nrow(coldata), "\n")
+
+stopifnot(ncol(expr) == nrow(coldata))
+
+if (!identical(colnames(expr), rownames(coldata))) {
+  warning("colnames(expr) y rownames(colData) no son idénticos. Se forzará sample_id a partir de colnames(expr).")
+  rownames(coldata) <- colnames(expr)
+}
+
+stopifnot(identical(colnames(expr), rownames(coldata)))
+```
+
+# Resumen del bloque tumoral
+
+```{r resumen_bloque_tumoral}
+summary_table <- tibble(
+  elemento = c("Genes", "Muestras", "Assay utilizado", "Variables clínicas"),
+  valor = c(nrow(expr), ncol(expr), assay_to_use, ncol(coldata))
+)
+
+kable(summary_table, caption = "Resumen general del objeto tumoral")
+```
+
+## Variables clínicas disponibles
+
+```{r variables_clinicas}
+clinical_vars <- tibble(
+  variable = colnames(coldata),
+  n_no_na = sapply(coldata, function(x) sum(!is.na(x))),
+  n_unique = sapply(coldata, function(x) length(unique(na.omit(x))))
+)
+
+kable(clinical_vars, caption = "Variables clínicas disponibles en colData")
+```
+
+# Distribución de muestras
+
+## Por dataset
+
+```{r distribucion_dataset}
+if ("dataset" %in% colnames(coldata)) {
+  tab_dataset <- as.data.frame(table(coldata$dataset, useNA = "ifany"))
+  colnames(tab_dataset) <- c("dataset", "n_muestras")
+  kable(tab_dataset, caption = "Distribución de muestras por dataset")
+} else {
+  cat("No existe la variable 'dataset' en colData.\n")
+}
+```
+
+## Por plataforma
+
+```{r distribucion_platform}
+if ("platform" %in% colnames(coldata)) {
+  tab_platform <- as.data.frame(table(coldata$platform, useNA = "ifany"))
+  colnames(tab_platform) <- c("platform", "n_muestras")
+  kable(tab_platform, caption = "Distribución de muestras por plataforma")
+} else {
+  cat("No existe la variable 'platform' en colData.\n")
+}
+```
+
+## Por respuesta binaria
+
+```{r distribucion_response_binary}
+if ("response_binary" %in% colnames(coldata)) {
+  tab_response <- as.data.frame(table(coldata$response_binary, useNA = "ifany"))
+  colnames(tab_response) <- c("response_binary", "n_muestras")
+  kable(tab_response, caption = "Distribución de muestras por respuesta binaria")
+} else {
+  cat("No existe la variable 'response_binary' en colData.\n")
+}
+```
+
+## Balance respuesta por dataset
+
+```{r balance_response_dataset}
+if (all(c("dataset", "response_binary") %in% colnames(coldata))) {
+  tab_response_dataset <- as.data.frame(table(
+    dataset = coldata$dataset,
+    response_binary = coldata$response_binary,
+    useNA = "ifany"
+  ))
+  kable(tab_response_dataset, caption = "Balance de respuesta binaria por dataset")
+} else {
+  cat("No están disponibles simultáneamente 'dataset' y 'response_binary'.\n")
+}
+```
+
+# Preparación de la matriz para PCA
+
+El PCA se calcula sobre las muestras, por lo que se transpone la matriz de expresión para que las filas sean muestras y las columnas genes.
+
+Además, se filtran genes con varianza cero y, de forma opcional, se elimina el 25% de genes con menor varianza para reducir ruido.
+
+```{r preparar_matriz_pca}
+expr_mat <- as.matrix(expr)
+
+# Comprobar valores no finitos
+n_non_finite <- sum(!is.finite(expr_mat))
+cat("Valores no finitos en la matriz de expresión:", n_non_finite, "\n")
+
+if (n_non_finite > 0) {
+  stop("La matriz de expresión contiene valores no finitos. Revisa NA, Inf o -Inf antes del PCA.")
+}
+
+# Genes con varianza > 0
+gene_variance <- apply(expr_mat, 1, var, na.rm = TRUE)
+summary(gene_variance)
+
+expr_var <- expr_mat[gene_variance > 0, , drop = FALSE]
+cat("Genes retenidos tras eliminar varianza cero:", nrow(expr_var), "\n")
+
+# Filtro suave por varianza: conservar el 75% más variable
+variance_cutoff <- quantile(gene_variance[gene_variance > 0], probs = 0.25, na.rm = TRUE)
+expr_var_filtered <- expr_mat[gene_variance > variance_cutoff, , drop = FALSE]
+cat("Genes retenidos tras filtro de varianza 25%:", nrow(expr_var_filtered), "\n")
+
+# Matriz final: muestras x genes
+expr_pca <- t(expr_var_filtered)
+
+stopifnot(nrow(expr_pca) == nrow(coldata))
+```
+
+# Cálculo del PCA pre-batch
+
+```{r calcular_pca}
+pca <- prcomp(expr_pca, center = TRUE, scale. = TRUE)
+
+var_exp <- (pca$sdev^2 / sum(pca$sdev^2)) * 100
+
+pca_df <- as.data.frame(pca$x[, 1:5, drop = FALSE]) %>%
+  rownames_to_column("sample_id_pca")
+
+meta_df <- coldata %>%
+  rownames_to_column("sample_id_pca")
+
+pca_df <- left_join(pca_df, meta_df, by = "sample_id_pca")
+
+head(pca_df)
+```
+
+## Varianza explicada
+
+```{r varianza_explicada}
+variance_table <- tibble(
+  componente = paste0("PC", seq_along(var_exp)),
+  varianza_explicada_pct = round(var_exp, 2),
+  varianza_acumulada_pct = round(cumsum(var_exp), 2)
+) %>%
+  slice(1:10)
+
+kable(variance_table, caption = "Porcentaje de varianza explicada por los primeros componentes principales")
+```
+
+# Función auxiliar de PCA
+
+```{r funcion_plot_pca}
+plot_pca <- function(data, color_var, title_suffix) {
+  if (!color_var %in% colnames(data)) {
+    message("No existe la variable ", color_var, ". Se omite este gráfico.")
+    return(NULL)
+  }
+
+  ggplot(data, aes(x = PC1, y = PC2, color = .data[[color_var]])) +
+    geom_point(size = 3, alpha = 0.85) +
+    labs(
+      title = paste("PCA pre-batch tumoral -", title_suffix),
+      x = paste0("PC1 (", round(var_exp[1], 1), "%)"),
+      y = paste0("PC2 (", round(var_exp[2], 1), "%)"),
+      color = color_var
+    ) +
+    theme_minimal(base_size = 13) +
+    theme(
+      plot.title = element_text(face = "bold"),
+      legend.position = "right"
+    )
+}
+```
+
+# PCA coloreado por dataset
+
+```{r pca_dataset, fig.cap="PCA pre-batch del bloque tumoral coloreado por dataset GEO."}
+plot_pca(pca_df, "dataset", "coloreado por dataset")
+```
+
+# PCA coloreado por plataforma
+
+```{r pca_platform, fig.cap="PCA pre-batch del bloque tumoral coloreado por plataforma."}
+plot_pca(pca_df, "platform", "coloreado por plataforma")
+```
+
+# PCA coloreado por respuesta binaria
+
+```{r pca_response_binary, fig.cap="PCA pre-batch del bloque tumoral coloreado por respuesta binaria."}
+plot_pca(pca_df, "response_binary", "coloreado por respuesta binaria")
+```
+
+# PCA coloreado por tratamiento, si está disponible
+
+```{r pca_treatment, fig.cap="PCA pre-batch del bloque tumoral coloreado por tratamiento, si la variable está disponible."}
+possible_treatment_vars <- c("treatment", "therapy", "treatment_type", "ici_type", "drug", "regimen")
+existing_treatment_vars <- possible_treatment_vars[possible_treatment_vars %in% colnames(pca_df)]
+
+if (length(existing_treatment_vars) > 0) {
+  treatment_var <- existing_treatment_vars[1]
+  plot_pca(pca_df, treatment_var, paste("coloreado por", treatment_var))
+} else {
+  cat("No se ha encontrado una variable clara de tratamiento entre:",
+      paste(possible_treatment_vars, collapse = ", "), "\n")
+}
+```
+
+# PCA PC1 vs PC3
+
+```{r pca_pc1_pc3_dataset, fig.cap="PCA pre-batch PC1 vs PC3 coloreado por dataset."}
+if ("dataset" %in% colnames(pca_df)) {
+  ggplot(pca_df, aes(x = PC1, y = PC3, color = dataset)) +
+    geom_point(size = 3, alpha = 0.85) +
+    labs(
+      title = "PCA pre-batch tumoral - PC1 vs PC3 por dataset",
+      x = paste0("PC1 (", round(var_exp[1], 1), "%)"),
+      y = paste0("PC3 (", round(var_exp[3], 1), "%)"),
+      color = "dataset"
+    ) +
+    theme_minimal(base_size = 13) +
+    theme(plot.title = element_text(face = "bold"))
+} else {
+  cat("No existe la variable 'dataset'.\n")
+}
+```
+
+# Guardado de resultados del PCA
+
+```{r guardar_resultados_pca}
+output_dir <- file.path(project_root, "resultados", "pca_prebatch")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+pca_scores_path <- file.path(output_dir, "pca_prebatch_tumor_scores.csv")
+variance_path <- file.path(output_dir, "pca_prebatch_tumor_variance_explained.csv")
+pca_object_path <- file.path(output_dir, "pca_prebatch_tumor_prcomp.rds")
+
+write.csv(pca_df, pca_scores_path, row.names = FALSE)
+write.csv(variance_table, variance_path, row.names = FALSE)
+saveRDS(pca, pca_object_path)
+
+cat("Scores PCA guardados en:", pca_scores_path, "\n")
+cat("Varianza explicada guardada en:", variance_path, "\n")
+cat("Objeto prcomp guardado en:", pca_object_path, "\n")
+```
+
+# Checklist final
+
+```{r checklist_final}
+checklist <- tibble(
+  comprobacion = c(
+    "Objeto cargado como SummarizedExperiment",
+    "Assay seleccionado correctamente",
+    "Número de muestras en expr coincide con colData",
+    "Nombres de muestras alineados",
+    "Genes con varianza cero eliminados",
+    "PCA calculado correctamente",
+    "Resultados PCA guardados"
+  ),
+  estado = c(
+    inherits(se_tumor, "SummarizedExperiment"),
+    assay_to_use %in% assayNames(se_tumor),
+    ncol(expr) == nrow(coldata),
+    identical(colnames(expr), rownames(coldata)),
+    nrow(expr_var) <= nrow(expr_mat),
+    exists("pca") && inherits(pca, "prcomp"),
+    file.exists(pca_scores_path) && file.exists(variance_path) && file.exists(pca_object_path)
+  )
+)
+
+kable(checklist, caption = "Checklist final del análisis PCA pre-batch")
+```
+
+# Conclusión metodológica
+
+Este documento genera el PCA pre-batch del bloque tumoral de GEO antes de aplicar cualquier corrección de batch effect.
+
+La interpretación esperada es la siguiente:
+
+- Si las muestras se agrupan principalmente por `dataset` o `platform`, esto sugiere la presencia de batch effect asociado a cohorte o tecnología.
+- Si la separación por `response_binary` es menor que la separación por cohorte/plataforma, esto refuerza la necesidad de corregir o ajustar por batch antes de análisis diferencial o modelos predictivos.
+- Este análisis justifica metodológicamente el siguiente paso: aplicar una estrategia de corrección de batch effect y comparar el PCA antes y después de dicha corrección.

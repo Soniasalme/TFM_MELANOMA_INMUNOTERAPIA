@@ -1,0 +1,340 @@
+---
+title: "Exploración inicial de GSE91061"
+author: "TFM Melanoma Inmunoterapia"
+output: html_document
+---
+
+# 1. Objetivo del documento
+
+El objetivo de este documento es realizar una **exploración inicial del dataset GSE91061** para identificar la información necesaria antes de construir el `SummarizedExperiment`.
+
+Este paso previo permite:
+
+- comprobar el tipo de objeto descargado,
+- verificar si el `ExpressionSet` contiene o no una matriz de expresión utilizable,
+- localizar los archivos suplementarios del estudio,
+- decidir qué matriz de expresión utilizar,
+- revisar los metadatos clínicos,
+- identificar la variable de respuesta,
+- comprobar si existe una variable de baseline o pretratamiento,
+- detectar el identificador de muestra correcto,
+- y cerrar el diseño metodológico del dataset.
+
+Este documento actúa como una **fase de caracterización del dataset**, previa a la plantilla automatizada final.
+
+---
+
+# 2. Librerías necesarias
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+pkgs <- c("GEOquery", "readr", "dplyr", "stringr", "tibble")
+
+for (p in pkgs) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    if (p == "GEOquery") {
+      BiocManager::install(p, ask = FALSE, update = FALSE)
+    } else {
+      install.packages(p)
+    }
+  }
+}
+
+library(GEOquery)
+library(readr)
+library(dplyr)
+library(stringr)
+library(tibble)
+```
+
+---
+
+# 3. Definición automática de rutas del proyecto
+
+Este documento está pensado para ejecutarse desde la carpeta:
+
+`TFM/scripts/GEO/GSE91061/`
+
+Se definen automáticamente las rutas del proyecto para dejar trazabilidad de la exploración.
+
+```{r}
+project_root <- normalizePath(file.path("..", "..", ".."), winslash = "/", mustWork = FALSE)
+
+raw_base_dir <- file.path(project_root, "GEO_raw")
+raw_dataset_dir <- file.path(raw_base_dir, "GSE91061")
+
+dir.create(raw_base_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(raw_dataset_dir, recursive = TRUE, showWarnings = FALSE)
+
+project_root
+raw_base_dir
+raw_dataset_dir
+```
+
+---
+
+# 4. Descarga del dataset desde GEO
+
+```{r}
+gse <- getGEO("GSE91061", GSEMatrix = TRUE)
+
+length(gse)
+gse
+```
+
+---
+
+# 5. Selección del objeto ExpressionSet
+
+```{r}
+gse91061_eset <- gse[[1]]
+
+class(gse91061_eset)
+dim(gse91061_eset)
+annotation(gse91061_eset)
+```
+
+---
+
+# 6. Inspección de la matriz de expresión contenida en GEO
+
+En esta cohorte, el `ExpressionSet` puede no contener una matriz de expresión utilizable para el análisis principal.
+
+```{r}
+expr_eset <- Biobase::exprs(gse91061_eset)
+
+dim(expr_eset)
+
+if (nrow(expr_eset) > 0 && ncol(expr_eset) > 0) {
+  expr_eset[1:min(5, nrow(expr_eset)), 1:min(5, ncol(expr_eset))]
+}
+```
+
+---
+
+# 7. Inspección de metadatos clínicos
+
+## 7.1. Nombres de columnas disponibles
+
+```{r}
+metadata_gse91061 <- Biobase::pData(gse91061_eset)
+
+colnames(metadata_gse91061)
+```
+
+## 7.2. Búsqueda sistemática de columnas candidatas
+
+```{r}
+candidate_cols <- colnames(metadata_gse91061)
+
+candidate_response <- candidate_cols[grep("response|respond|clinical|benefit|responder", candidate_cols, ignore.case = TRUE)]
+candidate_baseline <- candidate_cols[grep("biopsy|time|baseline|pre|treat|visit", candidate_cols, ignore.case = TRUE)]
+candidate_id <- candidate_cols[grep("geo_accession|title|source|sample|patient|id|biospecimen|library", candidate_cols, ignore.case = TRUE)]
+
+candidate_response
+candidate_baseline
+candidate_id
+```
+
+---
+
+# 8. Exploración detallada de columnas clínicas clave
+
+```{r}
+candidate_id_cols <- colnames(metadata_gse91061)[
+  grepl("geo_accession|title|source|sample|patient|id|biospecimen|library",
+        colnames(metadata_gse91061), ignore.case = TRUE)
+]
+
+for (cc in candidate_id_cols) {
+  cat("\n==============================\n")
+  cat("Columna:", cc, "\n")
+  print(head(metadata_gse91061[[cc]], 10))
+}
+```
+
+---
+
+# 9. Descarga o localización de archivos suplementarios
+
+En esta cohorte, la matriz principal de expresión se encuentra en archivos suplementarios.
+
+```{r}
+try({
+  GEOquery::getGEOSuppFiles("GSE91061", baseDir = raw_base_dir)
+}, silent = TRUE)
+
+list.files(raw_dataset_dir, recursive = TRUE)
+```
+
+---
+
+# 10. Identificación de matrices suplementarias disponibles
+
+```{r}
+expr_files <- list.files(raw_dataset_dir, recursive = TRUE, full.names = TRUE)
+
+expr_files
+```
+
+---
+
+# 11. Selección exploratoria del archivo RLD
+
+El archivo `rld.csv.gz` suele ser el más apropiado para análisis exploratorios y para integración inicial.
+
+```{r}
+rld_file <- list.files(
+  raw_dataset_dir,
+  pattern = "rld\\.csv\\.gz$",
+  full.names = TRUE,
+  recursive = TRUE
+)
+
+rld_file
+```
+
+---
+
+# 12. Carga exploratoria de la matriz RLD
+
+```{r}
+if (length(rld_file) > 0) {
+  expr_raw <- readr::read_csv(rld_file[1], show_col_types = FALSE)
+
+  dim(expr_raw)
+  colnames(expr_raw)[1:10]
+
+  expr_matrix_test <- as.data.frame(expr_raw)
+  rownames(expr_matrix_test) <- expr_matrix_test[[1]]
+  expr_matrix_test <- expr_matrix_test[, -1, drop = FALSE]
+  expr_matrix_test <- as.matrix(expr_matrix_test)
+
+  dim(expr_matrix_test)
+  colnames(expr_matrix_test)[1:20]
+}
+```
+
+---
+
+# 13. Comprobación del identificador de muestra
+
+Se evalúa qué columna de metadatos presenta mayor solapamiento con los nombres de muestra de la matriz RLD.
+
+```{r}
+if (exists("expr_matrix_test")) {
+  expr_ids <- trimws(colnames(expr_matrix_test))
+
+  overlap_table <- lapply(candidate_id_cols, function(cc) {
+    vals <- trimws(as.character(metadata_gse91061[[cc]]))
+    data.frame(
+      column = cc,
+      overlap = length(intersect(expr_ids, vals)),
+      stringsAsFactors = FALSE
+    )
+  }) %>%
+    bind_rows() %>%
+    arrange(desc(overlap))
+
+  overlap_table
+}
+```
+
+---
+
+# 14. Exploración específica de respuesta y baseline
+
+```{r}
+cols_to_explore <- unique(c(
+  "title",
+  "geo_accession",
+  "response:ch1",
+  "visit (pre or on treatment):ch1"
+))
+
+cols_to_explore <- cols_to_explore[cols_to_explore %in% colnames(metadata_gse91061)]
+
+for (cc in cols_to_explore) {
+  cat("\n==============================\n")
+  cat("Columna:", cc, "\n")
+  print(table(metadata_gse91061[[cc]], useNA = "ifany"))
+}
+```
+
+---
+
+# 15. Interpretación preliminar de la respuesta
+
+```{r}
+make_response_binary <- function(x) {
+  x_clean <- stringr::str_to_upper(trimws(as.character(x)))
+
+  dplyr::case_when(
+    x_clean %in% c("CR", "PR", "COMPLETE RESPONSE", "PARTIAL RESPONSE", "R", "RESPONSE", "RESPONDER", "YES", "BENEFIT") ~ "Responder",
+    x_clean %in% c("SD", "PD", "STABLE DISEASE", "PROGRESSIVE DISEASE", "NR", "NON-RESPONSE", "NON RESPONDER", "NONRESPONDER", "NO RESPONSE", "NO", "NO BENEFIT") ~ "No_responder",
+    TRUE ~ NA_character_
+  )
+}
+
+if ("response:ch1" %in% colnames(metadata_gse91061)) {
+  metadata_gse91061$response_binary_test <- make_response_binary(metadata_gse91061$`response:ch1`)
+  table(metadata_gse91061$response_binary_test, useNA = "ifany")
+}
+```
+
+---
+
+# 16. Interpretación preliminar de baseline
+
+```{r}
+is_baseline_sample <- function(x) {
+  x_clean <- stringr::str_to_lower(trimws(as.character(x)))
+
+  dplyr::case_when(
+    stringr::str_detect(x_clean, "baseline") ~ TRUE,
+    stringr::str_detect(x_clean, "pretreatment") ~ TRUE,
+    stringr::str_detect(x_clean, "pre-treatment") ~ TRUE,
+    stringr::str_detect(x_clean, "pre treatment") ~ TRUE,
+    stringr::str_detect(x_clean, "^pre$") ~ TRUE,
+    stringr::str_detect(x_clean, "before treatment") ~ TRUE,
+    stringr::str_detect(x_clean, "on treatment") ~ FALSE,
+    stringr::str_detect(x_clean, "on.?tx") ~ FALSE,
+    stringr::str_detect(x_clean, "post") ~ FALSE,
+    TRUE ~ NA
+  )
+}
+
+if ("visit (pre or on treatment):ch1" %in% colnames(metadata_gse91061)) {
+  metadata_gse91061$is_baseline_test <- is_baseline_sample(metadata_gse91061$`visit (pre or on treatment):ch1`)
+  table(metadata_gse91061$is_baseline_test, useNA = "ifany")
+}
+```
+
+---
+
+# 17. Guardado de metadatos crudos de la exploración
+
+```{r}
+raw_metadata_file <- file.path(raw_dataset_dir, "GSE91061_metadata_raw.tsv")
+write.table(metadata_gse91061, raw_metadata_file, sep = "\t", quote = FALSE, row.names = TRUE)
+
+raw_metadata_file
+```
+
+---
+
+# 18. Conclusiones de la exploración inicial
+
+A partir de esta exploración, se puede cerrar el diseño preliminar del dataset:
+
+- El estudio devuelve **un único `ExpressionSet`**.
+- La matriz de expresión relevante **no se usa desde el `ExpressionSet`**, sino desde archivos suplementarios.
+- Entre las matrices suplementarias, el archivo **`rld.csv.gz`** es el más adecuado para exploración e integración inicial.
+- El identificador de muestra correcto es **`title`**, ya que es la columna con mayor solapamiento con los nombres de muestra de la matriz.
+- La variable principal de respuesta adecuada es **`response:ch1`**.
+- La variable que permite distinguir muestras pretratamiento es **`visit (pre or on treatment):ch1`**.
+- El análisis predictivo debe restringirse a las muestras **pretratamiento**.
+
+Esto justifica la construcción posterior de una plantilla automatizada específica para `GSE91061`.

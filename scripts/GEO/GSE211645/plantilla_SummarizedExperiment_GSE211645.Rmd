@@ -1,0 +1,412 @@
+---
+title: "Construcción de SummarizedExperiment – GSE211645"
+author: "TFM Melanoma Inmunoterapia"
+output: html_document
+---
+
+# 1. Objetivo de este documento
+
+El objetivo de este documento es construir un **contenedor ómico tipo SummarizedExperiment** para la cohorte **GSE211645**, integrando:
+
+- matriz de expresión génica,
+- metadatos clínicos de las muestras,
+- anotación de genes,
+- e información de preprocesamiento.
+
+En esta versión, las **columnas clínicas ya están cerradas** a partir de la exploración inicial del dataset.
+
+Además, el flujo queda automatizado para que:
+
+- los metadatos crudos se guarden en `GEO_raw/GSE211645/`,
+- el objeto final se guarde en `SummarizedExperiment_objects/`,
+- y el `.Rmd` / `.html` permanezcan en la carpeta del script.
+
+---
+
+# 2. Librerías necesarias
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+pkgs <- c(
+  "GEOquery",
+  "SummarizedExperiment",
+  "S4Vectors",
+  "dplyr",
+  "tibble",
+  "stringr"
+)
+
+for (p in pkgs) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    if (p %in% c("GEOquery", "SummarizedExperiment", "S4Vectors")) {
+      BiocManager::install(p, ask = FALSE, update = FALSE)
+    } else {
+      install.packages(p)
+    }
+  }
+}
+
+library(GEOquery)
+library(SummarizedExperiment)
+library(S4Vectors)
+library(dplyr)
+library(tibble)
+library(stringr)
+```
+
+---
+
+# 3. Definición automática de rutas del proyecto
+
+Este documento está pensado para ejecutarse desde la carpeta:
+
+`TFM/scripts/GEO/GSE211645/`
+
+```{r}
+project_root <- normalizePath(file.path("..", "..", ".."), winslash = "/", mustWork = FALSE)
+
+raw_base_dir <- file.path(project_root, "GEO_raw")
+raw_dataset_dir <- file.path(raw_base_dir, "GSE211645")
+se_dir <- file.path(project_root, "SummarizedExperiment_objects")
+
+dir.create(raw_base_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(raw_dataset_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(se_dir, recursive = TRUE, showWarnings = FALSE)
+
+project_root
+raw_base_dir
+raw_dataset_dir
+se_dir
+```
+
+---
+
+# 4. Descarga de GEO y extracción de componentes principales
+
+```{r}
+gse211645_list <- getGEO("GSE211645", GSEMatrix = TRUE)
+length(gse211645_list)
+
+gse211645_eset <- gse211645_list[[1]]
+
+expr_matrix <- Biobase::exprs(gse211645_eset)
+metadata_geo <- Biobase::pData(gse211645_eset)
+gene_info <- Biobase::fData(gse211645_eset)
+
+dim(expr_matrix)
+dim(metadata_geo)
+dim(gene_info)
+```
+
+---
+
+# 5. Guardado de metadatos crudos
+
+```{r}
+raw_metadata_file <- file.path(raw_dataset_dir, "GSE211645_metadata_raw.tsv")
+write.table(metadata_geo, raw_metadata_file, sep = "\t", quote = FALSE, row.names = TRUE)
+
+raw_metadata_file
+```
+
+---
+
+# 6. Inspección inicial de la cohorte
+
+```{r}
+colnames(metadata_geo)
+dim(expr_matrix)
+head(rownames(expr_matrix))
+head(colnames(expr_matrix))
+```
+
+---
+
+# 7. Definición de columnas clave
+
+A partir de la exploración inicial del dataset, se fijan como columnas correctas:
+
+- `geo_accession` como identificador de muestra,
+- `response to therapy:ch1` como variable principal de respuesta,
+- `treatment_protocol_ch1` como variable de tratamiento.
+
+En esta cohorte no se ha identificado una variable explícita de baseline/pretratamiento, por lo que inicialmente se conservan todas las muestras disponibles.
+
+```{r}
+sample_id_col <- "geo_accession"
+patient_id_col <- "geo_accession"
+response_col <- "response to therapy:ch1"
+treatment_col <- "treatment_protocol_ch1"
+
+benefit_col <- NA_character_
+baseline_col <- NA_character_
+os_days_col <- NA_character_
+os_index_col <- NA_character_
+pfs_days_col <- NA_character_
+pfs_index_col <- NA_character_
+prior_ckb_col <- NA_character_
+```
+
+---
+
+# 8. Funciones auxiliares
+
+## 8.1. Recodificación de respuesta binaria
+
+```{r}
+make_response_binary <- function(x) {
+  x_clean <- stringr::str_to_upper(trimws(as.character(x)))
+
+  dplyr::case_when(
+    x_clean %in% c("CR", "PR", "COMPLETE RESPONSE", "PARTIAL RESPONSE", "R", "RESPONSE", "RESPONDER", "YES", "BENEFIT") ~ "Responder",
+    x_clean %in% c("SD", "PD", "STABLE DISEASE", "PROGRESSIVE DISEASE", "NR", "NON-RESPONSE", "NON RESPONDER", "NONRESPONDER", "NO RESPONSE", "NO", "NO BENEFIT") ~ "No_responder",
+    TRUE ~ NA_character_
+  )
+}
+```
+
+## 8.2. Recodificación de beneficio clínico
+
+```{r}
+make_benefit_binary <- function(x) {
+  x_clean <- stringr::str_to_upper(trimws(as.character(x)))
+
+  dplyr::case_when(
+    x_clean == "YES" ~ "Yes",
+    x_clean == "NO" ~ "No",
+    TRUE ~ NA_character_
+  )
+}
+```
+
+## 8.3. Detección de baseline
+
+```{r}
+is_baseline_sample <- function(x) {
+  x_clean <- stringr::str_to_lower(trimws(as.character(x)))
+
+  dplyr::case_when(
+    stringr::str_detect(x_clean, "baseline") ~ TRUE,
+    stringr::str_detect(x_clean, "pretreatment") ~ TRUE,
+    stringr::str_detect(x_clean, "pre-treatment") ~ TRUE,
+    stringr::str_detect(x_clean, "pre treatment") ~ TRUE,
+    stringr::str_detect(x_clean, "^pre$") ~ TRUE,
+    stringr::str_detect(x_clean, "before treatment") ~ TRUE,
+    stringr::str_detect(x_clean, "on treatment") ~ FALSE,
+    stringr::str_detect(x_clean, "on.?tx") ~ FALSE,
+    stringr::str_detect(x_clean, "post") ~ FALSE,
+    TRUE ~ NA
+  )
+}
+```
+
+---
+
+# 9. Construcción de metadatos clínicos limpios
+
+```{r}
+metadata_clean <- metadata_geo
+
+metadata_clean$sample_id <- trimws(as.character(metadata_clean[[sample_id_col]]))
+metadata_clean$patient_id <- trimws(as.character(metadata_clean[[patient_id_col]]))
+
+metadata_clean$response_raw <- metadata_clean[[response_col]]
+metadata_clean$response_binary <- make_response_binary(metadata_clean$response_raw)
+
+metadata_clean$treatment <- metadata_clean[[treatment_col]]
+
+metadata_clean$dataset <- "GSE211645"
+metadata_clean$tissue <- "Tumor"
+metadata_clean$platform <- annotation(gse211645_eset)
+
+metadata_clean
+```
+
+---
+
+# 10. Comprobación de variables clínicas principales
+
+```{r}
+table(metadata_clean$response_raw, useNA = "ifany")
+table(metadata_clean$response_binary, useNA = "ifany")
+table(metadata_clean$treatment, useNA = "ifany")
+```
+
+---
+
+# 11. Alineamiento robusto entre expresión y metadatos
+
+```{r}
+colnames(expr_matrix) <- trimws(colnames(expr_matrix))
+metadata_clean$sample_id <- trimws(as.character(metadata_clean$sample_id))
+
+expr_only <- setdiff(colnames(expr_matrix), metadata_clean$sample_id)
+meta_only <- setdiff(metadata_clean$sample_id, colnames(expr_matrix))
+
+cat("Muestras solo en expresión:", length(expr_only), "\n")
+cat("Muestras solo en metadatos:", length(meta_only), "\n")
+
+if (length(expr_only) > 0) {
+  print(head(expr_only, 20))
+}
+
+if (length(meta_only) > 0) {
+  print(head(meta_only, 20))
+}
+
+common_samples <- intersect(colnames(expr_matrix), metadata_clean$sample_id)
+
+if (length(common_samples) == 0) {
+  stop("No hay muestras comunes entre la matriz de expresión y los metadatos.")
+}
+
+expr_matrix <- expr_matrix[, common_samples, drop = FALSE]
+metadata_clean <- metadata_clean %>%
+  filter(sample_id %in% common_samples)
+
+rownames(metadata_clean) <- metadata_clean$sample_id
+metadata_clean <- metadata_clean[common_samples, , drop = FALSE]
+
+dim(expr_matrix)
+metadata_clean
+```
+
+---
+
+# 12. Selección final de columnas clínicas
+
+```{r}
+metadata_clean <- metadata_clean %>%
+  select(
+    sample_id,
+    patient_id,
+    response_raw,
+    response_binary,
+    treatment,
+    dataset,
+    tissue,
+    platform
+  )
+
+metadata_clean
+```
+
+---
+
+# 13. Anotación mínima de genes
+
+Se utiliza la anotación disponible en el propio `ExpressionSet`.  
+Si no existe una columna específica de símbolo génico, se añade `gene_symbol` usando los `rownames`.
+
+```{r}
+gene_annotation <- as.data.frame(gene_info)
+
+if (!"gene_symbol" %in% colnames(gene_annotation)) {
+  gene_annotation$gene_symbol <- rownames(gene_annotation)
+}
+
+rownames(gene_annotation) <- rownames(expr_matrix)
+
+gene_annotation
+```
+
+---
+
+# 14. Verificación previa
+
+```{r}
+stopifnot(identical(colnames(expr_matrix), rownames(metadata_clean)))
+stopifnot(identical(rownames(expr_matrix), rownames(gene_annotation)))
+```
+
+---
+
+# 15. Construcción del SummarizedExperiment
+
+```{r}
+se_gse211645 <- SummarizedExperiment(
+  assays = list(expr = expr_matrix),
+  colData = S4Vectors::DataFrame(metadata_clean),
+  rowData = S4Vectors::DataFrame(gene_annotation)
+)
+
+se_gse211645
+```
+
+---
+
+# 16. Metadatos del preprocesamiento
+
+```{r}
+metadata(se_gse211645)$dataset <- "GSE211645"
+metadata(se_gse211645)$description <- "Melanoma ipilimumab cohort"
+metadata(se_gse211645)$expression_units <- "Expression extracted from GEO ExpressionSet"
+metadata(se_gse211645)$sample_id_column <- sample_id_col
+metadata(se_gse211645)$response_column <- response_col
+metadata(se_gse211645)$treatment_column <- treatment_col
+metadata(se_gse211645)$baseline_column <- baseline_col
+metadata(se_gse211645)$preprocessing <- "Expression extracted directly from GEO ExpressionSet; clinical variables curated from pData; no explicit baseline variable identified in exploratory analysis"
+metadata(se_gse211645)$date_created <- Sys.Date()
+```
+
+---
+
+# 17. Guardado del contenedor
+
+```{r}
+se_output_file <- file.path(se_dir, "se_gse211645.rds")
+saveRDS(se_gse211645, se_output_file)
+
+se_output_file
+```
+
+---
+
+# 18. Checklist específica de GSE211645
+
+```{r}
+checklist_gse211645 <- tibble::tibble(
+  paso = c(
+    "ExpressionSet descargado",
+    "Matriz de expresión extraída",
+    "Metadatos clínicos extraídos",
+    "sample_id definido",
+    "Respuesta definida",
+    "Tratamiento definido",
+    "Muestras alineadas",
+    "SummarizedExperiment construido",
+    "Objeto guardado en carpeta final"
+  ),
+  estado = c(
+    "Sí",
+    "Sí",
+    "Sí",
+    ifelse("sample_id" %in% colnames(metadata_clean), "Sí", "No"),
+    ifelse("response_raw" %in% colnames(metadata_clean), "Sí", "No"),
+    ifelse("treatment" %in% colnames(metadata_clean), "Sí", "No"),
+    ifelse(identical(colnames(expr_matrix), rownames(metadata_clean)), "Sí", "No"),
+    ifelse(exists("se_gse211645"), "Sí", "No"),
+    ifelse(file.exists(se_output_file), "Sí", "No")
+  )
+)
+
+checklist_gse211645
+```
+
+---
+
+# 19. Conclusión
+
+Con esta versión del documento se construye el `SummarizedExperiment` de **GSE211645** utilizando:
+
+- `geo_accession` como identificador de muestra,
+- `response to therapy:ch1` como variable principal de respuesta,
+- `treatment_protocol_ch1` como variable de tratamiento.
+
+Además, el flujo queda automatizado para que:
+
+- los metadatos crudos se guarden en `GEO_raw/GSE211645/`,
+- el objeto final se guarde en `SummarizedExperiment_objects/`,
+- y el script / html permanezcan en la carpeta del dataset.

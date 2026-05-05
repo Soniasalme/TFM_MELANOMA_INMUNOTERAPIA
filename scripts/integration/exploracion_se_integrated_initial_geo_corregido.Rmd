@@ -1,0 +1,121 @@
+---
+title: "Exploración del objeto integrado SummarizedExperiment"
+author: "TFM Melanoma Inmunoterapia"
+output: html_document
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+library(SummarizedExperiment)
+library(dplyr)
+library(ggplot2)
+```
+
+# Rutas del proyecto
+
+```{r}
+project_root <- normalizePath(file.path("..", ".."), winslash = "/", mustWork = FALSE)
+integrated_dir <- file.path(project_root, "integrated_dataset")
+
+integrated_dir
+```
+
+# Cargar objeto integrado
+
+```{r}
+se_integrated <- readRDS(file.path(integrated_dir, "se_integrated_initial_geo.rds"))
+se_integrated
+```
+
+# Dimensiones del objeto
+
+```{r}
+dim(se_integrated)
+```
+
+# Assays disponibles
+
+```{r}
+assayNames(se_integrated)
+```
+
+# Vista de la matriz de expresión
+
+```{r}
+expr <- assay(se_integrated)
+expr[1:5, 1:5]
+```
+
+# Información de genes (rowData)
+
+```{r}
+head(rowData(se_integrated))
+```
+
+# Información clínica (colData)
+
+```{r}
+colnames(colData(se_integrated))
+```
+
+# Resumen por cohortes GEO
+
+```{r}
+if("dataset" %in% colnames(colData(se_integrated))){
+  table(colData(se_integrated)$dataset)
+}
+```
+
+# Resumen por tipo de muestra
+
+```{r}
+if("tissue" %in% colnames(colData(se_integrated))){
+  table(colData(se_integrated)$tissue, useNA = "ifany")
+}
+```
+
+# Resumen por respuesta
+
+```{r}
+if("response_binary" %in% colnames(colData(se_integrated))){
+  table(colData(se_integrated)$response_binary, useNA = "ifany")
+}
+```
+
+# Resumen por respuesta cruda
+
+```{r}
+if("response_raw" %in% colnames(colData(se_integrated))){
+  table(colData(se_integrated)$response_raw, useNA = "ifany")
+}
+```
+
+# Resumen por plataforma
+
+```{r}
+if("platform" %in% colnames(colData(se_integrated))){
+  table(colData(se_integrated)$platform, useNA = "ifany")
+}
+```
+
+# Variables clínicas disponibles
+
+```{r}
+as.data.frame(colData(se_integrated)) %>% 
+  dplyr::select(where(~ !all(is.na(.)))) %>% 
+  colnames()
+```
+
+# Metadatos del objeto
+
+```{r}
+metadata(se_integrated)
+```
+
+# Checklist final
+
+```{r}
+cat("Genes:", nrow(se_integrated), "\n")
+cat("Muestras:", ncol(se_integrated), "\n")
+cat("Assays:", assayNames(se_integrated), "\n")
+cat("Variables clínicas:", ncol(colData(se_integrated)), "\n")
+```

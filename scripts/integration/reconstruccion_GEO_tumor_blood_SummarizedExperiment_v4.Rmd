@@ -1,0 +1,772 @@
+---
+title: "Reconstrucción de cohortes GEO por tejido: tumor y sangre"
+author: "TFM Melanoma Inmunoterapia"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    theme: readable
+---
+
+# 1. Objetivo
+
+Este documento reconstruye la integración GEO separando las cohortes según el tipo de muestra:
+
+- **Análisis principal**: cohortes de **tumor** (`GSE78220`, `GSE215868`, `GSE211645`).
+- **Análisis secundario / sensibilidad**: cohorte de **sangre** (`GSE91061`).
+
+La finalidad es evitar mezclar directamente tejido tumoral y sangre en el objeto principal, ya que esa diferencia introduce una fuente de variación biológica importante que no debe tratarse como un simple batch effect técnico.
+
+Este Rmd genera:
+
+- `se_integrated_geo_tumor.rds`
+- `se_integrated_geo_blood_sensitivity.rds`
+- tablas diagnósticas de genes comunes, muestras, respuesta, plataforma y tejido
+- checks finales de coherencia del objeto `SummarizedExperiment`
+
+## Ficha del informe
+
+| Elemento | Detalle |
+|---|---|
+| Entrada | Objetos `SummarizedExperiment` individuales de GSE78220, GSE215868, GSE211645 y GSE91061 |
+| Salida principal | `integrated_dataset/se_integrated_geo_tumor.rds` |
+| Salida secundaria | `integrated_dataset/se_integrated_geo_blood_sensitivity.rds` |
+| Decision metodologica | Tumor se analiza como bloque principal; sangre se reserva para sensibilidad |
+| Uso posterior | PCA pre-batch, correccion de batch effect, DEA y modelos predictivos |
+
+---
+
+# 2. Librerías necesarias
+
+```{r setup, message=FALSE, warning=FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+
+pkgs <- c(
+  "SummarizedExperiment",
+  "S4Vectors",
+  "dplyr",
+  "tibble",
+  "purrr",
+  "stringr",
+  "knitr",
+  "here"
+)
+
+for (p in pkgs) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    if (p %in% c("SummarizedExperiment", "S4Vectors")) {
+      BiocManager::install(p, ask = FALSE, update = FALSE)
+    } else {
+      install.packages(p)
+    }
+  }
+}
+
+library(SummarizedExperiment)
+library(S4Vectors)
+library(dplyr)
+library(tibble)
+library(purrr)
+library(stringr)
+library(knitr)
+library(here)
+```
+
+---
+
+# 3. Rutas del proyecto
+
+Se usa `{here}` para evitar depender de que el Rmd se ejecute desde una carpeta concreta. Si no encuentra la carpeta esperada, usa un fallback compatible con ejecución desde `scripts/integration/`.
+
+```{r rutas}
+project_root <- here::here()
+
+se_dir <- file.path(project_root, "SummarizedExperiment_objects")
+integrated_dir <- file.path(project_root, "integrated_dataset")
+results_dir <- file.path(project_root, "resultados")
+figures_dir <- file.path(project_root, "figuras")
+
+if (!dir.exists(se_dir)) {
+  project_root <- normalizePath(file.path("..", ".."), winslash = "/", mustWork = FALSE)
+  se_dir <- file.path(project_root, "SummarizedExperiment_objects")
+  integrated_dir <- file.path(project_root, "integrated_dataset")
+  results_dir <- file.path(project_root, "resultados")
+  figures_dir <- file.path(project_root, "figuras")
+}
+
+dir.create(integrated_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
+
+project_root
+se_dir
+integrated_dir
+list.files(se_dir)
+```
+
+---
+
+# 4. Cohortes incluidas y estrategia analítica
+
+La estrategia final queda separada por tejido:
+
+- El analisis principal se realiza solo con cohortes tumorales.
+- La cohorte de sangre se conserva como bloque secundario de sensibilidad.
+- `GSE94873` no se integra en esta fase porque es sangre, no dispone de datos crudos y usa un panel NanoString reducido de 169 genes. Incluirla en la interseccion principal reduciria todavia mas el numero de genes comunes y mezclaria una fuente biologica adicional de variacion.
+
+```{r cohortes}
+tumor_datasets <- c("GSE78220", "GSE215868", "GSE211645")
+blood_datasets <- c("GSE91061")
+
+cohort_strategy <- tibble(
+  dataset = c(tumor_datasets, blood_datasets),
+  analysis_block = c(rep("Principal_tumor", length(tumor_datasets)),
+                     rep("Sensibilidad_sangre", length(blood_datasets))),
+  expected_tissue = c(rep("Tumor", length(tumor_datasets)),
+                      rep("Blood", length(blood_datasets)))
+)
+
+kable(cohort_strategy)
+```
+
+---
+
+# 5. Localización de objetos `SummarizedExperiment` individuales
+
+```{r localizar_se}
+se_files <- c(
+  GSE78220 = file.path(se_dir, "se_gse78220.rds"),
+  GSE91061 = file.path(se_dir, "se_gse91061.rds"),
+  GSE215868 = file.path(se_dir, "se_gse215868.rds"),
+  GSE211645 = file.path(se_dir, "se_gse211645.rds")
+)
+
+file_check <- tibble(
+  dataset = names(se_files),
+  path = unname(se_files),
+  exists = file.exists(se_files)
+)
+
+kable(file_check)
+
+if (!all(file.exists(se_files))) {
+  missing_files <- names(se_files)[!file.exists(se_files)]
+  stop(
+    paste0(
+      "Faltan los siguientes archivos SummarizedExperiment: ",
+      paste(missing_files, collapse = ", "),
+      ". Revisa la carpeta SummarizedExperiment_objects."
+    )
+  )
+}
+```
+
+---
+
+# 6. Carga de objetos individuales
+
+```{r cargar_se}
+se_list <- lapply(se_files, readRDS)
+
+names(se_list)
+lapply(se_list, class)
+```
+
+---
+
+# 7. Inspección inicial
+
+```{r inspeccion_inicial}
+assay_summary <- imap_dfr(se_list, function(se_obj, dataset_name) {
+  tibble(
+    dataset = dataset_name,
+    n_genes = nrow(se_obj),
+    n_samples = ncol(se_obj),
+    assay_names = paste(assayNames(se_obj), collapse = ", "),
+    n_colData_rows = nrow(colData(se_obj)),
+    first_colname_SE = ifelse(length(colnames(se_obj)) > 0, colnames(se_obj)[1], NA_character_),
+    first_colData_rownames = ifelse(length(rownames(colData(se_obj))) > 0, rownames(colData(se_obj))[1], NA_character_),
+    rowdata_cols = paste(colnames(rowData(se_obj)), collapse = ", "),
+    coldata_cols = paste(colnames(colData(se_obj)), collapse = ", ")
+  )
+})
+
+kable(assay_summary)
+```
+
+---
+
+# 8. Funciones auxiliares robustas
+
+Esta versión corrige el problema de compilación anterior. El error venía de que, en alguna cohorte, los identificadores de muestra usados en la matriz de expresión no coincidían exactamente con los usados en `colData`. Para evitarlo, se define un `sample_id` único por cohorte y se fuerza tanto en la matriz como en `colData` antes de integrar.
+
+```{r funciones}
+get_expr_assay_name <- function(se_obj, dataset_name) {
+  available <- assayNames(se_obj)
+  preferred <- c("expr", "expression", "exprs", "counts", "logcounts")
+  found <- preferred[preferred %in% available]
+  
+  if (length(found) == 0) {
+    stop(
+      paste0(
+        "No se encontró un assay de expresión reconocido en ", dataset_name,
+        ". Assays disponibles: ", paste(available, collapse = ", ")
+      )
+    )
+  }
+  
+  found[1]
+}
+
+get_gene_ids <- function(se_obj, dataset_name) {
+  rd <- as.data.frame(rowData(se_obj))
+  
+  if ("gene_symbol" %in% colnames(rd)) {
+    gene_ids <- rd$gene_symbol
+    id_source <- "gene_symbol"
+  } else if ("symbol" %in% colnames(rd)) {
+    gene_ids <- rd$symbol
+    id_source <- "symbol"
+  } else {
+    gene_ids <- rownames(se_obj)
+    id_source <- "rownames"
+  }
+  
+  gene_ids <- as.character(gene_ids)
+  gene_ids[gene_ids == ""] <- NA_character_
+  gene_ids <- stringr::str_trim(gene_ids)
+  gene_ids <- toupper(gene_ids)
+  
+  tibble(
+    dataset = dataset_name,
+    gene_id = gene_ids,
+    id_source = id_source
+  )
+}
+
+get_sample_ids <- function(se_obj, expr_mat, dataset_name) {
+  # Prioridad 1: colnames del SummarizedExperiment.
+  sample_ids <- colnames(se_obj)
+  source <- "colnames_SE"
+  
+  # Prioridad 2: colnames del assay.
+  if (is.null(sample_ids) || length(sample_ids) != ncol(expr_mat) || any(is.na(sample_ids)) || any(sample_ids == "")) {
+    sample_ids <- colnames(expr_mat)
+    source <- "colnames_assay"
+  }
+  
+  # Prioridad 3: rownames de colData.
+  cd_rownames <- rownames(colData(se_obj))
+  if (is.null(sample_ids) || length(sample_ids) != ncol(expr_mat) || any(is.na(sample_ids)) || any(sample_ids == "")) {
+    sample_ids <- cd_rownames
+    source <- "rownames_colData"
+  }
+  
+  if (is.null(sample_ids) || length(sample_ids) != ncol(expr_mat) || any(is.na(sample_ids)) || any(sample_ids == "")) {
+    stop(
+      paste0(
+        "No se pudieron definir identificadores de muestra válidos para ", dataset_name,
+        ". ncol(expr_mat)=", ncol(expr_mat),
+        "; length(sample_ids)=", length(sample_ids)
+      )
+    )
+  }
+  
+  sample_ids <- as.character(sample_ids)
+  sample_ids <- stringr::str_trim(sample_ids)
+  
+  if (anyDuplicated(sample_ids)) {
+    stop(
+      paste0(
+        "Hay identificadores de muestra duplicados en ", dataset_name, ": ",
+        paste(unique(sample_ids[duplicated(sample_ids)]), collapse = ", ")
+      )
+    )
+  }
+  
+  list(ids = sample_ids, source = source)
+}
+
+collapse_duplicate_genes <- function(expr_mat, gene_ids, dataset_name) {
+  keep <- !is.na(gene_ids) & gene_ids != ""
+  expr_mat <- expr_mat[keep, , drop = FALSE]
+  gene_ids <- gene_ids[keep]
+  
+  if (any(duplicated(gene_ids))) {
+    duplicated_genes <- unique(gene_ids[duplicated(gene_ids)])
+    warning(
+      paste0(
+        "Genes duplicados en ", dataset_name, ": ",
+        paste(duplicated_genes, collapse = ", ")
+      )
+    )
+    
+    expr_df <- as.data.frame(expr_mat, check.names = FALSE)
+    expr_df$gene_id <- gene_ids
+    
+    expr_collapsed <- expr_df %>%
+      group_by(gene_id) %>%
+      summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)), .groups = "drop")
+    
+    gene_ids_final <- expr_collapsed$gene_id
+    expr_collapsed <- as.matrix(expr_collapsed[, setdiff(colnames(expr_collapsed), "gene_id"), drop = FALSE])
+    rownames(expr_collapsed) <- gene_ids_final
+    
+    return(expr_collapsed)
+  }
+  
+  rownames(expr_mat) <- gene_ids
+  expr_mat
+}
+
+prepare_expression_matrix <- function(se_obj, dataset_name) {
+  assay_name <- get_expr_assay_name(se_obj, dataset_name)
+  gene_info <- get_gene_ids(se_obj, dataset_name)
+  expr_mat <- assay(se_obj, assay_name)
+  
+  if (!is.matrix(expr_mat)) expr_mat <- as.matrix(expr_mat)
+  
+  sample_info <- get_sample_ids(se_obj, expr_mat, dataset_name)
+  sample_ids <- sample_info$ids
+  colnames(expr_mat) <- sample_ids
+  
+  expr_mat <- collapse_duplicate_genes(
+    expr_mat = expr_mat,
+    gene_ids = gene_info$gene_id,
+    dataset_name = dataset_name
+  )
+  
+  # El colapso de genes no debería cambiar columnas, pero se fuerza por seguridad.
+  colnames(expr_mat) <- sample_ids
+  
+  list(
+    expr = expr_mat,
+    assay_name = assay_name,
+    id_source = unique(gene_info$id_source),
+    sample_ids = sample_ids,
+    sample_id_source = sample_info$source
+  )
+}
+
+make_coldata_for_dataset <- function(se_obj, dataset_name, sample_ids) {
+  cd <- as.data.frame(colData(se_obj))
+  
+  if (nrow(cd) != length(sample_ids)) {
+    stop(
+      paste0(
+        "El número de filas de colData no coincide con el número de muestras en ", dataset_name,
+        ". nrow(colData)=", nrow(cd),
+        "; n_samples=", length(sample_ids)
+      )
+    )
+  }
+  
+  # Se alinea por posición porque SummarizedExperiment garantiza que colData y assays
+  # están en el mismo orden de columnas. Después se deja un identificador único prefijado.
+  cd$original_sample_id <- sample_ids
+  cd$dataset <- dataset_name
+  rownames(cd) <- paste(dataset_name, sample_ids, sep = "__")
+  cd
+}
+
+integrate_se_block <- function(se_list_block, block_name, expected_tissue = NULL) {
+  message("Integrando bloque: ", block_name)
+  
+  prepared <- imap(se_list_block, prepare_expression_matrix)
+  gene_sets <- lapply(prepared, function(x) rownames(x$expr))
+  common_genes <- Reduce(intersect, gene_sets)
+  common_genes <- sort(common_genes)
+  
+  if (length(common_genes) == 0) {
+    stop(paste0("La intersección de genes es 0 en el bloque ", block_name, "."))
+  }
+  
+  expr_list <- imap(prepared, function(x, dataset_name) {
+    mat <- x$expr[common_genes, , drop = FALSE]
+    colnames(mat) <- paste(dataset_name, x$sample_ids, sep = "__")
+    mat
+  })
+  
+  expr_integrated <- do.call(cbind, unname(expr_list))
+  
+  coldata_list <- imap(se_list_block, function(se_obj, dataset_name) {
+    make_coldata_for_dataset(
+      se_obj = se_obj,
+      dataset_name = dataset_name,
+      sample_ids = prepared[[dataset_name]]$sample_ids
+    )
+  })
+  
+  all_colnames <- unique(unlist(lapply(coldata_list, colnames)))
+  coldata_list <- lapply(coldata_list, function(cd) {
+    missing_cols <- setdiff(all_colnames, colnames(cd))
+    for (m in missing_cols) cd[[m]] <- NA
+    cd[, all_colnames, drop = FALSE]
+  })
+  
+  coldata_integrated <- do.call(rbind, coldata_list)
+  
+  expected_sample_ids <- colnames(expr_integrated)
+  
+  # En algunos objetos SummarizedExperiment, los nombres de muestra del assay y los
+  # rownames de colData no son exactamente iguales, aunque el orden interno si es
+  # coherente. Por eso se valida primero el tamano y despues se fuerza una clave
+  # comun estable basada en las columnas integradas de la matriz de expresion.
+  if (nrow(coldata_integrated) != length(expected_sample_ids)) {
+    diagnostics <- list(
+      n_expr_samples = length(expected_sample_ids),
+      n_coldata_rows = nrow(coldata_integrated),
+      head_expr_samples = head(expected_sample_ids, 20),
+      head_coldata_rows = head(rownames(coldata_integrated), 20)
+    )
+    print(diagnostics)
+    stop("No se puede alinear expr_integrated y coldata_integrated porque el numero de muestras no coincide.")
+  }
+  
+  coldata_integrated$integrated_sample_id <- expected_sample_ids
+  rownames(coldata_integrated) <- expected_sample_ids
+  stopifnot(identical(colnames(expr_integrated), rownames(coldata_integrated)))
+  
+  if (!is.null(expected_tissue)) {
+    previous_tissue <- character(0)
+    if ("tissue" %in% colnames(coldata_integrated)) {
+      previous_tissue <- unique(na.omit(as.character(coldata_integrated$tissue)))
+    }
+
+    previous_tissue <- previous_tissue[previous_tissue != ""]
+    if (length(previous_tissue) > 0 && any(previous_tissue != expected_tissue)) {
+      warning(
+        paste0(
+          "Se sobrescribe tissue en ", block_name, " a ", expected_tissue,
+          ". Valores previos detectados: ", paste(previous_tissue, collapse = ", ")
+        )
+      )
+    }
+
+    coldata_integrated$tissue <- expected_tissue
+  } else if (!"tissue" %in% colnames(coldata_integrated)) {
+    coldata_integrated$tissue <- NA_character_
+  }
+  
+  rowdata_integrated <- DataFrame(gene_symbol = common_genes)
+  rownames(rowdata_integrated) <- common_genes
+  
+  se_integrated <- SummarizedExperiment(
+    assays = list(expr = expr_integrated),
+    rowData = rowdata_integrated,
+    colData = DataFrame(coldata_integrated),
+    metadata = list(
+      block_name = block_name,
+      datasets = names(se_list_block),
+      n_common_genes = length(common_genes),
+      n_samples = ncol(expr_integrated),
+      integration_method = "Intersection of common gene symbols followed by column binding",
+      created_from = "reconstruccion_GEO_tumor_blood_SummarizedExperiment_v4.Rmd"
+    )
+  )
+  
+  list(
+    se = se_integrated,
+    common_genes = common_genes,
+    prepared_summary = imap_dfr(prepared, function(x, dataset_name) {
+      tibble(
+        dataset = dataset_name,
+        assay_used = x$assay_name,
+        id_source = paste(x$id_source, collapse = ", "),
+        sample_id_source = x$sample_id_source,
+        n_genes_after_duplicate_control = nrow(x$expr),
+        n_samples = ncol(x$expr),
+        first_sample_id = dplyr::first(x$sample_ids),
+        last_sample_id = dplyr::last(x$sample_ids)
+      )
+    })
+  )
+}
+```
+
+---
+
+# 9. Diagnóstico de identificadores génicos y de muestras
+
+```{r diagnostico_ids}
+gene_id_summary <- imap_dfr(se_list, function(se_obj, dataset_name) {
+  gene_info <- get_gene_ids(se_obj, dataset_name)
+  assay_name <- get_expr_assay_name(se_obj, dataset_name)
+  expr_mat <- assay(se_obj, assay_name)
+  sample_info <- get_sample_ids(se_obj, expr_mat, dataset_name)
+  
+  tibble(
+    dataset = dataset_name,
+    gene_id_source = unique(gene_info$id_source),
+    n_total_genes = length(gene_info$gene_id),
+    n_non_missing_genes = sum(!is.na(gene_info$gene_id)),
+    n_unique_genes = length(unique(na.omit(gene_info$gene_id))),
+    n_duplicated_genes = sum(duplicated(na.omit(gene_info$gene_id))),
+    sample_id_source = sample_info$source,
+    n_samples = length(sample_info$ids),
+    first_sample_id = dplyr::first(sample_info$ids),
+    last_sample_id = dplyr::last(sample_info$ids)
+  )
+})
+
+kable(gene_id_summary)
+```
+
+---
+
+# 10. Solapamiento génico por bloques
+
+```{r solapamiento}
+prepared_all <- imap(se_list, prepare_expression_matrix)
+gene_sets_all <- lapply(prepared_all, function(x) rownames(x$expr))
+
+pairwise_overlap <- expand.grid(
+  dataset_1 = names(gene_sets_all),
+  dataset_2 = names(gene_sets_all),
+  stringsAsFactors = FALSE
+) %>%
+  filter(dataset_1 < dataset_2) %>%
+  mutate(
+    overlap = map2_int(dataset_1, dataset_2, ~ length(intersect(gene_sets_all[[.x]], gene_sets_all[[.y]])))
+  )
+
+kable(pairwise_overlap)
+
+common_all <- Reduce(intersect, gene_sets_all)
+common_tumor <- Reduce(intersect, gene_sets_all[tumor_datasets])
+common_blood <- Reduce(intersect, gene_sets_all[blood_datasets])
+
+common_summary <- tibble(
+  integration = c("4 cohortes: tumor + sangre", "3 cohortes tumor", "sangre"),
+  datasets = c(
+    paste(names(gene_sets_all), collapse = ", "),
+    paste(tumor_datasets, collapse = ", "),
+    paste(blood_datasets, collapse = ", ")
+  ),
+  n_common_genes = c(length(common_all), length(common_tumor), length(common_blood))
+)
+
+kable(common_summary)
+```
+
+---
+
+# 11. Integración principal: cohortes tumorales
+
+```{r integrar_tumor}
+se_list_tumor <- se_list[tumor_datasets]
+
+integrated_tumor <- integrate_se_block(
+  se_list_block = se_list_tumor,
+  block_name = "GEO_tumor_principal",
+  expected_tissue = "Tumor"
+)
+
+se_integrated_geo_tumor <- integrated_tumor$se
+
+se_integrated_geo_tumor
+```
+
+```{r resumen_tumor}
+kable(integrated_tumor$prepared_summary)
+
+cat("Número de genes comunes en tumor:", length(integrated_tumor$common_genes), "\n")
+cat("Número de muestras tumor:", ncol(se_integrated_geo_tumor), "\n")
+
+head(integrated_tumor$common_genes, 30)
+```
+
+---
+
+# 12. Integración secundaria: cohorte de sangre
+
+En este caso solo hay una cohorte de sangre (`GSE91061`). El objeto se reconstruye como bloque separado para análisis de sensibilidad.
+
+```{r integrar_blood}
+se_list_blood <- se_list[blood_datasets]
+
+integrated_blood <- integrate_se_block(
+  se_list_block = se_list_blood,
+  block_name = "GEO_blood_sensitivity",
+  expected_tissue = "Blood"
+)
+
+se_integrated_geo_blood_sensitivity <- integrated_blood$se
+
+se_integrated_geo_blood_sensitivity
+```
+
+```{r resumen_blood}
+kable(integrated_blood$prepared_summary)
+
+cat("Número de genes en sangre:", length(integrated_blood$common_genes), "\n")
+cat("Número de muestras sangre:", ncol(se_integrated_geo_blood_sensitivity), "\n")
+
+head(integrated_blood$common_genes, 30)
+```
+
+---
+
+# 13. Resumen de muestras por dataset, tejido, plataforma y respuesta
+
+```{r funciones_resumen}
+summarise_coldata <- function(se_obj, object_name) {
+  cd <- as.data.frame(colData(se_obj))
+  
+  out <- list()
+  
+  if ("dataset" %in% colnames(cd)) {
+    out$dataset <- cd %>% count(dataset, name = "n") %>% mutate(variable = "dataset", object = object_name)
+  }
+  if ("tissue" %in% colnames(cd)) {
+    out$tissue <- cd %>% count(tissue, name = "n") %>% mutate(variable = "tissue", object = object_name)
+  }
+  if ("platform" %in% colnames(cd)) {
+    out$platform <- cd %>% count(platform, name = "n") %>% mutate(variable = "platform", object = object_name)
+  }
+  if ("response_binary" %in% colnames(cd)) {
+    out$response_binary <- cd %>% count(response_binary, name = "n") %>% mutate(variable = "response_binary", object = object_name)
+  }
+  if ("response_raw" %in% colnames(cd)) {
+    out$response_raw <- cd %>% count(response_raw, name = "n") %>% mutate(variable = "response_raw", object = object_name)
+  }
+  
+  bind_rows(out)
+}
+
+summary_tumor <- summarise_coldata(se_integrated_geo_tumor, "tumor")
+summary_blood <- summarise_coldata(se_integrated_geo_blood_sensitivity, "blood")
+
+kable(summary_tumor)
+kable(summary_blood)
+```
+
+## 13.1 Balance de respuesta por cohorte en tumor
+
+```{r balance_respuesta_tumor}
+cd_tumor <- as.data.frame(colData(se_integrated_geo_tumor))
+
+if (all(c("dataset", "response_binary") %in% colnames(cd_tumor))) {
+  balance_tumor <- cd_tumor %>%
+    count(dataset, response_binary, name = "n") %>%
+    arrange(dataset, response_binary)
+  
+  kable(balance_tumor)
+} else {
+  cat("No están disponibles dataset y/o response_binary en el objeto tumoral.\n")
+}
+```
+
+## 13.2 Balance de respuesta en sangre
+
+```{r balance_respuesta_blood}
+cd_blood <- as.data.frame(colData(se_integrated_geo_blood_sensitivity))
+
+if (all(c("dataset", "response_binary") %in% colnames(cd_blood))) {
+  balance_blood <- cd_blood %>%
+    count(dataset, response_binary, name = "n") %>%
+    arrange(dataset, response_binary)
+  
+  kable(balance_blood)
+} else {
+  cat("No están disponibles dataset y/o response_binary en el objeto de sangre.\n")
+}
+```
+
+---
+
+# 14. Comparación con la integración global previa
+
+```{r comparacion_global}
+previous_integrated_path <- file.path(integrated_dir, "se_integrated_initial_geo.rds")
+
+if (file.exists(previous_integrated_path)) {
+  se_previous <- readRDS(previous_integrated_path)
+  comparison <- tibble(
+    object = c("Integración global previa", "Tumor principal", "Sangre sensibilidad"),
+    n_genes = c(nrow(se_previous), nrow(se_integrated_geo_tumor), nrow(se_integrated_geo_blood_sensitivity)),
+    n_samples = c(ncol(se_previous), ncol(se_integrated_geo_tumor), ncol(se_integrated_geo_blood_sensitivity))
+  )
+  kable(comparison)
+} else {
+  comparison <- tibble(
+    object = c("Tumor principal", "Sangre sensibilidad"),
+    n_genes = c(nrow(se_integrated_geo_tumor), nrow(se_integrated_geo_blood_sensitivity)),
+    n_samples = c(ncol(se_integrated_geo_tumor), ncol(se_integrated_geo_blood_sensitivity))
+  )
+  kable(comparison)
+  cat("No se encontró se_integrated_initial_geo.rds para comparar con la integración global previa.\n")
+}
+```
+
+---
+
+# 15. Guardado de objetos reconstruidos
+
+```{r guardar_objetos}
+tumor_output_path <- file.path(integrated_dir, "se_integrated_geo_tumor.rds")
+blood_output_path <- file.path(integrated_dir, "se_integrated_geo_blood_sensitivity.rds")
+
+saveRDS(se_integrated_geo_tumor, tumor_output_path)
+saveRDS(se_integrated_geo_blood_sensitivity, blood_output_path)
+
+saved_files <- tibble(
+  object = c("se_integrated_geo_tumor", "se_integrated_geo_blood_sensitivity"),
+  path = c(tumor_output_path, blood_output_path),
+  exists = file.exists(c(tumor_output_path, blood_output_path)),
+  size_mb = round(file.size(c(tumor_output_path, blood_output_path)) / 1024^2, 3)
+)
+
+kable(saved_files)
+```
+
+---
+
+# 16. Checklist final
+
+```{r checklist_final}
+checklist <- tibble(
+  check = c(
+    "Objeto tumoral creado",
+    "Objeto sangre creado",
+    "Assay expr presente en tumor",
+    "Assay expr presente en sangre",
+    "colnames(expr) idénticos a rownames(colData) en tumor",
+    "colnames(expr) idénticos a rownames(colData) en sangre",
+    "Genes tumorales únicos",
+    "Genes sangre únicos",
+    "Archivo tumoral guardado",
+    "Archivo sangre guardado"
+  ),
+  status = c(
+    exists("se_integrated_geo_tumor"),
+    exists("se_integrated_geo_blood_sensitivity"),
+    "expr" %in% assayNames(se_integrated_geo_tumor),
+    "expr" %in% assayNames(se_integrated_geo_blood_sensitivity),
+    identical(colnames(assay(se_integrated_geo_tumor, "expr")), rownames(colData(se_integrated_geo_tumor))),
+    identical(colnames(assay(se_integrated_geo_blood_sensitivity, "expr")), rownames(colData(se_integrated_geo_blood_sensitivity))),
+    !anyDuplicated(rownames(se_integrated_geo_tumor)),
+    !anyDuplicated(rownames(se_integrated_geo_blood_sensitivity)),
+    file.exists(tumor_output_path),
+    file.exists(blood_output_path)
+  )
+)
+
+kable(checklist)
+
+if (!all(checklist$status)) {
+  stop("Alguno de los checks finales no se ha cumplido. Revisar tabla checklist.")
+}
+```
+
+---
+
+# 17. Conclusión metodológica
+
+La integración se reconstruye en dos bloques:
+
+1. **Bloque principal tumoral**, formado por `GSE78220`, `GSE215868` y `GSE211645`. Este será el objeto recomendado para PCA, corrección de batch effect, análisis diferencial y modelos predictivos.
+2. **Bloque secundario de sangre**, formado por `GSE91061`. Este queda reservado para análisis de sensibilidad o comparación exploratoria, evitando mezclar directamente tejidos biológicamente distintos en el análisis principal.
+
+Esta separación responde a la necesidad metodológica de no confundir variabilidad biológica asociada al tejido con batch effect técnico o señal predictiva de respuesta.

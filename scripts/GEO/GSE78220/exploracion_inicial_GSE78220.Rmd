@@ -1,0 +1,300 @@
+---
+title: "Exploración inicial de GSE78220"
+author: "TFM Melanoma Inmunoterapia"
+output: html_document
+---
+
+# 1. Objetivo del documento
+
+El objetivo de este documento es realizar una **exploración inicial del dataset GSE78220** para identificar la información necesaria antes de construir el `SummarizedExperiment`.
+
+Este paso previo permite:
+
+- comprobar el tipo de objeto descargado,
+- verificar la presencia o ausencia de matriz de expresión en el `ExpressionSet`,
+- revisar los metadatos clínicos,
+- localizar el archivo suplementario con la expresión,
+- identificar la variable de respuesta,
+- comprobar qué muestras son `baseline` y cuáles son `OnTx`,
+- detectar el identificador de muestra adecuado,
+- y cerrar el diseño metodológico del dataset.
+
+Este documento actúa como una **fase de caracterización del dataset**, previa a la plantilla automatizada final.
+
+---
+
+# 2. Librerías necesarias
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+pkgs <- c("GEOquery", "readxl", "dplyr", "tibble", "stringr")
+
+for (p in pkgs) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    if (p == "GEOquery") {
+      BiocManager::install(p, ask = FALSE, update = FALSE)
+    } else {
+      install.packages(p)
+    }
+  }
+}
+
+library(GEOquery)
+library(readxl)
+library(dplyr)
+library(tibble)
+library(stringr)
+```
+
+---
+
+# 3. Definición automática de rutas del proyecto
+
+Este documento está pensado para ejecutarse desde la carpeta:
+
+`TFM/scripts/GEO/GSE78220/`
+
+Se definen automáticamente las rutas del proyecto para dejar trazabilidad de la exploración.
+
+```{r}
+project_root <- normalizePath(file.path("..", "..", ".."), winslash = "/", mustWork = FALSE)
+
+raw_base_dir <- file.path(project_root, "GEO_raw")
+raw_dataset_dir <- file.path(raw_base_dir, "GSE78220")
+
+dir.create(raw_base_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(raw_dataset_dir, recursive = TRUE, showWarnings = FALSE)
+
+project_root
+raw_base_dir
+raw_dataset_dir
+```
+
+---
+
+# 4. Descarga del dataset desde GEO
+
+```{r}
+gse <- getGEO("GSE78220", GSEMatrix = TRUE)
+
+length(gse)
+gse
+```
+
+---
+
+# 5. Selección del objeto ExpressionSet
+
+```{r}
+gse78220_eset <- gse[[1]]
+
+class(gse78220_eset)
+dim(gse78220_eset)
+annotation(gse78220_eset)
+```
+
+---
+
+# 6. Inspección de la matriz de expresión contenida en GEO
+
+En esta cohorte, el `ExpressionSet` descargado desde GEO puede no contener directamente la matriz de expresión procesada. Este bloque permite comprobarlo.
+
+```{r}
+expr_eset <- Biobase::exprs(gse78220_eset)
+
+dim(expr_eset)
+expr_eset
+```
+
+---
+
+# 7. Inspección de metadatos clínicos
+
+## 7.1. Nombres de columnas disponibles
+
+```{r}
+metadata_gse78220 <- Biobase::pData(gse78220_eset)
+
+colnames(metadata_gse78220)
+```
+
+## 7.2. Variables clínicas relevantes
+
+```{r}
+candidate_cols <- colnames(metadata_gse78220)
+
+candidate_response <- candidate_cols[grep("response|respond|benefit|responder", candidate_cols, ignore.case = TRUE)]
+candidate_time <- candidate_cols[grep("time|baseline|treat|treatment|visit|ontx|pre", candidate_cols, ignore.case = TRUE)]
+candidate_id <- candidate_cols[grep("patient|sample|id|geo_accession|title", candidate_cols, ignore.case = TRUE)]
+candidate_survival <- candidate_cols[grep("survival|vital|os", candidate_cols, ignore.case = TRUE)]
+
+candidate_response
+candidate_time
+candidate_id
+candidate_survival
+```
+
+---
+
+# 8. Exploración detallada de columnas clínicas clave
+
+```{r}
+cols_to_explore <- unique(c(
+  "title",
+  "geo_accession",
+  "anti-pd-1 response:ch1",
+  "biopsy time:ch1",
+  "overall survival (days):ch1",
+  "vital status:ch1",
+  "patient id:ch1",
+  "treatment:ch1"
+))
+
+cols_to_explore <- cols_to_explore[cols_to_explore %in% colnames(metadata_gse78220)]
+
+for (cc in cols_to_explore) {
+  cat("\n==============================\n")
+  cat("Columna:", cc, "\n")
+  print(table(metadata_gse78220[[cc]], useNA = "ifany"))
+}
+```
+
+---
+
+# 9. Localización o descarga del archivo suplementario de expresión
+
+En esta cohorte, la matriz de expresión relevante se encuentra en el archivo suplementario Excel `GSE78220_PatientFPKM.xlsx`.
+
+```{r}
+xlsx_file <- file.path(raw_dataset_dir, "GSE78220_PatientFPKM.xlsx")
+
+if (!file.exists(xlsx_file)) {
+  try({
+    GEOquery::getGEOSuppFiles("GSE78220", baseDir = raw_base_dir)
+  }, silent = TRUE)
+}
+
+list.files(raw_dataset_dir, recursive = TRUE)
+xlsx_file
+```
+
+---
+
+# 10. Carga exploratoria de la matriz suplementaria
+
+```{r}
+if (file.exists(xlsx_file)) {
+  expr_raw <- readxl::read_excel(xlsx_file)
+
+  dim(expr_raw)
+  head(expr_raw)
+  colnames(expr_raw)
+}
+```
+
+---
+
+# 11. Inspección de muestras baseline y OnTx
+
+Este paso es clave para decidir qué muestras deben conservarse en el análisis predictivo.
+
+```{r}
+if (exists("expr_raw")) {
+  sample_names <- colnames(expr_raw)[-1]
+
+  table(grepl("baseline", sample_names, ignore.case = TRUE))
+  table(grepl("OnTx", sample_names, ignore.case = TRUE))
+
+  baseline_cols <- grep("baseline", sample_names, value = TRUE, ignore.case = TRUE)
+  ontx_cols <- grep("OnTx", sample_names, value = TRUE, ignore.case = TRUE)
+
+  baseline_cols
+  ontx_cols
+}
+```
+
+---
+
+# 12. Preparación exploratoria de la matriz baseline
+
+```{r}
+if (exists("expr_raw")) {
+  expr_baseline_test <- expr_raw[, c("Gene", baseline_cols)] %>%
+    column_to_rownames("Gene") %>%
+    as.matrix()
+
+  colnames(expr_baseline_test) <- gsub("\\.baseline$", "", colnames(expr_baseline_test))
+
+  dim(expr_baseline_test)
+  colnames(expr_baseline_test)
+}
+```
+
+---
+
+# 13. Comprobación del identificador de muestra
+
+Este bloque permite comprobar si el identificador clínico `patient id:ch1` coincide con los nombres de muestra de la matriz baseline.
+
+```{r}
+if (exists("expr_baseline_test") && "patient id:ch1" %in% colnames(metadata_gse78220)) {
+  expr_ids <- trimws(colnames(expr_baseline_test))
+  meta_ids <- trimws(as.character(metadata_gse78220$`patient id:ch1`))
+
+  overlap_n <- length(intersect(expr_ids, meta_ids))
+  overlap_n
+
+  setdiff(expr_ids, meta_ids)
+  setdiff(meta_ids, expr_ids)
+}
+```
+
+---
+
+# 14. Interpretación preliminar de la respuesta
+
+```{r}
+make_response_binary <- function(x) {
+  x_clean <- stringr::str_to_upper(trimws(as.character(x)))
+
+  dplyr::case_when(
+    x_clean %in% c("CR", "PR", "COMPLETE RESPONSE", "PARTIAL RESPONSE") ~ "Responder",
+    x_clean %in% c("SD", "PD", "STABLE DISEASE", "PROGRESSIVE DISEASE") ~ "No_responder",
+    TRUE ~ NA_character_
+  )
+}
+
+if ("anti-pd-1 response:ch1" %in% colnames(metadata_gse78220)) {
+  metadata_gse78220$response_binary_test <- make_response_binary(metadata_gse78220$`anti-pd-1 response:ch1`)
+  table(metadata_gse78220$response_binary_test, useNA = "ifany")
+}
+```
+
+---
+
+# 15. Guardado de metadatos crudos de la exploración
+
+```{r}
+raw_metadata_file <- file.path(raw_dataset_dir, "GSE78220_metadata_raw.tsv")
+write.table(metadata_gse78220, raw_metadata_file, sep = "\t", quote = FALSE, row.names = TRUE)
+
+raw_metadata_file
+```
+
+---
+
+# 16. Conclusiones de la exploración inicial
+
+A partir de esta exploración, se puede cerrar el diseño preliminar del dataset:
+
+- El estudio devuelve **un único `ExpressionSet`**.
+- El `ExpressionSet` **no contiene una matriz de expresión utilizable**, por lo que es necesario usar el archivo suplementario Excel.
+- La matriz suplementaria contiene una columna de genes y múltiples muestras, incluyendo muestras `baseline` y `OnTx`.
+- Para el análisis predictivo se deben conservar únicamente las muestras **baseline**.
+- La variable principal de respuesta adecuada es **`anti-pd-1 response:ch1`**.
+- El identificador más adecuado para alinear la matriz y los metadatos es **`patient id:ch1`**.
+- Existen además variables de interés clínico como supervivencia global y estado vital.
+
+Esto justifica la construcción posterior de una plantilla automatizada específica para `GSE78220`.

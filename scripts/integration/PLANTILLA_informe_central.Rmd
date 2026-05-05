@@ -1,0 +1,120 @@
+---
+title: "Titulo del analisis"
+author: "TFM Melanoma Inmunoterapia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    theme: readable
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 6
+)
+```
+
+# Objetivo
+
+Explicar en pocas lineas que pregunta responde este informe y donde encaja dentro del pipeline.
+
+## Ficha del informe
+
+| Elemento | Detalle |
+|---|---|
+| Entrada | Archivo u objeto que se carga |
+| Salida | Archivos, tablas o figuras generadas |
+| Decision metodologica | Criterio principal usado en este analisis |
+| Checks clave | Validaciones que deben cumplirse |
+| Uso posterior | Que informe o paso depende de este resultado |
+
+# Librerias
+
+```{r librerias}
+required_packages <- c(
+  "dplyr",
+  "tibble",
+  "knitr"
+)
+
+for (pkg in required_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    stop(paste("Falta instalar el paquete:", pkg))
+  }
+}
+
+library(dplyr)
+library(tibble)
+library(knitr)
+```
+
+# Rutas y carga de datos
+
+```{r rutas_carga}
+project_root <- "C:/Users/sonia/Desktop/2_TFM_MELANOMA"
+```
+
+# Validaciones iniciales
+
+```{r validaciones_iniciales}
+# stopifnot(...)
+```
+
+# Resumen de datos
+
+```{r resumen_datos}
+# Tablas de dimensiones, variables y balance de grupos.
+```
+
+# Analisis principal
+
+```{r analisis_principal}
+# Codigo del analisis.
+```
+
+# Resultados
+
+```{r resultados}
+# Tablas y figuras principales.
+```
+
+# Guardado de resultados
+
+```{r guardado}
+# write.csv(...)
+# saveRDS(...)
+```
+
+# Checklist final
+
+```{r checklist_final}
+checks <- tibble(
+  comprobacion = c(
+    "Datos cargados",
+    "Analisis ejecutado",
+    "Resultados guardados"
+  ),
+  estado = c(
+    TRUE,
+    TRUE,
+    TRUE
+  )
+)
+
+kable(checks)
+
+if (!all(checks$estado)) {
+  stop("Alguno de los checks finales no se cumple.")
+}
+```
+
+# Conclusion metodologica
+
+Cerrar el informe explicando que se ha observado, que limitaciones hay y cual es el siguiente paso.

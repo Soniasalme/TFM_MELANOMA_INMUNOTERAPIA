@@ -1,0 +1,209 @@
+---
+title: "Exploracion de objetos GEO integrados por bloque"
+author: "TFM Melanoma Inmunoterapia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    theme: readable
+---
+
+```{r setup, include=FALSE}
+library(SummarizedExperiment)
+library(dplyr)
+library(tibble)
+library(knitr)
+```
+
+# Objetivo
+
+Este documento sustituye la exploracion del objeto global inicial por una exploracion separada de:
+
+- `se_integrated_geo_tumor.rds`: bloque principal tumoral.
+- `se_integrated_geo_blood_sensitivity.rds`: bloque secundario de sangre/sensibilidad.
+
+La separacion evita tratar la diferencia biologica entre tumor y sangre como si fuera solo un batch effect tecnico.
+
+## Ficha del informe
+
+| Elemento | Detalle |
+|---|---|
+| Entrada | `se_integrated_geo_tumor.rds`, `se_integrated_geo_blood_sensitivity.rds` y objeto global inicial si existe |
+| Salida | HTML de exploracion y tablas de control de calidad |
+| Decision metodologica | Confirmar que tumor y sangre quedan separados antes de PCA, batch y DEA |
+| Checks clave | `tissue`, `dataset`, `platform`, `response_binary`, genes unicos y alineacion assay/colData |
+| Uso posterior | Validar que el objeto tumoral es apto para analisis principales |
+
+# Librerias
+
+Este informe utiliza `SummarizedExperiment`, `dplyr`, `tibble` y `knitr` para cargar objetos, resumir metadatos y presentar tablas de control.
+
+# Localizacion de objetos
+
+```{r localizar_objetos}
+project_root <- "C:/Users/sonia/Desktop/2_TFM_MELANOMA"
+integrated_dir <- file.path(project_root, "integrated_dataset")
+
+object_paths <- c(
+  tumor = file.path(integrated_dir, "se_integrated_geo_tumor.rds"),
+  blood = file.path(integrated_dir, "se_integrated_geo_blood_sensitivity.rds"),
+  initial_global = file.path(integrated_dir, "se_integrated_initial_geo.rds")
+)
+
+file_check <- tibble(
+  object = names(object_paths),
+  path = unname(object_paths),
+  exists = file.exists(object_paths)
+)
+
+kable(file_check)
+
+if (!all(file.exists(object_paths[c("tumor", "blood")]))) {
+  stop("Falta el objeto tumoral o el objeto de sangre. Ejecuta primero la reconstruccion por bloques.")
+}
+```
+
+# Carga de objetos
+
+```{r cargar_objetos}
+se_tumor <- readRDS(object_paths[["tumor"]])
+se_blood <- readRDS(object_paths[["blood"]])
+
+stopifnot(inherits(se_tumor, "SummarizedExperiment"))
+stopifnot(inherits(se_blood, "SummarizedExperiment"))
+
+se_tumor
+se_blood
+```
+
+# Resumen general
+
+```{r resumen_general}
+summarise_se <- function(se_obj, object_name) {
+  block_name <- metadata(se_obj)$block_name
+  if (is.null(block_name)) block_name <- NA_character_
+
+  tibble(
+    object = object_name,
+    n_genes = nrow(se_obj),
+    n_samples = ncol(se_obj),
+    assays = paste(assayNames(se_obj), collapse = ", "),
+    n_coldata_vars = ncol(colData(se_obj)),
+    block_name = block_name
+  )
+}
+
+summary_objects <- bind_rows(
+  summarise_se(se_tumor, "tumor_principal"),
+  summarise_se(se_blood, "blood_sensitivity")
+)
+
+kable(summary_objects, caption = "Resumen de objetos integrados por bloque")
+```
+
+# Distribucion de metadatos
+
+```{r resumen_coldata}
+summarise_coldata <- function(se_obj, object_name) {
+  cd <- as.data.frame(colData(se_obj))
+  out <- list()
+
+  for (var in c("dataset", "tissue", "platform", "response_binary", "response_raw")) {
+    if (var %in% colnames(cd)) {
+      out[[var]] <- cd %>%
+        count(.data[[var]], name = "n") %>%
+        mutate(
+          value = as.character(.data[[var]]),
+          variable = var,
+          object = object_name
+        ) %>%
+        select(object, variable, value, n)
+    }
+  }
+
+  bind_rows(out)
+}
+
+summary_coldata <- bind_rows(
+  summarise_coldata(se_tumor, "tumor_principal"),
+  summarise_coldata(se_blood, "blood_sensitivity")
+)
+
+kable(summary_coldata, caption = "Resumen de dataset, tejido, plataforma y respuesta")
+```
+
+# Balance de respuesta por cohorte
+
+```{r balance_respuesta}
+balance_response <- function(se_obj, object_name) {
+  cd <- as.data.frame(colData(se_obj))
+  if (!all(c("dataset", "response_binary") %in% colnames(cd))) {
+    return(tibble())
+  }
+
+  cd %>%
+    count(dataset, response_binary, name = "n") %>%
+    mutate(object = object_name) %>%
+    arrange(object, dataset, response_binary)
+}
+
+balance <- bind_rows(
+  balance_response(se_tumor, "tumor_principal"),
+  balance_response(se_blood, "blood_sensitivity")
+)
+
+kable(balance, caption = "Balance de respondedores/no respondedores por cohorte")
+```
+
+# Comparacion con objeto global inicial
+
+```{r comparar_global}
+if (file.exists(object_paths[["initial_global"]])) {
+  se_initial <- readRDS(object_paths[["initial_global"]])
+
+  comparison <- tibble(
+    object = c("global_inicial_tumor_sangre", "tumor_principal", "blood_sensitivity"),
+    n_genes = c(nrow(se_initial), nrow(se_tumor), nrow(se_blood)),
+    n_samples = c(ncol(se_initial), ncol(se_tumor), ncol(se_blood))
+  )
+
+  kable(comparison, caption = "Comparacion de genes comunes con y sin separar sangre")
+}
+```
+
+# Checks finales
+
+```{r checks_finales}
+cd_tumor <- as.data.frame(colData(se_tumor))
+cd_blood <- as.data.frame(colData(se_blood))
+
+checks <- tibble(
+  check = c(
+    "Objeto tumoral contiene solo tissue Tumor",
+    "Objeto sangre contiene solo tissue Blood",
+    "GSE91061 no esta en el bloque tumoral",
+    "Objetos tienen genes unicos",
+    "colnames assay y rownames colData alineados"
+  ),
+  status = c(
+    all(unique(cd_tumor$tissue) == "Tumor"),
+    all(unique(cd_blood$tissue) == "Blood"),
+    !"GSE91061" %in% unique(cd_tumor$dataset),
+    !anyDuplicated(rownames(se_tumor)) && !anyDuplicated(rownames(se_blood)),
+    identical(colnames(assay(se_tumor, "expr")), rownames(colData(se_tumor))) &&
+      identical(colnames(assay(se_blood, "expr")), rownames(colData(se_blood)))
+  )
+)
+
+kable(checks, caption = "Checks finales de exploracion por bloques")
+
+if (!all(checks$status)) {
+  stop("Alguno de los checks finales no se cumple. Revisar antes de PCA/batch.")
+}
+```
+
+# Conclusion
+
+El objeto recomendado para los analisis principales es `se_integrated_geo_tumor.rds`. El objeto `se_integrated_geo_blood_sensitivity.rds` queda documentado como analisis secundario de sensibilidad.

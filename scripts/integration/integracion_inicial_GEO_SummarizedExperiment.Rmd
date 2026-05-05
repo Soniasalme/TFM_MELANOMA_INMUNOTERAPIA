@@ -1,0 +1,446 @@
+---
+title: "Integración inicial de cohortes GEO en SummarizedExperiment"
+author: "TFM Melanoma Inmunoterapia"
+output: html_document
+---
+
+# 1. Objetivo
+
+Este documento realiza una **integración inicial robusta** de las cohortes GEO procesadas como `SummarizedExperiment`:
+
+- `GSE78220`
+- `GSE91061`
+- `GSE215868`
+- `GSE211645`
+
+Esta versión está preparada para:
+
+- detectar si no existen genes comunes entre todas las cohortes,
+- evitar errores de compilación cuando la intersección sea vacía,
+- generar tablas diagnósticas de solapamiento génico,
+- y dejar claro si la integración global de las cuatro cohortes es viable tal como están ahora mismo.
+
+---
+
+# 2. Librerías necesarias
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+pkgs <- c(
+  "SummarizedExperiment",
+  "S4Vectors",
+  "dplyr",
+  "tibble",
+  "purrr",
+  "stringr"
+)
+
+for (p in pkgs) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    if (p %in% c("SummarizedExperiment", "S4Vectors")) {
+      BiocManager::install(p, ask = FALSE, update = FALSE)
+    } else {
+      install.packages(p)
+    }
+  }
+}
+
+library(SummarizedExperiment)
+library(S4Vectors)
+library(dplyr)
+library(tibble)
+library(purrr)
+library(stringr)
+```
+
+---
+
+# 3. Rutas del proyecto
+
+```{r}
+project_root <- normalizePath(file.path("..", ".."), winslash = "/", mustWork = FALSE)
+
+se_dir <- file.path(project_root, "SummarizedExperiment_objects")
+integrated_dir <- file.path(project_root, "integrated_dataset")
+results_dir <- file.path(project_root, "resultados")
+figures_dir <- file.path(project_root, "figuras")
+
+dir.create(integrated_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
+
+project_root
+se_dir
+integrated_dir
+results_dir
+figures_dir
+list.files(se_dir)
+```
+
+---
+
+# 4. Localización de los objetos SummarizedExperiment
+
+```{r}
+se_files <- c(
+  GSE78220 = file.path(se_dir, "se_gse78220.rds"),
+  GSE91061 = file.path(se_dir, "se_gse91061.rds"),
+  GSE215868 = file.path(se_dir, "se_gse215868.rds"),
+  GSE211645 = file.path(se_dir, "se_gse211645.rds")
+)
+
+se_files
+file.exists(se_files)
+```
+
+```{r}
+if (!all(file.exists(se_files))) {
+  missing_files <- names(se_files)[!file.exists(se_files)]
+  stop(
+    paste0(
+      "Faltan los siguientes archivos SummarizedExperiment: ",
+      paste(missing_files, collapse = ", "),
+      ". Revisa la carpeta SummarizedExperiment_objects."
+    )
+  )
+}
+```
+
+---
+
+# 5. Carga de los contenedores individuales
+
+```{r}
+se_list <- lapply(se_files, readRDS)
+
+names(se_list)
+lapply(se_list, class)
+```
+
+---
+
+# 6. Resumen inicial de cada cohorte
+
+```{r}
+se_summary <- purrr::imap_dfr(se_list, function(se_obj, dataset_name) {
+  tibble::tibble(
+    dataset = dataset_name,
+    n_genes = nrow(se_obj),
+    n_samples = ncol(se_obj),
+    coldata_cols = paste(colnames(as.data.frame(colData(se_obj))), collapse = "; "),
+    rowdata_cols = paste(colnames(as.data.frame(rowData(se_obj))), collapse = "; ")
+  )
+})
+
+se_summary
+```
+
+---
+
+# 7. Identificación del identificador génico en cada cohorte
+
+La prioridad será:
+
+1. `gene_symbol`
+2. `gene_id`
+3. `rownames`
+
+```{r}
+get_gene_ids <- function(se_obj) {
+  rd <- as.data.frame(rowData(se_obj))
+
+  if ("gene_symbol" %in% colnames(rd)) {
+    ids <- as.character(rd$gene_symbol)
+    source <- "gene_symbol"
+  } else if ("gene_id" %in% colnames(rd)) {
+    ids <- as.character(rd$gene_id)
+    source <- "gene_id"
+  } else {
+    ids <- rownames(se_obj)
+    source <- "rownames"
+  }
+
+  ids <- trimws(ids)
+  ids[ids == ""] <- NA_character_
+
+  list(ids = ids, source = source)
+}
+
+gene_info_list <- lapply(se_list, get_gene_ids)
+
+gene_id_summary <- tibble::tibble(
+  dataset = names(gene_info_list),
+  id_source = sapply(gene_info_list, function(x) x$source),
+  n_total = sapply(gene_info_list, function(x) length(x$ids)),
+  n_non_na = sapply(gene_info_list, function(x) sum(!is.na(x$ids))),
+  n_unique = sapply(gene_info_list, function(x) length(unique(na.omit(x$ids))))
+)
+
+gene_id_summary
+```
+
+---
+
+# 8. Conjuntos génicos únicos por cohorte
+
+```{r}
+gene_sets <- lapply(gene_info_list, function(x) unique(na.omit(x$ids)))
+
+lapply(gene_sets, length)
+```
+
+---
+
+# 9. Solapamiento génico por pares
+
+Este bloque es muy importante para diagnosticar si la integración global de las cuatro cohortes es viable.
+
+```{r}
+dataset_names <- names(gene_sets)
+
+pairwise_overlap <- do.call(
+  rbind,
+  lapply(dataset_names, function(d1) {
+    do.call(
+      rbind,
+      lapply(dataset_names, function(d2) {
+        data.frame(
+          dataset_1 = d1,
+          dataset_2 = d2,
+          n_overlap = length(intersect(gene_sets[[d1]], gene_sets[[d2]])),
+          stringsAsFactors = FALSE
+        )
+      })
+    )
+  })
+)
+
+pairwise_overlap
+```
+
+---
+
+# 10. Intersección global de genes
+
+```{r}
+common_genes <- Reduce(intersect, gene_sets)
+
+length(common_genes)
+head(common_genes, 30)
+```
+
+---
+
+# 11. Diagnóstico de viabilidad de integración global
+
+```{r}
+integration_diagnostic <- tibble::tibble(
+  criterio = c(
+    "Número de cohortes",
+    "Genes comunes entre las 4 cohortes",
+    "Integración global de las 4 cohortes viable"
+  ),
+  valor = c(
+    length(se_list),
+    length(common_genes),
+    ifelse(length(common_genes) > 0, "Sí", "No")
+  )
+)
+
+integration_diagnostic
+```
+
+---
+
+# 12. Interpretación preliminar
+
+```{r}
+if (length(common_genes) == 0) {
+  cat("No existen genes comunes entre las 4 cohortes usando los identificadores actuales.\n")
+  cat("Esto suele ocurrir por heterogeneidad de plataformas o por diferencias de nomenclatura génica.\n")
+  cat("En este caso no debe intentarse todavía construir una matriz integrada global.\n")
+} else {
+  cat("Sí existen genes comunes entre las 4 cohortes.\n")
+}
+```
+
+---
+
+# 13. Tabla resumen para memoria
+
+```{r}
+cohort_summary <- tibble::tibble(
+  dataset = names(se_list),
+  n_genes_originales = sapply(se_list, nrow),
+  n_muestras = sapply(se_list, ncol),
+  id_genico_usado = sapply(gene_info_list, function(x) x$source),
+  n_genes_unicos = sapply(gene_sets, length),
+  n_genes_comunes_globales = length(common_genes)
+)
+
+cohort_summary
+```
+
+```{r}
+cohort_summary_file <- file.path(results_dir, "tabla_resumen_cohortes_geo.csv")
+write.csv(cohort_summary, cohort_summary_file, row.names = FALSE)
+
+pairwise_overlap_file <- file.path(results_dir, "tabla_solapamiento_genico_pares.csv")
+write.csv(pairwise_overlap, pairwise_overlap_file, row.names = FALSE)
+
+diagnostic_file <- file.path(results_dir, "diagnostico_integracion_global.csv")
+write.csv(integration_diagnostic, diagnostic_file, row.names = FALSE)
+
+cohort_summary_file
+pairwise_overlap_file
+diagnostic_file
+```
+
+---
+
+# 14. Integración solo si existe intersección global
+
+```{r}
+if (length(common_genes) > 0) {
+
+  subset_to_common_genes <- function(se_obj, common_genes) {
+    rd <- as.data.frame(rowData(se_obj))
+
+    if ("gene_symbol" %in% colnames(rd)) {
+      gene_ids <- as.character(rd$gene_symbol)
+    } else if ("gene_id" %in% colnames(rd)) {
+      gene_ids <- as.character(rd$gene_id)
+    } else {
+      gene_ids <- rownames(se_obj)
+    }
+
+    gene_ids <- trimws(gene_ids)
+    keep <- which(!is.na(gene_ids) & gene_ids %in% common_genes)
+    se_sub <- se_obj[keep, ]
+
+    rd_sub <- as.data.frame(rowData(se_sub))
+
+    if ("gene_symbol" %in% colnames(rd_sub)) {
+      ids_sub <- as.character(rd_sub$gene_symbol)
+    } else if ("gene_id" %in% colnames(rd_sub)) {
+      ids_sub <- as.character(rd_sub$gene_id)
+    } else {
+      ids_sub <- rownames(se_sub)
+    }
+
+    ids_sub <- trimws(ids_sub)
+    rownames(se_sub) <- ids_sub
+
+    se_sub
+  }
+
+  se_common_list <- lapply(se_list, subset_to_common_genes, common_genes = common_genes)
+
+  se_common_list <- lapply(se_common_list, function(se_obj) {
+    se_obj[common_genes, ]
+  })
+
+  expr_integrated <- do.call(cbind, lapply(se_common_list, function(se_obj) assay(se_obj, "expr")))
+
+  dim(expr_integrated)
+
+  if (nrow(expr_integrated) > 0 && ncol(expr_integrated) > 0) {
+    expr_integrated[1:min(5, nrow(expr_integrated)), 1:min(5, ncol(expr_integrated))]
+  }
+
+  coldata_integrated <- purrr::imap_dfr(se_common_list, function(se_obj, dataset_name) {
+    cd <- as.data.frame(colData(se_obj))
+    if (!"dataset" %in% colnames(cd)) {
+      cd$dataset <- dataset_name
+    }
+    cd$cohort <- dataset_name
+    cd
+  })
+
+  rownames(coldata_integrated) <- colnames(expr_integrated)
+
+  stopifnot(identical(colnames(expr_integrated), rownames(coldata_integrated)))
+
+  rowdata_integrated <- data.frame(
+    gene_symbol = common_genes,
+    stringsAsFactors = FALSE
+  )
+  rownames(rowdata_integrated) <- common_genes
+
+  se_integrated_initial <- SummarizedExperiment(
+    assays = list(expr = expr_integrated),
+    colData = S4Vectors::DataFrame(coldata_integrated),
+    rowData = S4Vectors::DataFrame(rowdata_integrated)
+  )
+
+  metadata(se_integrated_initial)$description <- "Integración inicial de cohortes GEO de melanoma tratadas con inmunoterapia"
+  metadata(se_integrated_initial)$datasets_included <- names(se_common_list)
+  metadata(se_integrated_initial)$n_datasets <- length(se_common_list)
+  metadata(se_integrated_initial)$n_common_genes <- length(common_genes)
+  metadata(se_integrated_initial)$integration_stage <- "Inicial, previo a corrección de batch effect"
+  metadata(se_integrated_initial)$date_created <- Sys.Date()
+
+  integrated_file <- file.path(integrated_dir, "se_integrated_initial_geo.rds")
+  saveRDS(se_integrated_initial, integrated_file)
+
+  integrated_file
+  se_integrated_initial
+
+} else {
+
+  integrated_file <- NA_character_
+
+  cat("No se ha generado se_integrated_initial_geo.rds porque la intersección global de genes es 0.\n")
+}
+```
+
+---
+
+# 15. Checklist de integración inicial
+
+```{r}
+checklist_integracion_inicial <- tibble::tibble(
+  paso = c(
+    "Objetos SummarizedExperiment localizados",
+    "Objetos cargados correctamente",
+    "Identificador génico revisado",
+    "Solapamiento génico por pares calculado",
+    "Intersección global calculada",
+    "Integración global ejecutada",
+    "Objeto integrado guardado"
+  ),
+  estado = c(
+    ifelse(all(file.exists(se_files)), "Sí", "No"),
+    ifelse(length(se_list) == 4, "Sí", "No"),
+    "Sí",
+    "Sí",
+    "Sí",
+    ifelse(length(common_genes) > 0, "Sí", "No: sin genes comunes"),
+    ifelse(!is.na(integrated_file) && file.exists(integrated_file), "Sí", "No")
+  )
+)
+
+checklist_integracion_inicial
+```
+
+---
+
+# 16. Conclusión
+
+En este documento se ha realizado una **evaluación robusta de la integración inicial** de las cohortes GEO previamente procesadas como `SummarizedExperiment`.
+
+Se ha:
+
+- cargado cada cohorte individual,
+- inspeccionado su estructura transcriptómica y clínica,
+- identificado el tipo de identificador génico disponible en cada dataset,
+- calculado el solapamiento génico por pares,
+- y evaluado si existe una intersección global utilizable entre las cuatro cohortes.
+
+Si la intersección global resulta vacía, eso indica que **no debe forzarse todavía una integración global de las cuatro cohortes** y que el siguiente paso metodológico será reconsiderar la estrategia de integración, por ejemplo:
+
+- integrar por subconjuntos de plataformas,
+- armonizar nomenclatura génica,
+- o trabajar con análisis separados RNA-seq vs NanoString.

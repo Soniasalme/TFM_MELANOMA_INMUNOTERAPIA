@@ -1,0 +1,5 @@
+"dataset","n_genes_originales","n_muestras","id_genico_usado","n_genes_unicos","n_genes_comunes_globales"
+"GSE78220",25268,25,"gene_symbol",25268,198
+"GSE91061",22069,51,"gene_symbol",22069,198
+"GSE215868",770,105,"gene_symbol",770,198
+"GSE211645",418,40,"gene_symbol",418,198

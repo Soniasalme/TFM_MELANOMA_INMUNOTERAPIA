@@ -1,0 +1,435 @@
+---
+title: "Construcción de SummarizedExperiment – GSE215868"
+author: "TFM Melanoma Inmunoterapia"
+output: html_document
+---
+
+# 1. Objetivo de este documento
+
+El objetivo de este documento es construir un **contenedor ómico tipo SummarizedExperiment** para la cohorte **GSE215868**, integrando:
+
+- matriz de expresión génica,
+- metadatos clínicos de las muestras,
+- anotación de genes,
+- e información de preprocesamiento.
+
+Además, en esta versión se automatiza la gestión de rutas para que:
+
+- los archivos crudos se guarden en `GEO_raw/GSE215868/`,
+- el objeto final se guarde en `SummarizedExperiment_objects/`,
+- y el `.Rmd` / `.html` permanezcan en la carpeta del script.
+
+---
+
+# 2. Librerías necesarias
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+pkgs <- c(
+  "GEOquery",
+  "SummarizedExperiment",
+  "S4Vectors",
+  "dplyr",
+  "tibble",
+  "stringr"
+)
+
+for (p in pkgs) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    if (p %in% c("GEOquery", "SummarizedExperiment", "S4Vectors")) {
+      BiocManager::install(p, ask = FALSE, update = FALSE)
+    } else {
+      install.packages(p)
+    }
+  }
+}
+
+library(GEOquery)
+library(SummarizedExperiment)
+library(S4Vectors)
+library(dplyr)
+library(tibble)
+library(stringr)
+```
+
+---
+
+# 3. Definición automática de rutas del proyecto
+
+Este documento está pensado para ejecutarse desde la carpeta:
+
+`TFM/scripts/GEO/GSE215868/`
+
+Por ello, el directorio raíz del proyecto se define automáticamente como tres niveles por encima del script actual. A partir de ahí se construyen las rutas de salida correctas.
+
+```{r}
+project_root <- normalizePath(file.path("..", "..", ".."), winslash = "/", mustWork = FALSE)
+
+raw_base_dir <- file.path(project_root, "GEO_raw")
+raw_dataset_dir <- file.path(raw_base_dir, "GSE215868")
+se_dir <- file.path(project_root, "SummarizedExperiment_objects")
+
+dir.create(raw_base_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(raw_dataset_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(se_dir, recursive = TRUE, showWarnings = FALSE)
+
+project_root
+raw_base_dir
+raw_dataset_dir
+se_dir
+```
+
+---
+
+# 4. Descarga de metadatos y matriz de expresión GEO
+
+En esta cohorte, la matriz de expresión ya viene incluida en el objeto `ExpressionSet`, por lo que el flujo es más directo que en otros datasets GEO.
+
+```{r}
+gse215868_list <- getGEO("GSE215868", GSEMatrix = TRUE)
+length(gse215868_list)
+
+gse215868_eset <- gse215868_list[[1]]
+
+expr_matrix <- Biobase::exprs(gse215868_eset)
+metadata_geo <- Biobase::pData(gse215868_eset)
+gene_info <- Biobase::fData(gse215868_eset)
+
+dim(expr_matrix)
+dim(metadata_geo)
+dim(gene_info)
+```
+
+---
+
+# 5. Guardado opcional del fichero de metadatos crudos
+
+Aunque la expresión ya se obtiene del `ExpressionSet`, se guarda un resumen de la cohorte en la carpeta de crudos del proyecto para mantener trazabilidad.
+
+```{r}
+raw_metadata_file <- file.path(raw_dataset_dir, "GSE215868_metadata_raw.tsv")
+write.table(metadata_geo, raw_metadata_file, sep = "\t", quote = FALSE, row.names = TRUE)
+
+raw_metadata_file
+```
+
+---
+
+# 6. Inspección inicial de la cohorte
+
+```{r}
+colnames(metadata_geo)
+dim(expr_matrix)
+head(rownames(expr_matrix))
+head(colnames(expr_matrix))
+```
+
+---
+
+# 7. Definición de columnas clave
+
+A partir de la exploración previa de esta cohorte, se han identificado como variables correctas:
+
+- `geo_accession` como identificador de muestra,
+- `bor:ch1` como variable principal de respuesta,
+- `itx:ch1` como tipo de tratamiento,
+- `long-term benefit:ch1` como variable clínica adicional,
+- `os_days:ch1`, `os_index:ch1`, `pfs_days:ch1`, `pfs_index:ch1` como variables de supervivencia,
+- `prior checkpoint blockade:ch1` como covariable clínica.
+
+En esta cohorte no se ha identificado una variable explícita de `baseline` o `on-treatment`, por lo que inicialmente se trabaja con las 105 muestras disponibles del estudio.
+
+```{r}
+sample_id_col <- "geo_accession"
+patient_id_col <- "geo_accession"
+response_col <- "bor:ch1"
+treatment_col <- "itx:ch1"
+benefit_col <- "long-term benefit:ch1"
+os_days_col <- "os_days:ch1"
+os_index_col <- "os_index:ch1"
+pfs_days_col <- "pfs_days:ch1"
+pfs_index_col <- "pfs_index:ch1"
+prior_ckb_col <- "prior checkpoint blockade:ch1"
+```
+
+---
+
+# 8. Funciones auxiliares
+
+## 8.1. Recodificación de respuesta binaria basada en BOR
+
+```{r}
+make_response_binary <- function(x) {
+  x_clean <- stringr::str_to_upper(trimws(as.character(x)))
+
+  dplyr::case_when(
+    x_clean %in% c("CR", "PR", "COMPLETE RESPONSE", "PARTIAL RESPONSE") ~ "Responder",
+    x_clean %in% c("SD", "PD", "STABLE DISEASE", "PROGRESSIVE DISEASE") ~ "No_responder",
+    TRUE ~ NA_character_
+  )
+}
+```
+
+## 8.2. Recodificación de beneficio a formato homogéneo
+
+```{r}
+make_benefit_binary <- function(x) {
+  x_clean <- stringr::str_to_upper(trimws(as.character(x)))
+
+  dplyr::case_when(
+    x_clean == "YES" ~ "Yes",
+    x_clean == "NO" ~ "No",
+    TRUE ~ NA_character_
+  )
+}
+```
+
+---
+
+# 9. Construcción de metadatos clínicos limpios
+
+```{r}
+metadata_clean <- metadata_geo
+
+metadata_clean$sample_id <- trimws(as.character(metadata_clean[[sample_id_col]]))
+metadata_clean$patient_id <- trimws(as.character(metadata_clean[[patient_id_col]]))
+
+metadata_clean$response_raw <- metadata_clean[[response_col]]
+metadata_clean$response_binary <- make_response_binary(metadata_clean$response_raw)
+
+metadata_clean$treatment <- metadata_clean[[treatment_col]]
+metadata_clean$long_term_benefit <- make_benefit_binary(metadata_clean[[benefit_col]])
+
+metadata_clean$os_days <- suppressWarnings(as.numeric(as.character(metadata_clean[[os_days_col]])))
+metadata_clean$os_index <- suppressWarnings(as.numeric(as.character(metadata_clean[[os_index_col]])))
+
+metadata_clean$pfs_days <- suppressWarnings(as.numeric(as.character(metadata_clean[[pfs_days_col]])))
+metadata_clean$pfs_index <- suppressWarnings(as.numeric(as.character(metadata_clean[[pfs_index_col]])))
+
+metadata_clean$prior_checkpoint_blockade <- metadata_clean[[prior_ckb_col]]
+
+metadata_clean$dataset <- "GSE215868"
+metadata_clean$tissue <- "Tumor"
+metadata_clean$platform <- "NanoString"
+
+metadata_clean
+```
+
+---
+
+# 10. Comprobación de variables clínicas principales
+
+```{r}
+table(metadata_clean$response_raw, useNA = "ifany")
+table(metadata_clean$response_binary, useNA = "ifany")
+table(metadata_clean$treatment, useNA = "ifany")
+table(metadata_clean$long_term_benefit, useNA = "ifany")
+table(metadata_clean$prior_checkpoint_blockade, useNA = "ifany")
+```
+
+---
+
+# 11. Comprobación de supervivencia
+
+```{r}
+summary(metadata_clean$os_days)
+table(metadata_clean$os_index, useNA = "ifany")
+
+summary(metadata_clean$pfs_days)
+table(metadata_clean$pfs_index, useNA = "ifany")
+```
+
+---
+
+# 12. Alineamiento robusto entre expresión y metadatos
+
+En esta cohorte, las columnas de la matriz de expresión suelen alinearse directamente con `geo_accession`.
+
+```{r}
+colnames(expr_matrix) <- trimws(colnames(expr_matrix))
+metadata_clean$sample_id <- trimws(as.character(metadata_clean$sample_id))
+
+expr_only <- setdiff(colnames(expr_matrix), metadata_clean$sample_id)
+meta_only <- setdiff(metadata_clean$sample_id, colnames(expr_matrix))
+
+cat("Muestras solo en expresión:", length(expr_only), "\n")
+cat("Muestras solo en metadatos:", length(meta_only), "\n")
+
+if (length(expr_only) > 0) {
+  print(head(expr_only, 20))
+}
+
+if (length(meta_only) > 0) {
+  print(head(meta_only, 20))
+}
+
+common_samples <- intersect(colnames(expr_matrix), metadata_clean$sample_id)
+
+if (length(common_samples) == 0) {
+  stop("No hay muestras comunes entre la matriz de expresión y los metadatos.")
+}
+
+expr_matrix <- expr_matrix[, common_samples, drop = FALSE]
+metadata_clean <- metadata_clean %>%
+  filter(sample_id %in% common_samples)
+
+rownames(metadata_clean) <- metadata_clean$sample_id
+metadata_clean <- metadata_clean[common_samples, , drop = FALSE]
+
+dim(expr_matrix)
+metadata_clean
+```
+
+---
+
+# 13. Selección final de columnas clínicas
+
+```{r}
+metadata_clean <- metadata_clean %>%
+  select(
+    sample_id,
+    patient_id,
+    response_raw,
+    response_binary,
+    treatment,
+    long_term_benefit,
+    os_days,
+    os_index,
+    pfs_days,
+    pfs_index,
+    prior_checkpoint_blockade,
+    dataset,
+    tissue,
+    platform
+  )
+
+metadata_clean
+```
+
+---
+
+# 14. Anotación mínima de genes
+
+Se utiliza la anotación disponible en el propio `ExpressionSet`. Si existe la columna `ID`, se conserva junto al nombre del gen.
+
+```{r}
+gene_annotation <- as.data.frame(gene_info)
+
+if (!"gene_symbol" %in% colnames(gene_annotation)) {
+  gene_annotation$gene_symbol <- rownames(gene_annotation)
+}
+
+rownames(gene_annotation) <- rownames(expr_matrix)
+
+gene_annotation
+```
+
+---
+
+# 15. Verificación previa
+
+Antes de construir el `SummarizedExperiment`, se comprueba la alineación entre:
+
+- columnas del assay,
+- filas del `colData`,
+- y filas del `rowData`.
+
+```{r}
+stopifnot(identical(colnames(expr_matrix), rownames(metadata_clean)))
+stopifnot(identical(rownames(expr_matrix), rownames(gene_annotation)))
+```
+
+---
+
+# 16. Construcción del SummarizedExperiment
+
+```{r}
+se_gse215868 <- SummarizedExperiment(
+  assays = list(expr = expr_matrix),
+  colData = S4Vectors::DataFrame(metadata_clean),
+  rowData = S4Vectors::DataFrame(gene_annotation)
+)
+
+se_gse215868
+```
+
+---
+
+# 17. Metadatos del preprocesamiento
+
+```{r}
+metadata(se_gse215868)$dataset <- "GSE215868"
+metadata(se_gse215868)$description <- "Yale melanoma advanced anti-PD1 cohort"
+metadata(se_gse215868)$expression_units <- "Normalized NanoString expression from ExpressionSet"
+metadata(se_gse215868)$sample_id_column <- sample_id_col
+metadata(se_gse215868)$response_column <- response_col
+metadata(se_gse215868)$treatment_column <- treatment_col
+metadata(se_gse215868)$benefit_column <- benefit_col
+metadata(se_gse215868)$preprocessing <- "Expression extracted directly from GEO ExpressionSet; response recoded from BOR; all available tumor samples retained"
+metadata(se_gse215868)$date_created <- Sys.Date()
+```
+
+---
+
+# 18. Guardado del contenedor
+
+```{r}
+se_output_file <- file.path(se_dir, "se_gse215868.rds")
+saveRDS(se_gse215868, se_output_file)
+
+se_output_file
+```
+
+---
+
+# 19. Checklist específica de GSE215868
+
+```{r}
+checklist_gse215868 <- tibble::tibble(
+  paso = c(
+    "ExpressionSet descargado",
+    "Matriz de expresión extraída",
+    "Metadatos clínicos extraídos",
+    "sample_id definido",
+    "Respuesta identificada",
+    "Tratamiento identificado",
+    "Variables de supervivencia disponibles",
+    "Muestras alineadas",
+    "SummarizedExperiment construido",
+    "Objeto guardado en carpeta final"
+  ),
+  estado = c(
+    "Sí",
+    "Sí",
+    "Sí",
+    "Sí",
+    "Sí",
+    "Sí",
+    "Sí",
+    ifelse(identical(colnames(expr_matrix), rownames(metadata_clean)), "Sí", "No"),
+    ifelse(exists("se_gse215868"), "Sí", "No"),
+    ifelse(file.exists(se_output_file), "Sí", "No")
+  )
+)
+
+checklist_gse215868
+```
+
+---
+
+# 20. Conclusión
+
+Con esta versión del documento se ha construido el `SummarizedExperiment` de **GSE215868** utilizando:
+
+- `geo_accession` como identificador de muestra,
+- `bor:ch1` como variable principal de respuesta,
+- `itx:ch1` como tratamiento,
+- y varias variables clínicas adicionales de supervivencia y beneficio clínico.
+
+Además, el proceso queda automatizado para que los archivos se guarden en la estructura general del proyecto:
+
+- metadatos crudos en `GEO_raw/GSE215868/`,
+- objeto final en `SummarizedExperiment_objects/`,
+- y script / html en la carpeta del propio dataset.

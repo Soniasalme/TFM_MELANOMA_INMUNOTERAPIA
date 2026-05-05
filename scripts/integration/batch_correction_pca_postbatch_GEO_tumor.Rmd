@@ -1,0 +1,542 @@
+---
+title: "Corrección de batch effect y PCA post-batch del bloque tumoral GEO"
+author: "TFM Melanoma Inmunoterapia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    theme: readable
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 6
+)
+```
+
+# Objetivo
+
+Este documento realiza la corrección exploratoria del efecto batch en el bloque tumoral GEO integrado.
+
+El objetivo es:
+
+1. Cargar el objeto `SummarizedExperiment` tumoral.
+2. Revisar las variables clínicas disponibles.
+3. Evaluar el balance de respuesta por cohorte/plataforma.
+4. Aplicar `limma::removeBatchEffect()` usando la cohorte como batch.
+5. Proteger la variable de respuesta (`response_binary`) en el modelo de corrección.
+6. Generar PCA post-batch.
+7. Comparar visualmente PCA pre-batch y post-batch.
+8. Guardar la matriz corregida y el objeto tumoral con un nuevo assay.
+
+> Nota metodológica: esta corrección se plantea para exploración/PCA y análisis diferencial. Para modelos predictivos, conviene comparar estrategias con y sin corrección, o incluir cohorte/plataforma como variable de ajuste.
+
+## Ficha del informe
+
+| Elemento | Detalle |
+|---|---|
+| Entrada | `integrated_dataset/se_integrated_geo_tumor.rds` |
+| Salida principal | Objeto tumoral con assay `expr_batch_corrected_limma` |
+| Carpeta de resultados | `resultados/batch_correction_geo_tumor/` |
+| Decision metodologica | Usar `limma::removeBatchEffect()` para exploracion/PCA y DEA, protegiendo `response_binary` |
+| Robustez | Comparar resultados con matriz sin corregir ajustando por dataset/plataforma |
+
+# Librerías
+
+```{r librerias}
+required_packages <- c(
+  "SummarizedExperiment",
+  "dplyr",
+  "tibble",
+  "ggplot2",
+  "knitr",
+  "limma",
+  "matrixStats",
+  "tidyr"
+)
+
+for (pkg in required_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    stop(paste("Falta instalar el paquete:", pkg))
+  }
+}
+
+library(SummarizedExperiment)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(knitr)
+library(limma)
+library(matrixStats)
+```
+
+# Localización del objeto tumoral
+
+```{r localizar_objeto_tumor}
+candidate_paths <- c(
+  "C:/Users/sonia/Desktop/2_TFM_MELANOMA/integrated_dataset/se_integrated_geo_tumor.rds",
+  "integrated_dataset/se_integrated_geo_tumor.rds",
+  "../integrated_dataset/se_integrated_geo_tumor.rds",
+  "../../integrated_dataset/se_integrated_geo_tumor.rds",
+  "data/processed/integrated_dataset/se_integrated_geo_tumor.rds",
+  "../data/processed/integrated_dataset/se_integrated_geo_tumor.rds",
+  "../../data/processed/integrated_dataset/se_integrated_geo_tumor.rds",
+  "se_integrated_geo_tumor.rds",
+  "../se_integrated_geo_tumor.rds",
+  "../../se_integrated_geo_tumor.rds"
+)
+
+existing_paths <- candidate_paths[file.exists(candidate_paths)]
+
+if (length(existing_paths) == 0) {
+  stop(
+    "No se ha encontrado el objeto tumoral .rds. ",
+    "Revisa la ubicación del archivo generado en el Rmd anterior y actualiza candidate_paths."
+  )
+}
+
+tumor_path <- existing_paths[1]
+tumor_path
+
+project_root <- normalizePath(file.path(dirname(tumor_path), ".."), winslash = "/", mustWork = FALSE)
+project_root
+
+se_tumor <- readRDS(tumor_path)
+
+stopifnot(inherits(se_tumor, "SummarizedExperiment"))
+se_tumor
+```
+
+# Revisión inicial del objeto tumoral
+
+```{r revision_inicial}
+dim(se_tumor)
+assayNames(se_tumor)
+colnames(colData(se_tumor))
+```
+
+```{r seleccionar_assay}
+assay_candidates <- c("expr", "log_expr", "vst", "normalized", "counts")
+
+available_assays <- assayNames(se_tumor)
+selected_assay <- assay_candidates[assay_candidates %in% available_assays][1]
+
+if (is.na(selected_assay)) {
+  selected_assay <- available_assays[1]
+}
+
+selected_assay
+
+expr <- assay(se_tumor, selected_assay)
+expr <- as.matrix(expr)
+
+stopifnot(ncol(expr) == ncol(se_tumor))
+```
+
+# Revisión de metadatos
+
+```{r coldata}
+coldata <- as.data.frame(colData(se_tumor))
+
+# Identificador técnico interno para unir PCA y metadatos
+coldata <- coldata %>%
+  rownames_to_column("sample_id_pca")
+
+dim(coldata)
+head(coldata)
+```
+
+```{r variables_clave}
+required_vars <- c("dataset", "platform", "response_binary")
+missing_vars <- setdiff(required_vars, colnames(coldata))
+
+if (length(missing_vars) > 0) {
+  stop(paste(
+    "Faltan variables necesarias en colData:",
+    paste(missing_vars, collapse = ", ")
+  ))
+}
+
+coldata %>%
+  count(dataset, name = "n_muestras") %>%
+  arrange(desc(n_muestras)) %>%
+  kable(caption = "Número de muestras por dataset")
+
+coldata %>%
+  count(platform, name = "n_muestras") %>%
+  arrange(desc(n_muestras)) %>%
+  kable(caption = "Número de muestras por plataforma")
+
+coldata %>%
+  count(response_binary, name = "n_muestras") %>%
+  arrange(desc(n_muestras)) %>%
+  kable(caption = "Número de muestras por respuesta binaria")
+```
+
+```{r balance_respuesta}
+coldata %>%
+  count(dataset, response_binary, name = "n") %>%
+  tidyr::pivot_wider(
+    names_from = response_binary,
+    values_from = n,
+    values_fill = 0
+  ) %>%
+  kable(caption = "Balance de respuesta por dataset")
+
+coldata %>%
+  count(platform, response_binary, name = "n") %>%
+  tidyr::pivot_wider(
+    names_from = response_binary,
+    values_from = n,
+    values_fill = 0
+  ) %>%
+  kable(caption = "Balance de respuesta por plataforma")
+```
+
+# Preparación de la matriz de expresión
+
+```{r preparar_expr}
+# Asegurar que la matriz es numérica
+expr <- apply(expr, 2, as.numeric)
+rownames(expr) <- rownames(se_tumor)
+colnames(expr) <- colnames(se_tumor)
+
+# Eliminar genes con NA o varianza cero
+na_genes <- rowSums(is.na(expr)) > 0
+zero_var_genes <- matrixStats::rowVars(expr, na.rm = TRUE) == 0
+
+genes_keep <- !na_genes & !zero_var_genes
+
+table(genes_keep)
+
+expr_filt <- expr[genes_keep, , drop = FALSE]
+
+dim(expr_filt)
+```
+
+# PCA pre-batch de referencia
+
+```{r funcion_pca}
+run_pca <- function(expr_matrix, metadata) {
+  expr_t <- t(expr_matrix)
+  pca <- prcomp(expr_t, center = TRUE, scale. = TRUE)
+
+  var_exp <- (pca$sdev^2 / sum(pca$sdev^2)) * 100
+
+  pca_df <- as.data.frame(pca$x[, 1:min(5, ncol(pca$x)), drop = FALSE]) %>%
+    rownames_to_column("sample_id_pca") %>%
+    left_join(metadata, by = "sample_id_pca")
+
+  list(
+    pca = pca,
+    pca_df = pca_df,
+    var_exp = var_exp
+  )
+}
+
+plot_pca <- function(pca_df, var_exp, color_var, title) {
+  if (!color_var %in% colnames(pca_df)) {
+    return(NULL)
+  }
+
+  ggplot(pca_df, aes(x = PC1, y = PC2, color = .data[[color_var]])) +
+    geom_point(size = 3, alpha = 0.85) +
+    labs(
+      title = title,
+      x = paste0("PC1 (", round(var_exp[1], 1), "%)"),
+      y = paste0("PC2 (", round(var_exp[2], 1), "%)"),
+      color = color_var
+    ) +
+    theme_minimal(base_size = 13) +
+    theme(
+      plot.title = element_text(face = "bold"),
+      legend.position = "right"
+    )
+}
+```
+
+```{r pca_prebatch}
+pca_pre <- run_pca(expr_filt, coldata)
+
+p_pre_dataset <- plot_pca(
+  pca_pre$pca_df,
+  pca_pre$var_exp,
+  "dataset",
+  "PCA pre-batch - bloque tumoral coloreado por dataset"
+)
+
+p_pre_platform <- plot_pca(
+  pca_pre$pca_df,
+  pca_pre$var_exp,
+  "platform",
+  "PCA pre-batch - bloque tumoral coloreado por plataforma"
+)
+
+p_pre_response <- plot_pca(
+  pca_pre$pca_df,
+  pca_pre$var_exp,
+  "response_binary",
+  "PCA pre-batch - bloque tumoral coloreado por respuesta"
+)
+
+p_pre_dataset
+p_pre_platform
+p_pre_response
+```
+
+# Corrección de batch effect con limma
+
+```{r preparar_batch}
+batch <- coldata$dataset
+
+if (any(is.na(batch))) {
+  stop("La variable dataset contiene NA. No se puede usar como batch sin corregir.")
+}
+
+batch <- factor(batch)
+
+table(batch)
+```
+
+```{r preparar_modelo}
+response_for_design <- as.character(coldata$response_binary)
+response_for_design[is.na(response_for_design) | trimws(response_for_design) == ""] <- "Unknown_response"
+response_for_design <- factor(response_for_design)
+
+# removeBatchEffect no acepta NA en el diseno. Para conservar todas las
+# muestras y proteger la senal de respuesta, los NA se agrupan como
+# Unknown_response en vez de eliminarse o usar solo intercepto.
+if (nlevels(response_for_design) > 1) {
+  design <- model.matrix(~ response_for_design)
+  correction_note <- paste0(
+    "Se protegio response_binary en el diseno de removeBatchEffect. ",
+    "Las muestras con respuesta no disponible se codificaron como Unknown_response."
+  )
+} else {
+  design <- matrix(1, nrow = ncol(expr_filt), ncol = 1)
+  colnames(design) <- "Intercept"
+  correction_note <- "No hay variacion util en response_binary; se uso un diseno con intercepto."
+}
+
+correction_note
+table(response_for_design)
+head(design)
+```
+
+```{r aplicar_removeBatchEffect}
+expr_batch_corrected <- limma::removeBatchEffect(
+  expr_filt,
+  batch = batch,
+  design = design
+)
+
+dim(expr_batch_corrected)
+
+stopifnot(identical(dim(expr_batch_corrected), dim(expr_filt)))
+stopifnot(identical(rownames(expr_batch_corrected), rownames(expr_filt)))
+stopifnot(identical(colnames(expr_batch_corrected), colnames(expr_filt)))
+```
+
+# PCA post-batch
+
+```{r pca_postbatch}
+pca_post <- run_pca(expr_batch_corrected, coldata)
+
+p_post_dataset <- plot_pca(
+  pca_post$pca_df,
+  pca_post$var_exp,
+  "dataset",
+  "PCA post-batch - bloque tumoral coloreado por dataset"
+)
+
+p_post_platform <- plot_pca(
+  pca_post$pca_df,
+  pca_post$var_exp,
+  "platform",
+  "PCA post-batch - bloque tumoral coloreado por plataforma"
+)
+
+p_post_response <- plot_pca(
+  pca_post$pca_df,
+  pca_post$var_exp,
+  "response_binary",
+  "PCA post-batch - bloque tumoral coloreado por respuesta"
+)
+
+p_post_dataset
+p_post_platform
+p_post_response
+```
+
+# Comparación pre vs post
+
+```{r comparar_pre_post}
+pca_pre_df <- pca_pre$pca_df %>%
+  mutate(stage = "Pre-batch")
+
+pca_post_df <- pca_post$pca_df %>%
+  mutate(stage = "Post-batch")
+
+pca_compare <- bind_rows(
+  pca_pre_df,
+  pca_post_df
+)
+
+ggplot(pca_compare, aes(x = PC1, y = PC2, color = dataset)) +
+  geom_point(size = 2.8, alpha = 0.85) +
+  facet_wrap(~ stage, scales = "free") +
+  labs(
+    title = "Comparación PCA pre-batch vs post-batch por dataset",
+    x = "PC1",
+    y = "PC2",
+    color = "dataset"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "right"
+  )
+
+ggplot(pca_compare, aes(x = PC1, y = PC2, color = response_binary)) +
+  geom_point(size = 2.8, alpha = 0.85) +
+  facet_wrap(~ stage, scales = "free") +
+  labs(
+    title = "Comparación PCA pre-batch vs post-batch por respuesta",
+    x = "PC1",
+    y = "PC2",
+    color = "response_binary"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "right"
+  )
+```
+
+# Varianza explicada
+
+```{r varianza_explicada}
+variance_df <- tibble(
+  PC = paste0("PC", seq_along(pca_pre$var_exp)),
+  pre_batch = pca_pre$var_exp,
+  post_batch = pca_post$var_exp
+) %>%
+  slice(1:min(10, n()))
+
+variance_df %>%
+  kable(
+    digits = 2,
+    caption = "Porcentaje de varianza explicada por los primeros componentes principales"
+  )
+```
+
+# Guardado de resultados
+
+```{r guardar_resultados}
+output_dir <- file.path(project_root, "resultados", "batch_correction_geo_tumor")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Guardar matriz corregida
+saveRDS(
+  expr_batch_corrected,
+  file = file.path(output_dir, "expr_geo_tumor_batch_corrected_limma.rds")
+)
+
+# Añadir assay corregido al SummarizedExperiment.
+# Primero creamos una matriz con todas las filas originales.
+expr_corrected_full <- matrix(
+  NA_real_,
+  nrow = nrow(se_tumor),
+  ncol = ncol(se_tumor),
+  dimnames = list(rownames(se_tumor), colnames(se_tumor))
+)
+
+expr_corrected_full[rownames(expr_batch_corrected), colnames(expr_batch_corrected)] <- expr_batch_corrected
+
+assay(se_tumor, "expr_batch_corrected_limma") <- expr_corrected_full
+
+saveRDS(
+  se_tumor,
+  file = file.path(output_dir, "se_integrated_geo_tumor_batch_corrected_limma.rds")
+)
+
+# Guardar objetos PCA
+saveRDS(
+  pca_pre$pca,
+  file = file.path(output_dir, "pca_pre_batch_geo_tumor.rds")
+)
+
+saveRDS(
+  pca_post$pca,
+  file = file.path(output_dir, "pca_post_batch_geo_tumor_limma.rds")
+)
+
+# Guardar dataframes PCA
+saveRDS(
+  pca_pre$pca_df,
+  file = file.path(output_dir, "pca_pre_batch_geo_tumor_scores.rds")
+)
+
+saveRDS(
+  pca_post$pca_df,
+  file = file.path(output_dir, "pca_post_batch_geo_tumor_scores.rds")
+)
+
+list.files(output_dir, full.names = TRUE)
+```
+
+# Checklist final
+
+```{r checklist}
+checks <- tibble(
+  comprobacion = c(
+    "Objeto tumoral cargado como SummarizedExperiment",
+    "Assay de expresión seleccionado",
+    "Matriz de expresión numérica",
+    "Genes con NA excluidos para PCA/corrección",
+    "Genes con varianza cero excluidos",
+    "Variable batch disponible",
+    "Corrección con limma::removeBatchEffect ejecutada",
+    "Dimensiones conservadas tras corrección",
+    "PCA pre-batch calculado",
+    "PCA post-batch calculado",
+    "Objeto corregido guardado"
+  ),
+  resultado = c(
+    inherits(se_tumor, "SummarizedExperiment"),
+    selected_assay %in% assayNames(se_tumor),
+    is.numeric(expr_filt),
+    sum(na_genes) >= 0,
+    sum(zero_var_genes) >= 0,
+    exists("batch") && !any(is.na(batch)),
+    exists("expr_batch_corrected"),
+    identical(dim(expr_batch_corrected), dim(expr_filt)),
+    exists("pca_pre"),
+    exists("pca_post"),
+    file.exists(file.path(output_dir, "se_integrated_geo_tumor_batch_corrected_limma.rds"))
+  )
+)
+
+checks %>%
+  kable(caption = "Checklist final de corrección batch y PCA post-batch")
+```
+
+# Conclusión
+
+Este documento genera una corrección exploratoria del efecto batch en el bloque tumoral GEO mediante `limma::removeBatchEffect`.
+
+La comparación entre PCA pre-batch y post-batch permite evaluar si la agrupación por cohorte/plataforma disminuye tras la corrección. Esta evaluación es importante antes de continuar con:
+
+- análisis diferencial entre respondedores y no respondedores,
+- selección de genes candidatos,
+- modelos predictivos,
+- y análisis de robustez comparando resultados con y sin corrección.
+
+La matriz corregida se guarda como `expr_batch_corrected_limma` dentro de un nuevo objeto `SummarizedExperiment`, además de guardarse como matriz independiente.
