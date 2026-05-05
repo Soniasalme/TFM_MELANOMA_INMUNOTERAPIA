@@ -16,6 +16,7 @@ El repositorio contiene:
 - Correccion exploratoria de batch effect.
 - DEA respondedor vs no respondedor en el bloque tumoral integrado.
 - Informes HTML generados desde R Markdown.
+- Nueva reestructuracion descubrimiento/validacion implementada en `scripts/analysis/`.
 
 ## Ultima revision metodologica
 
@@ -30,6 +31,12 @@ Tras la ultima recomendacion de la tutora, el enfoque se esta refinando hacia un
 La nota completa esta en:
 
 `REVISION_TUTORA_2026-05-05.md`
+
+Implementacion actual:
+
+1. `scripts/analysis/01_GSE78220_discovery.html`
+2. `scripts/analysis/02_tumor_validation.html`
+3. `scripts/analysis/03_blood_sensitivity.html`
 
 ## Cohortes incluidas en el trabajo actual
 
@@ -62,6 +69,14 @@ La nota completa esta en:
 
 Los informes mas importantes para revisar el estado actual son:
 
+### Reestructuracion descubrimiento/validacion
+
+1. `scripts/analysis/01_GSE78220_discovery.html`
+2. `scripts/analysis/02_tumor_validation.html`
+3. `scripts/analysis/03_blood_sensitivity.html`
+
+### Integracion multi-cohorte previa
+
 1. `scripts/integration/reconstruccion_GEO_tumor_blood_SummarizedExperiment_v4.html`
 2. `scripts/integration/exploracion_se_integrated_geo_por_bloques.html`
 3. `scripts/integration/pca_prebatch_GEO_tumor_v3.html`
@@ -92,3 +107,10 @@ El DEA integrado tumoral no identifica genes significativos tras correccion FDR,
 
 Por este motivo, el siguiente paso metodologico sera separar descubrimiento y validacion por cohorte/plataforma/tratamiento.
 
+Esa separacion ya queda iniciada en `scripts/analysis/`:
+
+- `GSE78220`: descubrimiento principal RNA-seq anti-PD-1.
+- `GSE215868`: validacion NanoString anti-PD-1.
+- `GSE211645`: generalizacion a anti-CTLA-4.
+- `GSE91061`: sensibilidad en sangre.
+- `GSE94873`: pendiente de valorar/procesar.

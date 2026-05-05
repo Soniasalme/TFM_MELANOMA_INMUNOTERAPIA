@@ -1,0 +1,336 @@
+---
+title: "Validacion tumoral: GSE215868 anti-PD-1 y GSE211645 anti-CTLA-4"
+author: "TFM Melanoma Inmunoterapia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    theme: readable
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.width = 8, fig.height = 6)
+```
+
+# Objetivo
+
+Este informe valida los genes/firma derivados de `GSE78220` en cohortes tumorales NanoString:
+
+- `GSE215868`: tumor, NanoString, anti-PD-1, validacion principal por indicacion biologica similar.
+- `GSE211645`: tumor, NanoString, anti-CTLA-4, validacion secundaria/generalizacion a otro checkpoint.
+
+## Ficha del informe
+
+| Elemento | Detalle |
+|---|---|
+| Entrada descubrimiento | `resultados/discovery_GSE78220/GSE78220_DEA_limma_response.csv` |
+| Validacion 1 | `GSE215868`, tumor, NanoString, anti-PD-1 |
+| Validacion 2 | `GSE211645`, tumor, NanoString, anti-CTLA-4 |
+| Salida | `resultados/validation_tumor/` |
+| Decision metodologica | No mezclar checkpoints en el descubrimiento; evaluar reproducibilidad por separado |
+
+# Librerias
+
+```{r librerias}
+required_packages <- c(
+  "SummarizedExperiment", "limma", "dplyr", "tibble",
+  "ggplot2", "knitr", "matrixStats", "tidyr"
+)
+
+for (pkg in required_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    stop(paste("Falta instalar el paquete:", pkg))
+  }
+}
+
+library(SummarizedExperiment)
+library(limma)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(knitr)
+library(matrixStats)
+library(tidyr)
+```
+
+# Rutas y carga
+
+```{r rutas_carga}
+project_root <- "C:/Users/sonia/Desktop/2_TFM_MELANOMA"
+output_dir <- file.path(project_root, "resultados", "validation_tumor")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+discovery_path <- file.path(project_root, "resultados", "discovery_GSE78220", "GSE78220_DEA_limma_response.csv")
+se_paths <- c(
+  GSE215868 = file.path(project_root, "SummarizedExperiment_objects", "se_gse215868.rds"),
+  GSE211645 = file.path(project_root, "SummarizedExperiment_objects", "se_gse211645.rds")
+)
+
+stopifnot(file.exists(discovery_path))
+stopifnot(all(file.exists(se_paths)))
+
+discovery <- read.csv(discovery_path)
+se_list <- lapply(se_paths, readRDS)
+
+discovery %>%
+  head(20) %>%
+  kable(digits = 4, caption = "Top discovery GSE78220")
+```
+
+# Funciones auxiliares
+
+```{r funciones}
+derive_response <- function(response_raw, response_binary = NULL) {
+  response <- as.character(response_binary)
+  raw <- toupper(trimws(as.character(response_raw)))
+
+  response[is.na(response) | response == ""] <- NA_character_
+  response[is.na(response) & grepl("CR|PR|PRCR|COMPLETE|PARTIAL", raw)] <- "Responder"
+  response[is.na(response) & grepl("PD|SD|PROGRESSIVE|STABLE", raw)] <- "No_responder"
+  response[grepl("UK|UNK|UNKNOWN", raw)] <- NA_character_
+
+  factor(response, levels = c("No_responder", "Responder"))
+}
+
+prepare_expression <- function(se_obj) {
+  assay_name <- if ("expr" %in% assayNames(se_obj)) "expr" else assayNames(se_obj)[1]
+  expr <- assay(se_obj, assay_name)
+  expr <- as.matrix(expr)
+  mode(expr) <- "numeric"
+
+  rd <- as.data.frame(rowData(se_obj))
+  if ("gene_symbol" %in% names(rd)) {
+    gene_symbols <- as.character(rd$gene_symbol)
+  } else {
+    gene_symbols <- rownames(expr)
+  }
+
+  gene_symbols[is.na(gene_symbols) | trimws(gene_symbols) == ""] <- rownames(expr)[is.na(gene_symbols) | trimws(gene_symbols) == ""]
+  gene_symbols <- toupper(trimws(gene_symbols))
+
+  expr_df <- as.data.frame(expr, check.names = FALSE)
+  expr_df$gene_symbol <- gene_symbols
+
+  expr_collapsed <- expr_df %>%
+    filter(!is.na(gene_symbol), gene_symbol != "") %>%
+    group_by(gene_symbol) %>%
+    summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)), .groups = "drop")
+
+  genes <- expr_collapsed$gene_symbol
+  expr_mat <- as.matrix(expr_collapsed[, setdiff(colnames(expr_collapsed), "gene_symbol"), drop = FALSE])
+  rownames(expr_mat) <- genes
+
+  na_genes <- rowSums(is.na(expr_mat)) > 0
+  zero_var_genes <- matrixStats::rowVars(expr_mat, na.rm = TRUE) == 0
+  expr_mat[!na_genes & !zero_var_genes, , drop = FALSE]
+}
+
+run_limma_dea <- function(expr_matrix, response) {
+  keep_samples <- !is.na(response)
+  expr_matrix <- expr_matrix[, keep_samples, drop = FALSE]
+  response <- droplevels(response[keep_samples])
+
+  if (nlevels(response) != 2) {
+    stop("La respuesta no tiene dos grupos tras filtrar NA.")
+  }
+
+  design <- model.matrix(~ 0 + response)
+  colnames(design) <- make.names(colnames(design))
+
+  contrast <- makeContrasts(
+    responseResponder - responseNo_responder,
+    levels = design
+  )
+
+  fit <- lmFit(expr_matrix, design)
+  fit2 <- contrasts.fit(fit, contrast)
+  fit2 <- eBayes(fit2)
+
+  topTable(fit2, coef = 1, number = Inf, adjust.method = "BH", sort.by = "none") %>%
+    rownames_to_column("gene") %>%
+    arrange(adj.P.Val, P.Value)
+}
+
+calc_auc <- function(scores, labels) {
+  labels <- factor(labels, levels = c("No_responder", "Responder"))
+  y <- as.integer(labels == "Responder")
+  keep <- !is.na(scores) & !is.na(y)
+  scores <- scores[keep]
+  y <- y[keep]
+
+  n_pos <- sum(y == 1)
+  n_neg <- sum(y == 0)
+  if (n_pos == 0 || n_neg == 0) return(NA_real_)
+
+  ranks <- rank(scores, ties.method = "average")
+  (sum(ranks[y == 1]) - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
+}
+
+score_discovery_signature <- function(expr_matrix, discovery_results, top_n = 20) {
+  signature <- discovery_results %>%
+    arrange(P.Value) %>%
+    slice_head(n = top_n) %>%
+    mutate(
+      gene = toupper(gene),
+      direction = ifelse(logFC >= 0, 1, -1)
+    )
+
+  genes <- intersect(signature$gene, rownames(expr_matrix))
+  if (length(genes) < 2) {
+    return(rep(NA_real_, ncol(expr_matrix)))
+  }
+
+  directions <- signature$direction[match(genes, signature$gene)]
+  names(directions) <- genes
+
+  expr_sub <- expr_matrix[genes, , drop = FALSE]
+  expr_z <- t(scale(t(expr_sub)))
+  expr_z[!is.finite(expr_z)] <- 0
+
+  colMeans(expr_z * directions[rownames(expr_z)], na.rm = TRUE)
+}
+```
+
+# Validacion por cohorte
+
+```{r validar_cohortes}
+validation_results <- lapply(names(se_list), function(dataset_name) {
+  se_obj <- se_list[[dataset_name]]
+  cd <- as.data.frame(colData(se_obj))
+  expr <- prepare_expression(se_obj)
+
+  response <- derive_response(cd$response_raw, cd$response_binary)
+  keep_response <- !is.na(response)
+
+  dea_res <- run_limma_dea(expr, response)
+  write.csv(dea_res, file.path(output_dir, paste0(dataset_name, "_DEA_limma_response.csv")), row.names = FALSE)
+
+  top_discovery <- discovery %>%
+    arrange(P.Value) %>%
+    slice_head(n = 50) %>%
+    mutate(gene = toupper(gene))
+
+  overlap <- top_discovery %>%
+    select(gene, logFC_discovery = logFC, P_discovery = P.Value, adjP_discovery = adj.P.Val) %>%
+    inner_join(
+      dea_res %>%
+        mutate(gene = toupper(gene)) %>%
+        select(gene, logFC_validation = logFC, P_validation = P.Value, adjP_validation = adj.P.Val),
+      by = "gene"
+    ) %>%
+    mutate(same_direction = sign(logFC_discovery) == sign(logFC_validation))
+
+  signature_score <- score_discovery_signature(expr, discovery, top_n = 20)
+  signature_auc <- calc_auc(signature_score[keep_response], response[keep_response])
+
+  score_df <- tibble(
+    dataset = dataset_name,
+    sample_id = colnames(expr),
+    response = as.character(response),
+    signature_score = signature_score
+  )
+
+  write.csv(overlap, file.path(output_dir, paste0(dataset_name, "_overlap_top50_discovery.csv")), row.names = FALSE)
+  write.csv(score_df, file.path(output_dir, paste0(dataset_name, "_signature_scores.csv")), row.names = FALSE)
+
+  list(
+    dataset = dataset_name,
+    se = se_obj,
+    cd = cd,
+    expr = expr,
+    response = response,
+    dea = dea_res,
+    overlap = overlap,
+    scores = score_df,
+    signature_auc = signature_auc
+  )
+})
+
+names(validation_results) <- names(se_list)
+```
+
+# Resumen de validacion
+
+```{r resumen_validacion}
+summary_validation <- bind_rows(lapply(validation_results, function(x) {
+  response_tab <- table(x$response, useNA = "ifany")
+  tibble(
+    dataset = x$dataset,
+    n_genes = nrow(x$expr),
+    n_samples = ncol(x$expr),
+    n_no_responder = unname(response_tab["No_responder"]),
+    n_responder = unname(response_tab["Responder"]),
+    n_response_na = sum(is.na(x$response)),
+    n_top50_overlap = nrow(x$overlap),
+    pct_same_direction = mean(x$overlap$same_direction, na.rm = TRUE) * 100,
+    signature_auc = x$signature_auc
+  )
+}))
+
+kable(summary_validation, digits = 3, caption = "Resumen de validacion tumoral")
+write.csv(summary_validation, file.path(output_dir, "validation_tumor_summary.csv"), row.names = FALSE)
+```
+
+```{r tablas_overlap}
+for (dataset_name in names(validation_results)) {
+  cat("\n\n##", dataset_name, "\n\n")
+  print(
+    validation_results[[dataset_name]]$overlap %>%
+      arrange(P_validation) %>%
+      head(20) %>%
+      kable(digits = 4, caption = paste("Top genes de descubrimiento presentes en", dataset_name))
+  )
+}
+```
+
+```{r plot_signature}
+bind_rows(lapply(validation_results, function(x) x$scores)) %>%
+  filter(!is.na(response), !is.na(signature_score)) %>%
+  ggplot(aes(x = response, y = signature_score, color = response)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.25) +
+  geom_jitter(width = 0.12, size = 2.3, alpha = 0.85) +
+  facet_wrap(~ dataset, scales = "free_y") +
+  labs(
+    title = "Score de firma GSE78220 en cohortes tumorales de validacion",
+    x = "Respuesta",
+    y = "Score de firma"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none")
+```
+
+# Checklist final
+
+```{r checklist_final}
+checks <- tibble(
+  comprobacion = c(
+    "Discovery cargado",
+    "GSE215868 validado",
+    "GSE211645 validado",
+    "Respuesta derivada en GSE211645",
+    "Tablas guardadas",
+    "Resumen guardado"
+  ),
+  estado = c(
+    nrow(discovery) > 0,
+    "GSE215868" %in% names(validation_results),
+    "GSE211645" %in% names(validation_results),
+    sum(!is.na(validation_results$GSE211645$response)) > 0,
+    file.exists(file.path(output_dir, "GSE215868_DEA_limma_response.csv")),
+    file.exists(file.path(output_dir, "validation_tumor_summary.csv"))
+  )
+)
+
+kable(checks, caption = "Checklist final de validacion tumoral")
+
+if (!all(checks$estado)) {
+  stop("Alguno de los checks finales no se cumple.")
+}
+```
+
+# Conclusion metodologica
+
+Este informe separa la validacion tecnica/biologica (`GSE215868`, anti-PD-1 NanoString) de la generalizacion a otro checkpoint (`GSE211645`, anti-CTLA-4). De este modo, los resultados de `GSE78220` no se mezclan directamente con plataformas y tratamientos distintos en la fase de descubrimiento.

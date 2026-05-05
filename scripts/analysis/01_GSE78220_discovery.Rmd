@@ -1,0 +1,407 @@
+---
+title: "Descubrimiento principal: GSE78220 RNA-seq tumor anti-PD-1"
+author: "TFM Melanoma Inmunoterapia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    theme: readable
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 6
+)
+```
+
+# Objetivo
+
+Este informe implementa el nuevo analisis principal propuesto por la tutora: usar `GSE78220` como cohorte de descubrimiento, al ser tumor, RNA-seq, anti-PD-1 y transcriptoma completo.
+
+La finalidad es evitar que el analisis principal quede limitado por los genes incluidos en paneles NanoString y mantener una pregunta biologica mas homogenea: respondedores vs no respondedores a anti-PD-1 en tumor.
+
+## Ficha del informe
+
+| Elemento | Detalle |
+|---|---|
+| Entrada | `SummarizedExperiment_objects/se_gse78220.rds` |
+| Cohorte | Tumor, RNA-seq, anti-PD-1 |
+| Analisis principal | DEA respondedores vs no respondedores con `limma` |
+| Modelo exploratorio | Firma transcriptomica con LOOCV y seleccion interna de genes |
+| Salida | `resultados/discovery_GSE78220/` |
+| Uso posterior | Validar genes/firma en GSE215868 y GSE211645 |
+
+# Librerias
+
+```{r librerias}
+required_packages <- c(
+  "SummarizedExperiment",
+  "limma",
+  "dplyr",
+  "tibble",
+  "ggplot2",
+  "knitr",
+  "matrixStats",
+  "tidyr"
+)
+
+for (pkg in required_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    stop(paste("Falta instalar el paquete:", pkg))
+  }
+}
+
+library(SummarizedExperiment)
+library(limma)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(knitr)
+library(matrixStats)
+library(tidyr)
+```
+
+# Rutas y carga de datos
+
+```{r rutas_carga}
+project_root <- "C:/Users/sonia/Desktop/2_TFM_MELANOMA"
+se_path <- file.path(project_root, "SummarizedExperiment_objects", "se_gse78220.rds")
+output_dir <- file.path(project_root, "resultados", "discovery_GSE78220")
+
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+file.exists(se_path)
+
+se <- readRDS(se_path)
+stopifnot(inherits(se, "SummarizedExperiment"))
+
+se
+```
+
+# Validaciones iniciales
+
+```{r validaciones_iniciales}
+dim(se)
+assayNames(se)
+colnames(colData(se))
+head(rowData(se))
+
+required_vars <- c("response_binary", "dataset", "tissue", "platform")
+missing_vars <- setdiff(required_vars, colnames(colData(se)))
+
+if (length(missing_vars) > 0) {
+  stop("Faltan variables necesarias: ", paste(missing_vars, collapse = ", "))
+}
+
+cd <- as.data.frame(colData(se)) %>%
+  rownames_to_column("sample_id_model")
+
+kable(
+  tibble(
+    variable = c("dataset", "tissue", "platform"),
+    valores = c(
+      paste(unique(cd$dataset), collapse = ", "),
+      paste(unique(cd$tissue), collapse = ", "),
+      paste(unique(cd$platform), collapse = ", ")
+    )
+  ),
+  caption = "Variables tecnicas principales"
+)
+
+cd %>%
+  count(response_raw, response_binary, name = "n") %>%
+  kable(caption = "Respuesta cruda y respuesta binaria")
+```
+
+# Preparacion de expresion y respuesta
+
+```{r preparar_datos}
+prepare_expression <- function(se_obj) {
+  expr <- assay(se_obj, "expr")
+  expr <- as.matrix(expr)
+  mode(expr) <- "numeric"
+
+  gene_symbols <- as.character(rowData(se_obj)$gene_symbol)
+  gene_symbols[is.na(gene_symbols) | trimws(gene_symbols) == ""] <- rownames(expr)[is.na(gene_symbols) | trimws(gene_symbols) == ""]
+  gene_symbols <- toupper(trimws(gene_symbols))
+
+  expr_df <- as.data.frame(expr, check.names = FALSE)
+  expr_df$gene_symbol <- gene_symbols
+
+  expr_collapsed <- expr_df %>%
+    filter(!is.na(gene_symbol), gene_symbol != "") %>%
+    group_by(gene_symbol) %>%
+    summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)), .groups = "drop")
+
+  genes <- expr_collapsed$gene_symbol
+  expr_mat <- as.matrix(expr_collapsed[, setdiff(colnames(expr_collapsed), "gene_symbol"), drop = FALSE])
+  rownames(expr_mat) <- genes
+
+  na_genes <- rowSums(is.na(expr_mat)) > 0
+  zero_var_genes <- matrixStats::rowVars(expr_mat, na.rm = TRUE) == 0
+  keep_genes <- !na_genes & !zero_var_genes
+
+  expr_mat[keep_genes, , drop = FALSE]
+}
+
+expr <- prepare_expression(se)
+
+response_group <- factor(cd$response_binary)
+response_group <- relevel(response_group, ref = "No_responder")
+
+stopifnot(ncol(expr) == nrow(cd))
+stopifnot(nlevels(response_group) == 2)
+
+kable(
+  tibble(
+    elemento = c("Genes tras control de calidad", "Muestras", "Respondedores", "No respondedores"),
+    valor = c(
+      nrow(expr),
+      ncol(expr),
+      sum(response_group == "Responder"),
+      sum(response_group == "No_responder")
+    )
+  ),
+  caption = "Dimensiones del analisis de descubrimiento"
+)
+```
+
+# DEA con limma
+
+```{r dea_limma}
+run_limma_dea <- function(expr_matrix, response) {
+  response <- factor(response)
+  response <- relevel(response, ref = "No_responder")
+
+  design <- model.matrix(~ 0 + response)
+  colnames(design) <- make.names(colnames(design))
+
+  contrast <- makeContrasts(
+    responseResponder - responseNo_responder,
+    levels = design
+  )
+
+  fit <- lmFit(expr_matrix, design)
+  fit2 <- contrasts.fit(fit, contrast)
+  fit2 <- eBayes(fit2)
+
+  res <- topTable(fit2, coef = 1, number = Inf, adjust.method = "BH", sort.by = "none") %>%
+    rownames_to_column("gene") %>%
+    arrange(adj.P.Val, P.Value)
+
+  list(results = res, design = design, fit = fit2)
+}
+
+dea <- run_limma_dea(expr, response_group)
+res_dea <- dea$results
+
+res_dea %>%
+  head(25) %>%
+  kable(digits = 4, caption = "Top 25 genes en GSE78220")
+```
+
+```{r resumen_dea}
+logfc_cutoff <- 0.5
+adjp_cutoff <- 0.05
+p_cutoff <- 0.05
+
+dea_summary <- res_dea %>%
+  mutate(
+    significant_fdr = adj.P.Val < adjp_cutoff & abs(logFC) >= logfc_cutoff,
+    nominal = P.Value < p_cutoff & abs(logFC) >= logfc_cutoff,
+    direction = case_when(
+      logFC > 0 ~ "Mayor en respondedores",
+      logFC < 0 ~ "Mayor en no respondedores",
+      TRUE ~ "Sin cambio"
+    )
+  ) %>%
+  summarise(
+    n_genes = n(),
+    n_fdr = sum(significant_fdr, na.rm = TRUE),
+    n_nominal = sum(nominal, na.rm = TRUE),
+    min_adjP = min(adj.P.Val, na.rm = TRUE),
+    min_P = min(P.Value, na.rm = TRUE)
+  )
+
+kable(dea_summary, digits = 4, caption = "Resumen del DEA en GSE78220")
+```
+
+```{r volcano}
+res_dea %>%
+  mutate(
+    neg_log10_adjP = -log10(adj.P.Val),
+    grupo = case_when(
+      adj.P.Val < adjp_cutoff & logFC >= logfc_cutoff ~ "Up in responders (FDR)",
+      adj.P.Val < adjp_cutoff & logFC <= -logfc_cutoff ~ "Down in responders (FDR)",
+      P.Value < p_cutoff & abs(logFC) >= logfc_cutoff ~ "Nominal",
+      TRUE ~ "Not significant"
+    )
+  ) %>%
+  ggplot(aes(x = logFC, y = neg_log10_adjP, color = grupo)) +
+  geom_point(alpha = 0.7, size = 1.5) +
+  geom_vline(xintercept = c(-logfc_cutoff, logfc_cutoff), linetype = "dashed") +
+  geom_hline(yintercept = -log10(adjp_cutoff), linetype = "dashed") +
+  labs(
+    title = "DEA GSE78220: Respondedores vs No respondedores",
+    x = "logFC (Responder - No_responder)",
+    y = "-log10(adj.P.Val)",
+    color = "Resultado"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+# Modelo predictivo exploratorio
+
+Este bloque no pretende cerrar un modelo clinico definitivo. Con 25 muestras, se usa como evaluacion preliminar de si la señal transcriptomica permite separar respondedores y no respondedores.
+
+Para reducir fuga de informacion, en cada iteracion leave-one-out se seleccionan genes usando solo el conjunto de entrenamiento.
+
+```{r modelo_loocv}
+calc_auc <- function(scores, labels) {
+  labels <- factor(labels, levels = c("No_responder", "Responder"))
+  y <- as.integer(labels == "Responder")
+  n_pos <- sum(y == 1)
+  n_neg <- sum(y == 0)
+  if (n_pos == 0 || n_neg == 0) return(NA_real_)
+
+  ranks <- rank(scores, ties.method = "average")
+  auc <- (sum(ranks[y == 1]) - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
+  auc
+}
+
+score_signature <- function(train_expr, test_expr, train_response, top_n) {
+  dea_train <- run_limma_dea(train_expr, train_response)$results
+  selected <- dea_train %>%
+    arrange(P.Value) %>%
+    head(top_n) %>%
+    mutate(direction = ifelse(logFC >= 0, 1, -1))
+
+  genes <- selected$gene
+  directions <- selected$direction
+  names(directions) <- genes
+
+  train_gene_mean <- rowMeans(train_expr[genes, , drop = FALSE], na.rm = TRUE)
+  train_gene_sd <- matrixStats::rowSds(train_expr[genes, , drop = FALSE], na.rm = TRUE)
+  train_gene_sd[train_gene_sd == 0 | is.na(train_gene_sd)] <- 1
+
+  test_z <- (test_expr[genes] - train_gene_mean) / train_gene_sd
+  mean(test_z * directions, na.rm = TRUE)
+}
+
+run_loocv_signature <- function(expr_matrix, response, top_n_values = c(5, 10, 20, 50)) {
+  sample_ids <- colnames(expr_matrix)
+
+  bind_rows(lapply(top_n_values, function(top_n) {
+    predictions <- lapply(seq_along(sample_ids), function(i) {
+      test_sample <- sample_ids[i]
+      train_samples <- sample_ids[-i]
+
+      train_expr <- expr_matrix[, train_samples, drop = FALSE]
+      test_expr <- expr_matrix[, test_sample]
+      train_response <- response[-i]
+
+      score <- score_signature(train_expr, test_expr, train_response, top_n)
+
+      tibble(
+        top_n = top_n,
+        sample_id = test_sample,
+        response = as.character(response[i]),
+        score = score
+      )
+    }) %>% bind_rows()
+
+    auc <- calc_auc(predictions$score, predictions$response)
+    threshold <- median(predictions$score, na.rm = TRUE)
+
+    predictions %>%
+      mutate(
+        auc = auc,
+        predicted = ifelse(score >= threshold, "Responder", "No_responder"),
+        correct = predicted == response
+      )
+  }))
+}
+
+loocv_predictions <- run_loocv_signature(expr, response_group)
+
+loocv_summary <- loocv_predictions %>%
+  group_by(top_n) %>%
+  summarise(
+    auc = first(auc),
+    accuracy = mean(correct, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(auc))
+
+kable(loocv_summary, digits = 3, caption = "Modelo exploratorio LOOCV por numero de genes")
+```
+
+```{r plot_modelo}
+best_top_n <- loocv_summary$top_n[1]
+
+loocv_predictions %>%
+  filter(top_n == best_top_n) %>%
+  ggplot(aes(x = response, y = score, color = response)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.25) +
+  geom_jitter(width = 0.12, size = 2.5, alpha = 0.85) +
+  labs(
+    title = paste0("Firma exploratoria GSE78220 - LOOCV top ", best_top_n, " genes"),
+    x = "Respuesta",
+    y = "Score de firma"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none")
+```
+
+# Guardado de resultados
+
+```{r guardar_resultados}
+write.csv(res_dea, file.path(output_dir, "GSE78220_DEA_limma_response.csv"), row.names = FALSE)
+write.csv(loocv_predictions, file.path(output_dir, "GSE78220_LOOCV_signature_predictions.csv"), row.names = FALSE)
+write.csv(loocv_summary, file.path(output_dir, "GSE78220_LOOCV_signature_summary.csv"), row.names = FALSE)
+saveRDS(dea, file.path(output_dir, "GSE78220_DEA_limma_response.rds"))
+
+list.files(output_dir, full.names = TRUE)
+```
+
+# Checklist final
+
+```{r checklist_final}
+checks <- tibble(
+  comprobacion = c(
+    "Objeto GSE78220 cargado",
+    "Cohorte tumoral",
+    "Plataforma RNA-seq",
+    "Dos grupos de respuesta",
+    "DEA ejecutado sobre transcriptoma completo",
+    "Modelo LOOCV generado",
+    "Resultados guardados"
+  ),
+  estado = c(
+    inherits(se, "SummarizedExperiment"),
+    all(cd$tissue == "Tumor"),
+    all(cd$platform == "RNA-seq"),
+    nlevels(response_group) == 2,
+    nrow(res_dea) > 1000,
+    nrow(loocv_predictions) > 0,
+    file.exists(file.path(output_dir, "GSE78220_DEA_limma_response.csv"))
+  )
+)
+
+kable(checks, caption = "Checklist final GSE78220")
+
+if (!all(checks$estado)) {
+  stop("Alguno de los checks finales no se cumple.")
+}
+```
+
+# Conclusion metodologica
+
+Este informe deja preparado el bloque de descubrimiento principal usando `GSE78220` sin restriccion por panel NanoString. Los genes candidatos y la firma exploratoria obtenidos aqui deben interpretarse como hipotesis de descubrimiento y validarse posteriormente en `GSE215868` y `GSE211645`.

@@ -104,3 +104,37 @@ Esto alinea mejor el TFM con un esquema estandar de estudios de biomarcadores.
 4. Validar genes/firma en `GSE215868`.
 5. Explorar generalizacion en `GSE211645`.
 6. Valorar sensibilidad en sangre con `GSE91061` y `GSE94873`.
+
+## Implementacion realizada
+
+Se han creado tres informes nuevos en `scripts/analysis/`:
+
+1. `01_GSE78220_discovery.Rmd`
+   - Usa `GSE78220` como cohorte principal de descubrimiento.
+   - Ejecuta DEA con `limma` sobre transcriptoma completo.
+   - Genera un modelo exploratorio de firma con leave-one-out cross-validation.
+
+2. `02_tumor_validation.Rmd`
+   - Evalua los genes/firma de `GSE78220` en `GSE215868`.
+   - Evalua generalizacion en `GSE211645`.
+   - Deriva `response_binary` en `GSE211645` desde `response_raw`, porque el objeto original la tenia como NA.
+
+3. `03_blood_sensitivity.Rmd`
+   - Usa `GSE91061` como sensibilidad en sangre.
+   - Corrige el tejido a `Blood` dentro del analisis.
+   - Deriva respondedores desde `response_raw`.
+   - Deja `GSE94873` documentado como pendiente.
+
+Resultados generados:
+
+- `resultados/discovery_GSE78220/`
+- `resultados/validation_tumor/`
+- `resultados/sensitivity_blood/`
+
+Resumen preliminar:
+
+- En `GSE78220` no hay genes significativos tras FDR, pero hay genes nominales que pueden usarse como candidatos exploratorios.
+- El modelo exploratorio LOOCV con top 5 genes obtiene AUC aproximada de 0.66.
+- En `GSE215868`, algunos genes candidatos de `GSE78220` solapan y mantienen direccion de efecto.
+- En `GSE211645`, el solapamiento con el top 50 de discovery es nulo, probablemente por la composicion del panel NanoString y por el cambio biologico anti-PD-1 vs anti-CTLA-4.
+- En `GSE91061`, el analisis queda interpretado como sensibilidad en sangre, no como descubrimiento tumoral.
