@@ -18,8 +18,8 @@ Orden recomendado:
 
 3. 03_blood_sensitivity.Rmd
    Sensibilidad en sangre.
-   Cohorte disponible: GSE91061.
-   GSE94873 queda documentada como pendiente.
+   Cohortes disponibles: GSE91061 y GSE94873.
+   GSE94873 se interpreta como sensibilidad periferica NanoString anti-CTLA-4.
 
 4. 04_consistency_integrated.Rmd
    Analisis de consistencia exploratoria con el dataset integrado tumoral.

@@ -1,0 +1,403 @@
+﻿---
+title: "Exploración inicial de GSE94873"
+author: "TFM Melanoma Inmunoterapia"
+output: html_document
+---
+
+# 1. Objetivo del documento
+
+El objetivo de este documento es realizar una **exploración inicial del dataset GSE94873** para identificar la información necesaria antes de construir el `SummarizedExperiment`.
+
+Este paso previo permite:
+
+- comprobar el tipo de objeto descargado,
+- verificar dimensiones de la cohorte,
+- inspeccionar la matriz de expresión NanoString,
+- revisar los metadatos clínicos,
+- identificar la variable de respuesta,
+- comprobar si existe una variable de baseline o pretratamiento,
+- detectar el identificador de muestra correcto,
+- y cerrar el diseño metodológico del dataset.
+
+**Características conocidas de GSE94873:**
+
+- Tejido: sangre periférica / whole blood
+- Plataforma: NanoString nCounter
+- Tratamiento: Tremelimumab (anti-CTLA-4)
+- Rol en el TFM: bloque de sensibilidad en sangre, paralelo a GSE91061
+
+Este documento actúa como una **fase de caracterización del dataset**, previa a la plantilla automatizada final.
+
+---
+
+# 2. Librerías necesarias
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+pkgs <- c("GEOquery", "dplyr", "stringr", "tibble")
+
+for (p in pkgs) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    if (p == "GEOquery") {
+      BiocManager::install(p, ask = FALSE, update = FALSE)
+    } else {
+      install.packages(p)
+    }
+  }
+}
+
+library(GEOquery)
+library(dplyr)
+library(stringr)
+library(tibble)
+```
+
+---
+
+# 3. Definición automática de rutas del proyecto
+
+Este documento está pensado para ejecutarse desde la carpeta:
+
+`TFM/scripts/GEO/GSE94873/`
+
+```{r}
+project_root <- normalizePath(file.path("..", "..", ".."), winslash = "/", mustWork = FALSE)
+
+raw_base_dir    <- file.path(project_root, "GEO_raw")
+raw_dataset_dir <- file.path(raw_base_dir, "GSE94873")
+
+dir.create(raw_base_dir,    recursive = TRUE, showWarnings = FALSE)
+dir.create(raw_dataset_dir, recursive = TRUE, showWarnings = FALSE)
+
+project_root
+raw_base_dir
+raw_dataset_dir
+```
+
+---
+
+# 4. Descarga del dataset desde GEO
+
+```{r}
+gse <- getGEO("GSE94873", GSEMatrix = TRUE)
+
+length(gse)
+gse
+```
+
+---
+
+# 5. Selección del objeto ExpressionSet
+
+Si el estudio devuelve más de un objeto, se revisan sus dimensiones para elegir el correcto.
+
+```{r}
+if (length(gse) > 1) {
+  cat("El estudio contiene", length(gse), "objetos.\n")
+  for (i in seq_along(gse)) {
+    cat("Objeto", i, "- dimensiones:", dim(gse[[i]]), "\n")
+  }
+}
+
+gse94873_eset <- gse[[1]]
+
+class(gse94873_eset)
+dim(gse94873_eset)
+annotation(gse94873_eset)
+```
+
+---
+
+# 6. Inspección de la matriz de expresión
+
+En datasets NanoString, la matriz de expresión suele estar incluida directamente en el `ExpressionSet`.
+
+```{r}
+expr_gse94873     <- Biobase::exprs(gse94873_eset)
+metadata_gse94873 <- Biobase::pData(gse94873_eset)
+feature_gse94873  <- Biobase::fData(gse94873_eset)
+
+dim(expr_gse94873)
+dim(metadata_gse94873)
+dim(feature_gse94873)
+```
+
+```{r}
+# Vista previa de la matriz
+expr_gse94873[1:min(5, nrow(expr_gse94873)), 1:min(5, ncol(expr_gse94873))]
+
+# Primeros identificadores génicos
+cat("\nPrimeros rownames (genes):\n")
+rownames(expr_gse94873)[1:20]
+
+# Primeros identificadores de muestra
+cat("\nPrimeros colnames (muestras):\n")
+colnames(expr_gse94873)[1:20]
+```
+
+```{r}
+# Rango de valores de expresión
+cat("\nRango de valores de expresión:\n")
+summary(as.vector(expr_gse94873))
+```
+
+---
+
+# 7. Inspección de anotación génica
+
+```{r}
+colnames(feature_gse94873)
+head(feature_gse94873)
+```
+
+---
+
+# 8. Inspección de metadatos clínicos
+
+## 8.1. Nombres de columnas disponibles
+
+```{r}
+colnames(metadata_gse94873)
+```
+
+## 8.2. Vista inicial de metadatos
+
+```{r}
+head(metadata_gse94873[, 1:min(10, ncol(metadata_gse94873))])
+```
+
+---
+
+# 9. Identificación sistemática de columnas candidatas
+
+```{r}
+candidate_cols <- colnames(metadata_gse94873)
+
+candidate_response <- candidate_cols[grep(
+  "response|respond|benefit|responder|clinical|bor|outcome|recist",
+  candidate_cols, ignore.case = TRUE
+)]
+
+candidate_baseline <- candidate_cols[grep(
+  "pre|baseline|time|visit|treat|treatment|biopsy|timepoint|week|cycle|on.treat",
+  candidate_cols, ignore.case = TRUE
+)]
+
+candidate_id <- candidate_cols[grep(
+  "title|geo_accession|sample|patient|id|subject|donor",
+  candidate_cols, ignore.case = TRUE
+)]
+
+candidate_tissue <- candidate_cols[grep(
+  "tissue|source|cell|pbmc|blood|tumor",
+  candidate_cols, ignore.case = TRUE
+)]
+
+candidate_survival <- candidate_cols[grep(
+  "os|pfs|survival|death|event|censor",
+  candidate_cols, ignore.case = TRUE
+)]
+
+candidate_treatment <- candidate_cols[grep(
+  "treatment|therapy|drug|checkpoint|itx|anti|pembro|nivo|pd.1|ctla",
+  candidate_cols, ignore.case = TRUE
+)]
+
+cat("\nColumnas candidatas - Respuesta:\n");   print(candidate_response)
+cat("\nColumnas candidatas - Baseline:\n");     print(candidate_baseline)
+cat("\nColumnas candidatas - ID:\n");           print(candidate_id)
+cat("\nColumnas candidatas - Tejido:\n");       print(candidate_tissue)
+cat("\nColumnas candidatas - Supervivencia:\n");print(candidate_survival)
+cat("\nColumnas candidatas - Tratamiento:\n");  print(candidate_treatment)
+```
+
+---
+
+# 10. Exploración detallada de columnas candidatas clave
+
+```{r}
+cols_to_explore <- unique(c(
+  "title",
+  "geo_accession",
+  candidate_response,
+  candidate_baseline,
+  candidate_tissue,
+  candidate_treatment
+))
+
+cols_to_explore <- cols_to_explore[cols_to_explore %in% colnames(metadata_gse94873)]
+cols_to_explore <- cols_to_explore[1:min(length(cols_to_explore), 15)]  # limite de 15
+
+for (cc in cols_to_explore) {
+  cat("\n==============================\n")
+  cat("Columna:", cc, "\n")
+  vals <- metadata_gse94873[[cc]]
+  if (length(unique(vals)) <= 20) {
+    print(table(vals, useNA = "ifany"))
+  } else {
+    print(head(vals, 15))
+  }
+}
+```
+
+---
+
+# 11. Comprobación del identificador de muestra
+
+Se evalúa qué columna de metadatos presenta mayor solapamiento con los nombres de columna de la matriz de expresión.
+
+```{r}
+expr_ids <- trimws(colnames(expr_gse94873))
+
+id_cols_to_check <- intersect(
+  c("title", "geo_accession", candidate_id),
+  colnames(metadata_gse94873)
+)
+
+overlap_table <- lapply(id_cols_to_check, function(cc) {
+  vals <- trimws(as.character(metadata_gse94873[[cc]]))
+  data.frame(
+    column  = cc,
+    overlap = length(intersect(expr_ids, vals)),
+    stringsAsFactors = FALSE
+  )
+}) %>%
+  bind_rows() %>%
+  arrange(desc(overlap))
+
+overlap_table
+```
+
+---
+
+# 12. Inspección de archivos suplementarios
+
+En algunos datasets NanoString, la matriz de expresión no está en el `ExpressionSet` sino en archivos suplementarios. Se comprueba aquí.
+
+```{r}
+cat("Filas en la matriz del ExpressionSet:", nrow(expr_gse94873), "\n")
+cat("¿La matriz está vacía?", nrow(expr_gse94873) == 0, "\n")
+
+if (nrow(expr_gse94873) == 0) {
+  cat("\nLa matriz está vacía. Intentando descargar archivos suplementarios...\n")
+
+  try({
+    GEOquery::getGEOSuppFiles("GSE94873", baseDir = raw_base_dir)
+  }, silent = TRUE)
+
+  list.files(raw_dataset_dir, recursive = TRUE)
+} else {
+  cat("\nLa matriz de expresión está disponible directamente en el ExpressionSet.\n")
+}
+```
+
+---
+
+# 13. Interpretación preliminar de la respuesta
+
+```{r}
+make_response_binary <- function(x) {
+  x_clean <- stringr::str_to_upper(trimws(as.character(x)))
+
+  dplyr::case_when(
+    x_clean %in% c("CR", "PR", "COMPLETE RESPONSE", "PARTIAL RESPONSE",
+                   "R", "RESPONSE", "RESPONDER", "YES", "BENEFIT", "PRCR") ~ "Responder",
+    x_clean %in% c("SD", "PD", "STABLE DISEASE", "PROGRESSIVE DISEASE",
+                   "NR", "NON-RESPONSE", "NON RESPONDER", "NONRESPONDER",
+                   "NO RESPONSE", "NO", "NO BENEFIT")                       ~ "No_responder",
+    TRUE ~ NA_character_
+  )
+}
+
+# Probar con columnas candidatas de respuesta
+for (cc in candidate_response[candidate_response %in% colnames(metadata_gse94873)]) {
+  cat("\n--- Recodificación de:", cc, "---\n")
+  test_binary <- make_response_binary(metadata_gse94873[[cc]])
+  print(table(test_binary, useNA = "ifany"))
+}
+```
+
+---
+
+# 14. Interpretación preliminar de baseline / pretratamiento
+
+```{r}
+is_baseline_sample <- function(x) {
+  x_clean <- stringr::str_to_lower(trimws(as.character(x)))
+
+  dplyr::case_when(
+    stringr::str_detect(x_clean, "baseline|pretreatment|pre-treatment|pre treatment|^pre$|before treatment|^c1d1$|cycle 1 day 1|week 0|^0$|wk0") ~ TRUE,
+    stringr::str_detect(x_clean, "on.?treatment|on.?tx|post|week [1-9]|cycle [2-9]|wk[1-9]") ~ FALSE,
+    TRUE ~ NA
+  )
+}
+
+for (cc in candidate_baseline[candidate_baseline %in% colnames(metadata_gse94873)]) {
+  cat("\n--- Baseline en:", cc, "---\n")
+  test_baseline <- is_baseline_sample(metadata_gse94873[[cc]])
+  print(table(test_baseline, useNA = "ifany"))
+}
+```
+
+---
+
+# 15. Guardado de metadatos crudos
+
+```{r}
+raw_metadata_file <- file.path(raw_dataset_dir, "GSE94873_metadata_raw.tsv")
+write.table(metadata_gse94873, raw_metadata_file, sep = "\t", quote = FALSE, row.names = TRUE)
+
+raw_metadata_file
+```
+
+---
+
+# 16. Resumen de la exploración
+
+```{r}
+resumen_exploracion <- tibble::tibble(
+  elemento = c(
+    "Nº objetos ExpressionSet",
+    "Nº genes en la matriz",
+    "Nº muestras en la matriz",
+    "Nº variables clínicas",
+    "Rango expresión (min)",
+    "Rango expresión (max)",
+    "Columnas candidatas respuesta",
+    "Columnas candidatas baseline"
+  ),
+  valor = c(
+    as.character(length(gse)),
+    as.character(nrow(expr_gse94873)),
+    as.character(ncol(expr_gse94873)),
+    as.character(ncol(metadata_gse94873)),
+    as.character(round(min(expr_gse94873, na.rm = TRUE), 2)),
+    as.character(round(max(expr_gse94873, na.rm = TRUE), 2)),
+    paste(candidate_response, collapse = ", "),
+    paste(candidate_baseline, collapse = ", ")
+  )
+)
+
+print(resumen_exploracion, n = Inf)
+```
+
+---
+
+# 17. Conclusiones de la exploración inicial
+
+**Completar tras ejecutar este documento:**
+
+A partir de esta exploración, se puede cerrar el diseño del dataset:
+
+- El estudio devuelve **[N] objeto(s) ExpressionSet**.
+- La matriz de expresión contiene **[N] genes y [N] muestras**.
+- La variable principal de respuesta adecuada es **[COLUMNA]**.
+- La variable para distinguir pretratamiento es **[COLUMNA]** *(si existe)*.
+- El identificador de muestra correcto es **[COLUMNA]** (mayor solapamiento con la matriz).
+- El tejido confirmado es **sangre periférica / PBMC**.
+- La plataforma es **NanoString nCounter**.
+
+Esto justifica la construcción posterior de la plantilla automatizada específica para `GSE94873`.
+

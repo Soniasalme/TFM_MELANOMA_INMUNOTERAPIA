@@ -1,0 +1,478 @@
+﻿---
+title: "Construcción de SummarizedExperiment – GSE94873 (NanoString sangre)"
+author: "TFM Melanoma Inmunoterapia"
+output: html_document
+---
+
+# 1. Objetivo de este documento
+
+El objetivo de este documento es construir un **contenedor ómico tipo `SummarizedExperiment`** para la cohorte **GSE94873**, integrando:
+
+- matriz de expresión NanoString,
+- metadatos clínicos de las muestras,
+- anotación de genes,
+- e información de preprocesamiento.
+
+**Características del dataset:**
+
+| Campo        | Valor                            |
+|---|---|
+| Dataset      | GSE94873                         |
+| Tejido       | Sangre periférica (PBMC / T cells) |
+| Plataforma   | NanoString nCounter              |
+| Tratamiento  | Tremelimumab (anti-CTLA-4) |
+| Rol en TFM   | Sensibilidad en sangre (bloque 03) |
+
+**Nota:** Los nombres exactos de columnas clínicas (`response_col`, `baseline_col`, `sample_id_col`) se obtienen de la exploración inicial (`exploracion_inicial_GSE94873.Rmd`). Si tras ejecutar la exploración alguna variable tiene un nombre diferente, actualizar la sección 7 antes de continuar.
+
+---
+
+# 2. Librerías necesarias
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+pkgs <- c(
+  "GEOquery",
+  "SummarizedExperiment",
+  "S4Vectors",
+  "dplyr",
+  "tibble",
+  "stringr"
+)
+
+for (p in pkgs) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    if (p %in% c("GEOquery", "SummarizedExperiment", "S4Vectors")) {
+      BiocManager::install(p, ask = FALSE, update = FALSE)
+    } else {
+      install.packages(p)
+    }
+  }
+}
+
+library(GEOquery)
+library(SummarizedExperiment)
+library(S4Vectors)
+library(dplyr)
+library(tibble)
+library(stringr)
+```
+
+---
+
+# 3. Definición automática de rutas del proyecto
+
+Este documento está pensado para ejecutarse desde la carpeta:
+
+`TFM/scripts/GEO/GSE94873/`
+
+```{r}
+project_root    <- normalizePath(file.path("..", "..", ".."), winslash = "/", mustWork = FALSE)
+raw_base_dir    <- file.path(project_root, "GEO_raw")
+raw_dataset_dir <- file.path(raw_base_dir, "GSE94873")
+se_dir          <- file.path(project_root, "SummarizedExperiment_objects")
+
+dir.create(raw_base_dir,    recursive = TRUE, showWarnings = FALSE)
+dir.create(raw_dataset_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(se_dir,          recursive = TRUE, showWarnings = FALSE)
+
+project_root
+raw_base_dir
+raw_dataset_dir
+se_dir
+```
+
+---
+
+# 4. Descarga de metadatos y matriz de expresión GEO
+
+```{r}
+gse94873_list <- getGEO("GSE94873", GSEMatrix = TRUE)
+length(gse94873_list)
+
+gse94873_eset <- gse94873_list[[1]]
+
+expr_matrix  <- Biobase::exprs(gse94873_eset)
+metadata_geo <- Biobase::pData(gse94873_eset)
+gene_info    <- Biobase::fData(gse94873_eset)
+
+dim(expr_matrix)
+dim(metadata_geo)
+dim(gene_info)
+```
+
+---
+
+# 5. Guardado de metadatos crudos
+
+```{r}
+raw_metadata_file <- file.path(raw_dataset_dir, "GSE94873_metadata_raw.tsv")
+write.table(metadata_geo, raw_metadata_file, sep = "\t", quote = FALSE, row.names = TRUE)
+
+raw_metadata_file
+```
+
+---
+
+# 6. Comprobación de la matriz de expresión
+
+```{r}
+# Si la matriz está vacía, puede requerirse archivo suplementario
+if (nrow(expr_matrix) == 0) {
+  stop(paste(
+    "La matriz de expresión del ExpressionSet está vacía.",
+    "Consultar exploracion_inicial_GSE94873.Rmd para identificar el archivo suplementario correcto",
+    "y adaptar la carga de la matriz en la siguiente sección."
+  ))
+}
+
+cat("Dimensiones de la matriz:", dim(expr_matrix), "\n")
+cat("Rango de valores:\n")
+print(summary(as.vector(expr_matrix)))
+```
+
+---
+
+# 7. Definición de columnas clave
+
+> **IMPORTANTE:** Actualizar estos valores si la exploración inicial revela nombres de columna distintos.
+> Ejecutar primero `exploracion_inicial_GSE94873.Rmd` y consultar la sección de overlap de identificadores
+> y las columnas candidatas de respuesta/baseline.
+
+```{r}
+sample_id_col <- "geo_accession"
+response_col  <- "immunotherapy response (responder=1 nonresponder=0):ch1"
+baseline_col  <- "source_name_ch1"
+treatment_col <- NA_character_
+treatment_label <- "Tremelimumab (anti-CTLA-4)"
+
+cat("sample_id_col:", sample_id_col, "\n")
+cat("response_col: ", response_col,  "\n")
+cat("baseline_col: ", baseline_col,  "\n")
+cat("treatment_col:", treatment_col, "\n")
+cat("treatment_label:", treatment_label, "\n")
+
+# Verificar que sample_id_col existe
+if (!sample_id_col %in% colnames(metadata_geo)) {
+  stop("sample_id_col '", sample_id_col, "' no encontrada. Revisar exploración inicial.")
+}
+if (!is.na(response_col) && !response_col %in% colnames(metadata_geo)) {
+  stop("response_col '", response_col, "' no encontrada. Revisar exploración inicial.")
+}
+if (!is.na(baseline_col) && !baseline_col %in% colnames(metadata_geo)) {
+  stop("baseline_col '", baseline_col, "' no encontrada. Revisar exploración inicial.")
+}
+```
+
+---
+
+# 8. Funciones auxiliares
+
+## 8.1. Recodificación de respuesta binaria
+
+```{r}
+make_response_binary <- function(x) {
+  x_clean <- stringr::str_to_upper(trimws(as.character(x)))
+
+  dplyr::case_when(
+    x_clean %in% c("1", "1.0") ~ "Responder",
+    x_clean %in% c("0", "0.0") ~ "No_responder",
+    x_clean %in% c("CR", "PR", "COMPLETE RESPONSE", "PARTIAL RESPONSE",
+                   "PRCR", "R", "RESPONSE", "RESPONDER", "YES", "BENEFIT") ~ "Responder",
+    x_clean %in% c("SD", "PD", "STABLE DISEASE", "PROGRESSIVE DISEASE",
+                   "NR", "NON-RESPONSE", "NON RESPONDER", "NONRESPONDER",
+                   "NO RESPONSE", "NO", "NO BENEFIT")                       ~ "No_responder",
+    TRUE ~ NA_character_
+  )
+}
+```
+
+## 8.2. Detección de pretratamiento / baseline
+
+```{r}
+is_baseline_sample <- function(x) {
+  x_clean <- stringr::str_to_lower(trimws(as.character(x)))
+
+  dplyr::case_when(
+    stringr::str_detect(x_clean, "baseline|pretreatment|pre-treatment|pre treatment|^pre$|before treatment|^c1d1$|week 0|^0$|wk0") ~ TRUE,
+    stringr::str_detect(x_clean, "on.?treatment|on.?tx|post|week [1-9]|cycle [2-9]|wk[1-9]")                                        ~ FALSE,
+    TRUE ~ NA
+  )
+}
+```
+
+---
+
+# 9. Construcción de metadatos clínicos
+
+```{r}
+metadata_clean <- metadata_geo
+
+metadata_clean$sample_id  <- trimws(as.character(metadata_clean[[sample_id_col]]))
+metadata_clean$patient_id <- stringr::str_remove(trimws(as.character(metadata_clean$title)), "^(Pre|Post)\\s+")
+
+# Respuesta
+if (!is.na(response_col)) {
+  metadata_clean$response_raw    <- metadata_clean[[response_col]]
+  metadata_clean$response_binary <- make_response_binary(metadata_clean$response_raw)
+} else {
+  warning("response_col no definida. Añadir respuesta manualmente o actualizar la sección 7.")
+  metadata_clean$response_raw    <- NA_character_
+  metadata_clean$response_binary <- NA_character_
+}
+
+# Baseline
+if (!is.na(baseline_col)) {
+  metadata_clean$is_baseline <- is_baseline_sample(metadata_clean[[baseline_col]])
+} else {
+  # Sin variable de timepoint: se asumen todas las muestras como pretratamiento
+  # (verificar con la exploración inicial)
+  metadata_clean$is_baseline <- TRUE
+  message("baseline_col no definida. Se asumen todas las muestras como pretratamiento.")
+}
+
+# Tratamiento
+if (!is.na(treatment_col) && treatment_col %in% colnames(metadata_clean)) {
+  metadata_clean$treatment <- metadata_clean[[treatment_col]]
+} else {
+  metadata_clean$treatment <- treatment_label
+}
+
+# Variables fijas del dataset
+metadata_clean$dataset  <- "GSE94873"
+metadata_clean$tissue   <- "Blood"
+metadata_clean$platform <- "NanoString"
+metadata_clean$timepoint_raw <- metadata_clean[[baseline_col]]
+metadata_clean$sample_title  <- metadata_clean$title
+
+metadata_clean
+```
+
+---
+
+# 10. Comprobación de variables clínicas
+
+```{r}
+cat("\nrespuesta raw:\n");    print(table(metadata_clean$response_raw,    useNA = "ifany"))
+cat("\nrespuesta binaria:\n"); print(table(metadata_clean$response_binary, useNA = "ifany"))
+cat("\nis_baseline:\n");       print(table(metadata_clean$is_baseline,     useNA = "ifany"))
+cat("\ntratamiento:\n");       print(table(metadata_clean$treatment,        useNA = "ifany"))
+```
+
+---
+
+# 11. Filtrado a muestras pretratamiento
+
+Solo se retienen muestras pretratamiento para el análisis predictivo.
+
+```{r}
+n_antes <- nrow(metadata_clean)
+
+metadata_clean <- metadata_clean %>%
+  dplyr::filter(is_baseline %in% TRUE)
+
+n_despues <- nrow(metadata_clean)
+
+cat("Muestras antes del filtrado:", n_antes, "\n")
+cat("Muestras pretratamiento retenidas:", n_despues, "\n")
+
+if (n_despues == 0) {
+  stop("No quedan muestras tras el filtrado pretratamiento. Revisar baseline_col en la sección 7.")
+}
+
+cat("\nDistribución de respuesta en muestras pretratamiento:\n")
+print(table(metadata_clean$response_binary, useNA = "ifany"))
+```
+
+---
+
+# 12. Alineamiento entre expresión y metadatos
+
+```{r}
+colnames(expr_matrix)      <- trimws(colnames(expr_matrix))
+metadata_clean$sample_id   <- trimws(as.character(metadata_clean$sample_id))
+
+expr_only <- setdiff(colnames(expr_matrix), metadata_clean$sample_id)
+meta_only <- setdiff(metadata_clean$sample_id, colnames(expr_matrix))
+
+cat("Muestras solo en expresión:", length(expr_only), "\n")
+cat("Muestras solo en metadatos:", length(meta_only), "\n")
+
+if (length(expr_only) > 0) cat("Ejemplos:", paste(head(expr_only, 5), collapse = ", "), "\n")
+if (length(meta_only) > 0) cat("Ejemplos:", paste(head(meta_only, 5), collapse = ", "), "\n")
+
+common_samples <- intersect(colnames(expr_matrix), metadata_clean$sample_id)
+
+if (length(common_samples) == 0) {
+  stop("No hay muestras comunes entre la matriz de expresión y los metadatos. Revisar sample_id_col.")
+}
+
+expr_matrix    <- expr_matrix[, common_samples, drop = FALSE]
+metadata_clean <- metadata_clean %>% dplyr::filter(sample_id %in% common_samples)
+rownames(metadata_clean) <- metadata_clean$sample_id
+metadata_clean <- metadata_clean[common_samples, , drop = FALSE]
+
+cat("\nMuestras comunes finales:", length(common_samples), "\n")
+dim(expr_matrix)
+```
+
+---
+
+# 13. Anotacion genica
+
+En `GSE94873`, los rownames originales de la matriz son identificadores del panel NanoString (`A1`, `A10`, etc.). El simbolo genico esta en la columna `ORF` del `fData`; por tanto, se usa `ORF` como `gene_symbol` y como rowname final para facilitar la integracion con el resto del proyecto.
+
+```{r}
+gene_annotation <- as.data.frame(gene_info)
+gene_annotation$probe_id <- rownames(expr_matrix)
+
+if ("ORF" %in% colnames(gene_annotation)) {
+  gene_annotation$gene_symbol <- toupper(trimws(as.character(gene_annotation$ORF)))
+} else if ("gene_symbol" %in% colnames(gene_annotation)) {
+  gene_annotation$gene_symbol <- toupper(trimws(as.character(gene_annotation$gene_symbol)))
+} else {
+  gene_annotation$gene_symbol <- toupper(trimws(rownames(expr_matrix)))
+}
+
+if (anyDuplicated(gene_annotation$gene_symbol)) {
+  duplicated_symbols <- unique(gene_annotation$gene_symbol[duplicated(gene_annotation$gene_symbol)])
+  stop("Gene symbols duplicados en GSE94873: ", paste(duplicated_symbols, collapse = ", "))
+}
+
+rownames(expr_matrix) <- gene_annotation$gene_symbol
+rownames(gene_annotation) <- gene_annotation$gene_symbol
+
+head(gene_annotation)
+cat("\nTotal genes:", nrow(gene_annotation), "\n")
+```
+
+---
+
+# 14. Selección final de columnas clínicas
+
+```{r}
+cols_keep <- c("sample_id", "patient_id", "sample_title", "response_raw", "response_binary",
+               "is_baseline", "timepoint_raw", "treatment", "dataset", "tissue", "platform",
+               "age:ch1", "gender:ch1", "cancer stage:ch1",
+               "survival status 12 months (1=alive 0=dead):ch1",
+               "worst diarrhea grade:ch1")
+
+metadata_clean <- metadata_clean %>%
+  dplyr::select(dplyr::any_of(cols_keep))
+
+metadata_clean
+```
+
+---
+
+# 15. Verificación previa
+
+```{r}
+stopifnot(identical(colnames(expr_matrix), rownames(metadata_clean)))
+stopifnot(identical(rownames(expr_matrix), rownames(gene_annotation)))
+
+cat("Verificación superada: expresión, metadatos y anotación alineados.\n")
+```
+
+---
+
+# 16. Construcción del SummarizedExperiment
+
+```{r}
+se_gse94873 <- SummarizedExperiment(
+  assays  = list(expr = expr_matrix),
+  colData = S4Vectors::DataFrame(metadata_clean),
+  rowData = S4Vectors::DataFrame(gene_annotation)
+)
+
+se_gse94873
+```
+
+---
+
+# 17. Metadatos del preprocesamiento
+
+```{r}
+metadata(se_gse94873)$dataset            <- "GSE94873"
+metadata(se_gse94873)$description        <- "Melanoma NanoString blood cohort, tremelimumab anti-CTLA-4"
+metadata(se_gse94873)$expression_units   <- "NanoString normalized expression"
+metadata(se_gse94873)$tissue             <- "Blood"
+metadata(se_gse94873)$treatment          <- treatment_label
+metadata(se_gse94873)$sample_id_column   <- sample_id_col
+metadata(se_gse94873)$response_column    <- response_col
+metadata(se_gse94873)$baseline_column    <- baseline_col
+metadata(se_gse94873)$treatment_column   <- treatment_col
+metadata(se_gse94873)$gene_identifier    <- "gene_symbol (NanoString panel)"
+metadata(se_gse94873)$preprocessing      <- paste(
+  "Expression extracted from GEO ExpressionSet;",
+  "response recoded from immunotherapy response 1/0;",
+  "pre-treatment samples only retained."
+)
+metadata(se_gse94873)$date_created       <- Sys.Date()
+```
+
+---
+
+# 18. Guardado del contenedor
+
+```{r}
+se_output_file <- file.path(se_dir, "se_gse94873.rds")
+saveRDS(se_gse94873, se_output_file)
+
+cat("Objeto guardado en:", se_output_file, "\n")
+file.exists(se_output_file)
+```
+
+---
+
+# 19. Checklist específica de GSE94873
+
+```{r}
+checklist_gse94873 <- tibble::tibble(
+  paso = c(
+    "ExpressionSet descargado",
+    "Matriz de expresión extraída",
+    "Metadatos clínicos extraídos",
+    "sample_id definido y alineado",
+    "Respuesta identificada y recodificada",
+    "Baseline identificado / todas muestras pretratamiento",
+    "Muestras pretratamiento filtradas",
+    "Muestras alineadas expresion-metadatos",
+    "Anotacion genica asignada",
+    "SummarizedExperiment construido",
+    "Objeto guardado en SummarizedExperiment_objects/"
+  ),
+  estado = c(
+    "Si",
+    ifelse(nrow(expr_matrix) > 0, "Si", "No"),
+    ifelse(ncol(metadata_clean) > 0, "Si", "No"),
+    ifelse(sample_id_col %in% colnames(metadata_geo), "Si", "No - revisar"),
+    ifelse(!is.na(response_col) && sum(!is.na(metadata_clean$response_binary)) > 0, "Si", "Pendiente - actualizar response_col"),
+    ifelse(!is.na(baseline_col) || all(metadata_clean$is_baseline %in% TRUE), "Si", "Pendiente - actualizar baseline_col"),
+    ifelse(nrow(metadata_clean) > 0, paste("Si -", nrow(metadata_clean), "muestras"), "No"),
+    ifelse(identical(colnames(expr_matrix), rownames(metadata_clean)), "Si", "No"),
+    ifelse("gene_symbol" %in% colnames(gene_annotation), "Si", "No"),
+    ifelse(inherits(se_gse94873, "SummarizedExperiment"), "Si", "No"),
+    ifelse(file.exists(se_output_file), "Si", "No")
+  )
+)
+
+print(checklist_gse94873, n = Inf)
+```
+
+---
+
+# 20. Conclusión
+
+Con este documento se construye el `SummarizedExperiment` de **GSE94873** siguiendo el mismo pipeline que el resto de cohortes del proyecto:
+
+- Tejido: **sangre periférica (PBMC)**
+- Plataforma: **NanoString**
+- Tratamiento: **Tremelimumab (anti-CTLA-4)**
+- Muestras: solo **pretratamiento**
+- Genes: en formato **gene symbol**
+
+El objeto resultante (`se_gse94873.rds`) queda en `SummarizedExperiment_objects/` y puede incorporarse directamente al bloque de sensibilidad en sangre (`03_blood_sensitivity.Rmd`).
+

@@ -69,7 +69,7 @@ Objetivo:
 
 ### Analisis de sensibilidad en sangre
 
-`GSE91061` y posible incorporacion de `GSE94873`.
+`GSE91061` y `GSE94873`.
 
 Objetivo:
 
@@ -120,10 +120,10 @@ Se han creado cinco informes nuevos en `scripts/analysis/`:
    - Deriva `response_binary` en `GSE211645` desde `response_raw`, porque el objeto original la tenia como NA.
 
 3. `03_blood_sensitivity.Rmd`
-   - Usa `GSE91061` como sensibilidad en sangre.
-   - Corrige el tejido a `Blood` dentro del analisis.
-   - Deriva respondedores desde `response_raw`.
-   - Deja `GSE94873` documentado como pendiente.
+   - Usa `GSE91061` y `GSE94873` como sensibilidad en sangre.
+   - Corrige/armoniza el tejido a `Blood` dentro del analisis.
+   - Deriva respondedores desde `response_raw`/`response_binary`.
+   - Incorpora `GSE94873` como NanoString sangre pretratamiento con tremelimumab (anti-CTLA-4).
 
 4. `04_consistency_integrated.Rmd`
    - Usa el objeto integrado tumoral como analisis de consistencia.
@@ -151,5 +151,5 @@ Resumen preliminar:
 - El modelo exploratorio LOOCV con top 5 genes obtiene AUC aproximada de 0.67. Debe interpretarse como preliminar por el bajo tamano muestral.
 - En `GSE215868`, 4 genes del top 50 de `GSE78220` solapan con el panel y el 75% mantiene la direccion de efecto.
 - En `GSE211645`, 1 gen del top 50 de `GSE78220` solapa con el panel, pero no mantiene direccion. Esto refuerza que anti-CTLA-4 debe interpretarse como generalizacion biologica exploratoria, no como validacion directa anti-PD-1.
-- En `GSE91061`, el analisis queda interpretado como sensibilidad en sangre, no como descubrimiento tumoral.
+- En `GSE91061` y `GSE94873`, el analisis queda interpretado como sensibilidad en sangre, no como descubrimiento tumoral. La firma tumoral muestra senal debil en ambas cohortes de sangre (`AUC` aproximada 0.50 en `GSE91061` y 0.477 en `GSE94873`), lo que es coherente con el cambio de tejido y, en `GSE94873`, tambien con el cambio de checkpoint.
 - En el analisis de consistencia integrado hay 200 genes comunes: 61 mantienen direccion positiva en todas las cohortes, 8 direccion negativa en todas y 131 son discordantes. Solo 1 gen del top 50 de descubrimiento (`AXL`) y 2 del top 100 (`AXL`, `IL10`) aparecen en el conjunto comun, y ambos muestran discordancia entre cohortes. Esto apoya la decision metodologica de no usar el dataset integrado como base principal de descubrimiento.

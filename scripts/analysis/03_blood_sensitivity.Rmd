@@ -1,5 +1,5 @@
 ---
-title: "Analisis de sensibilidad en sangre: GSE91061 y GSE94873 pendiente"
+title: "Analisis de sensibilidad en sangre: GSE91061 y GSE94873"
 author: "TFM Melanoma Inmunoterapia"
 date: "`r Sys.Date()`"
 output:
@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.width =
 
 # Objetivo
 
-Este informe implementa el bloque de sensibilidad en sangre propuesto por la tutora. Con los datos actuales se analiza `GSE91061`; `GSE94873` queda documentado como pendiente de descarga/procesamiento.
+Este informe implementa el bloque de sensibilidad en sangre propuesto por la tutora. Se analizan `GSE91061` y `GSE94873` como bloque separado del descubrimiento tumoral.
 
 La pregunta no es descubrir biomarcadores tumorales en sangre, sino evaluar si la firma derivada del tumor muestra alguna señal detectable en sangre periferica.
 
@@ -26,8 +26,8 @@ La pregunta no es descubrir biomarcadores tumorales en sangre, sino evaluar si l
 | Elemento | Detalle |
 |---|---|
 | Entrada descubrimiento | `resultados/discovery_GSE78220/GSE78220_DEA_limma_response.csv` |
-| Sensibilidad disponible | `GSE91061`, RNA-seq, sangre/PBMC |
-| Sensibilidad pendiente | `GSE94873`, NanoString sangre |
+| Sensibilidad 1 | `GSE91061`, RNA-seq, sangre/PBMC, varios ICIs |
+| Sensibilidad 2 | `GSE94873`, NanoString, sangre, tremelimumab anti-CTLA-4 |
 | Salida | `resultados/sensitivity_blood/` |
 | Decision metodologica | No mezclar sangre con tumor en el descubrimiento |
 
@@ -65,14 +65,18 @@ dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 discovery_path <- file.path(project_root, "resultados", "discovery_GSE78220", "GSE78220_DEA_limma_response.csv")
 se_path <- file.path(project_root, "SummarizedExperiment_objects", "se_gse91061.rds")
+se_path_94873 <- file.path(project_root, "SummarizedExperiment_objects", "se_gse94873.rds")
 
 stopifnot(file.exists(discovery_path))
 stopifnot(file.exists(se_path))
+stopifnot(file.exists(se_path_94873))
 
 discovery <- read.csv(discovery_path)
 se <- readRDS(se_path)
+se_94873 <- readRDS(se_path_94873)
 
 se
+se_94873
 ```
 
 # Funciones auxiliares
@@ -83,14 +87,14 @@ derive_response <- function(response_raw, response_binary = NULL) {
   raw <- toupper(trimws(as.character(response_raw)))
 
   response[is.na(response) | response == ""] <- NA_character_
-  response[is.na(response) & raw %in% c("PRCR", "CR", "PR")] <- "Responder"
-  response[is.na(response) & raw %in% c("PD", "SD")] <- "No_responder"
+  response[is.na(response) & raw %in% c("1", "1.0", "PRCR", "CR", "PR")] <- "Responder"
+  response[is.na(response) & raw %in% c("0", "0.0", "PD", "SD")] <- "No_responder"
   response[raw %in% c("UNK", "UNKNOWN", "UK")] <- NA_character_
 
   factor(response, levels = c("No_responder", "Responder"))
 }
 
-prepare_expression <- function(se_obj) {
+prepare_expression <- function(se_obj, log2_transform = TRUE) {
   assay_name <- if ("expr" %in% assayNames(se_obj)) "expr" else assayNames(se_obj)[1]
   expr <- assay(se_obj, assay_name)
   expr <- as.matrix(expr)
@@ -113,9 +117,11 @@ prepare_expression <- function(se_obj) {
   expr_mat <- as.matrix(expr_collapsed[, setdiff(colnames(expr_collapsed), "gene_symbol"), drop = FALSE])
   rownames(expr_mat) <- genes
 
-  # Los datos de GEO están en escala lineal (TPM/counts normalizados):
-  # se aplica log2(x+1) para estabilizar varianza y cumplir supuestos de limma.
-  expr_mat <- log2(expr_mat + 1)
+  # GSE91061 se transforma con log2(x+1); GSE94873 NanoString ya llega
+  # en escala log-normalizada y no se vuelve a transformar.
+  if (isTRUE(log2_transform)) {
+    expr_mat <- log2(expr_mat + 1)
+  }
 
   na_genes <- rowSums(is.na(expr_mat)) > 0
   zero_var_genes <- matrixStats::rowVars(expr_mat, na.rm = TRUE) == 0
@@ -217,7 +223,7 @@ kable(
 # DEA en sangre
 
 ```{r dea_sangre}
-expr <- prepare_expression(se)
+expr <- prepare_expression(se, log2_transform = TRUE)
 response <- cd$response_group
 
 dea_blood <- run_limma_dea(expr, response)
@@ -272,20 +278,118 @@ signature_df %>%
   theme(legend.position = "none")
 ```
 
-# GSE94873 pendiente
+# Sensibilidad adicional: GSE94873
 
-```{r gse94873_pendiente}
-gse94873_status <- tibble(
-  dataset = "GSE94873",
-  tissue = "Blood",
-  platform = "NanoString",
-  raw_data = "No disponible segun revision inicial",
-  status = "Pendiente de valorar/descargar/procesar",
-  role = "Sensibilidad en sangre si se decide incorporarlo"
+```{r gse94873_sensibilidad}
+cd_94873 <- as.data.frame(colData(se_94873)) %>%
+  rownames_to_column("sample_id_model")
+
+cd_94873$response_group <- derive_response(cd_94873$response_raw, cd_94873$response_binary)
+expr_94873 <- prepare_expression(se_94873, log2_transform = FALSE)
+response_94873 <- cd_94873$response_group
+
+kable(
+  cd_94873 %>% count(response_raw, response_binary, response_group, name = "n"),
+  caption = "Respuesta en GSE94873 tras filtrado pretratamiento"
 )
 
-kable(gse94873_status, caption = "Estado de GSE94873")
-write.csv(gse94873_status, file.path(output_dir, "GSE94873_status.csv"), row.names = FALSE)
+dea_94873 <- run_limma_dea(expr_94873, response_94873)
+
+dea_94873 %>%
+  head(25) %>%
+  kable(digits = 4, caption = "Top 25 DEA GSE94873 sangre NanoString")
+
+write.csv(dea_94873, file.path(output_dir, "GSE94873_blood_DEA_limma_response.csv"), row.names = FALSE)
+```
+
+```{r firma_gse94873}
+# En GSE94873 el panel es pequeno; top 100 permite al menos 2 genes solapados con discovery.
+signature_score_94873 <- score_discovery_signature(expr_94873, discovery, top_n = 100)
+signature_auc_94873 <- calc_auc(signature_score_94873, response_94873)
+
+signature_df_94873 <- tibble(
+  dataset = "GSE94873",
+  sample_id = colnames(expr_94873),
+  response = as.character(response_94873),
+  signature_score = signature_score_94873,
+  top_n_signature = 100
+)
+
+kable(
+  tibble(
+    dataset = "GSE94873",
+    n_genes_blood = nrow(expr_94873),
+    n_samples = ncol(expr_94873),
+    n_response_available = sum(!is.na(response_94873)),
+    n_responders = sum(response_94873 == "Responder", na.rm = TRUE),
+    n_non_responders = sum(response_94873 == "No_responder", na.rm = TRUE),
+    signature_auc = signature_auc_94873
+  ),
+  digits = 3,
+  caption = "Resumen de sensibilidad en sangre GSE94873"
+)
+
+write.csv(signature_df_94873, file.path(output_dir, "GSE94873_blood_signature_scores.csv"), row.names = FALSE)
+
+blood_sensitivity_summary <- bind_rows(
+  tibble(
+    dataset = "GSE91061",
+    tissue = "Blood",
+    platform = paste(unique(cd$platform), collapse = ", "),
+    treatment = "varios ICIs",
+    n_genes = nrow(expr),
+    n_samples = ncol(expr),
+    n_response_available = sum(!is.na(response)),
+    n_responders = sum(response == "Responder", na.rm = TRUE),
+    n_non_responders = sum(response == "No_responder", na.rm = TRUE),
+    signature_top_n = 20,
+    signature_auc = signature_auc
+  ),
+  tibble(
+    dataset = "GSE94873",
+    tissue = "Blood",
+    platform = paste(unique(cd_94873$platform), collapse = ", "),
+    treatment = paste(unique(cd_94873$treatment), collapse = ", "),
+    n_genes = nrow(expr_94873),
+    n_samples = ncol(expr_94873),
+    n_response_available = sum(!is.na(response_94873)),
+    n_responders = sum(response_94873 == "Responder", na.rm = TRUE),
+    n_non_responders = sum(response_94873 == "No_responder", na.rm = TRUE),
+    signature_top_n = 100,
+    signature_auc = signature_auc_94873
+  )
+)
+
+kable(blood_sensitivity_summary, digits = 3, caption = "Resumen conjunto de sensibilidad en sangre")
+write.csv(blood_sensitivity_summary, file.path(output_dir, "blood_sensitivity_summary.csv"), row.names = FALSE)
+
+write.csv(
+  tibble(dataset = "GSE94873", status = "Procesado", n_genes = nrow(expr_94873), n_samples = ncol(expr_94873)),
+  file.path(output_dir, "GSE94873_status.csv"),
+  row.names = FALSE
+)
+```
+
+```{r plot_firma_sangre_dos_cohortes}
+bind_rows(
+  signature_df %>% mutate(top_n_signature = 20),
+  signature_df_94873
+) %>%
+  filter(!is.na(response), !is.na(signature_score)) %>%
+  mutate(response = factor(response, levels = c("No_responder", "Responder"))) %>%
+  ggplot(aes(x = response, y = signature_score, color = response)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.25) +
+  geom_jitter(width = 0.12, size = 1.8, alpha = 0.75) +
+  facet_wrap(~ dataset, scales = "free_y") +
+  scale_color_manual(values = c("No_responder" = "#d32f2f", "Responder" = "#1976d2")) +
+  labs(
+    title = "Firma tumoral GSE78220 evaluada en sangre",
+    subtitle = "GSE91061: RNA-seq; GSE94873: NanoString anti-CTLA-4",
+    x = "Respuesta",
+    y = "Score de firma"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none")
 ```
 
 # Checklist final
@@ -299,7 +403,7 @@ checks <- tibble(
     "Respuesta derivada con respondedores",
     "DEA sangre ejecutado",
     "Score de firma calculado",
-    "GSE94873 documentado como pendiente"
+    "GSE94873 procesado como sensibilidad adicional"
   ),
   estado = c(
     nrow(discovery) > 0,
@@ -308,7 +412,8 @@ checks <- tibble(
     sum(response == "Responder", na.rm = TRUE) > 0,
     nrow(dea_blood) > 1000,
     length(signature_score) == ncol(expr),
-    file.exists(file.path(output_dir, "GSE94873_status.csv"))
+    file.exists(file.path(output_dir, "GSE94873_blood_DEA_limma_response.csv")) &&
+      file.exists(file.path(output_dir, "GSE94873_blood_signature_scores.csv"))
   )
 )
 
@@ -321,4 +426,4 @@ if (!all(checks$estado)) {
 
 # Conclusion metodologica
 
-`GSE91061` se usa como sensibilidad en sangre, no como parte del descubrimiento tumoral. El analisis permite comprobar si la firma derivada de tumor muestra senal en sangre periferica. `GSE94873` queda pendiente para una segunda iteracion si se decide ampliar el bloque de sangre.
+`GSE91061` y `GSE94873` se usan como sensibilidad en sangre, no como parte del descubrimiento tumoral. `GSE94873` aporta una cohorte NanoString de sangre pretratamiento tratada con tremelimumab (anti-CTLA-4), por lo que se interpreta como sensibilidad periferica y de checkpoint distinto, no como validacion directa de la firma tumoral anti-PD-1.

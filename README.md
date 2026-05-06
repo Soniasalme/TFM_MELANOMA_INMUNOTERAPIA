@@ -25,7 +25,7 @@ Tras la ultima recomendacion de la tutora, el enfoque se esta refinando hacia un
 - Analisis principal: `GSE78220`, tumor, RNA-seq, anti-PD-1.
 - Validacion 1: `GSE215868`, tumor, NanoString, anti-PD-1.
 - Validacion 2: `GSE211645`, tumor, NanoString, anti-CTLA-4.
-- Sensibilidad en sangre: `GSE91061` y posible valoracion de `GSE94873`.
+- Sensibilidad en sangre: `GSE91061` y `GSE94873`.
 - Integracion multi-cohorte: analisis exploratorio/de consistencia limitado a genes comunes.
 
 La nota completa esta en:
@@ -52,7 +52,7 @@ Implementacion actual:
 
 - `GSE91061`: sangre/PBMC, RNA-seq, inmunoterapia.
 
-`GSE94873` queda pendiente de valorar como sensibilidad en sangre.
+- `GSE94873`: sangre, NanoString, tremelimumab anti-CTLA-4.
 
 ## Estructura del repositorio
 
@@ -117,11 +117,11 @@ Esa separacion ya queda iniciada en `scripts/analysis/`:
 - `GSE215868`: validacion NanoString anti-PD-1.
 - `GSE211645`: generalizacion a anti-CTLA-4.
 - `GSE91061`: sensibilidad en sangre.
-- `GSE94873`: pendiente de valorar/procesar.
+- `GSE94873`: sensibilidad en sangre NanoString anti-CTLA-4.
 - `Dataset integrado tumoral`: consistencia exploratoria en 200 genes comunes.
 
 Los analisis de `scripts/analysis/` aplican `log2(expr + 1)` antes de `limma` para trabajar en una escala compatible con los supuestos del modelo lineal. En `GSE78220` no aparecen genes significativos tras FDR, aunque si candidatos nominales para exploracion y validacion.
 
 El informe `04_consistency_integrated.html` usa el objeto integrado tumoral como analisis de apoyo: compara la direccion del logFC en los 200 genes comunes entre `GSE78220`, `GSE215868` y `GSE211645`. Este bloque no se interpreta como descubrimiento principal, sino como comprobacion de consistencia limitada por los paneles NanoString.
 
-El informe `05_summary_table.html` resume los resultados principales de los bloques 01-04 en tablas compactas para revision semanal y para trasladar a la memoria.
+El informe `05_summary_table.html` resume los resultados principales de los bloques 01-04 en tablas compactas para revision semanal y para trasladar a la memoria, incluyendo ya `GSE94873` como sensibilidad adicional en sangre.

@@ -1,4 +1,4 @@
----
+﻿---
 title: "Tabla resumen: Descubrimiento, Validacion y Consistencia"
 author: "TFM Melanoma Inmunoterapia"
 date: "`r Sys.Date()`"
@@ -67,6 +67,8 @@ scores_211645  <- read.csv(file.path(project_root, "resultados", "validation_tum
 # Blood
 blood_scores   <- read.csv(file.path(project_root, "resultados", "sensitivity_blood",
                                       "GSE91061_blood_signature_scores.csv"))
+blood_sensitivity <- read.csv(file.path(project_root, "resultados", "sensitivity_blood",
+                                        "blood_sensitivity_summary.csv"))
 
 # Consistency
 cross_cohort   <- read.csv(file.path(project_root, "resultados", "consistency_integrated",
@@ -81,7 +83,8 @@ cohort_overview <- tribble(
   "Descubrimiento", "GSE78220",   "Tumor", "RNA-seq",    "anti-PD-1",    25,          14,               11,
   "Validacion 1",   "GSE215868",  "Tumor", "NanoString", "anti-PD-1",   105,          45,               59,
   "Validacion 2",   "GSE211645",  "Tumor", "NanoString", "anti-CTLA-4",  40,          12,               28,
-  "Sensibilidad",   "GSE91061",   "Sangre","RNA-seq",    "varios ICIs",  51,          10,               39
+  "Sensibilidad",   "GSE91061",   "Sangre","RNA-seq",    "varios ICIs",  51,          10,               39,
+  "Sensibilidad",   "GSE94873",   "Sangre","NanoString", "anti-CTLA-4", 360,          46,              314
 )
 
 kable(
@@ -229,29 +232,38 @@ ggplot(scores_all, aes(x = response, y = signature_score, color = response)) +
   theme(legend.position = "none")
 ```
 
-# Sensibilidad en sangre: GSE91061
+# Sensibilidad en sangre: GSE91061 y GSE94873
 
 ```{r tabla_blood}
-blood_auc <- local({
-  df    <- blood_scores %>% filter(!is.na(response), !is.na(signature_score))
-  y     <- as.integer(df$response == "Responder")
-  r     <- rank(df$signature_score, ties.method = "average")
-  np    <- sum(y); nn <- sum(1 - y)
-  (sum(r[y == 1]) - np * (np + 1) / 2) / (np * nn)
-})
+blood_auc <- blood_sensitivity$signature_auc[blood_sensitivity$dataset == "GSE91061"]
+blood_auc_94873 <- blood_sensitivity$signature_auc[blood_sensitivity$dataset == "GSE94873"]
 
-blood_summary <- tibble(
-  Dataset                = "GSE91061 (sangre/PBMC)",
-  Plataforma             = "RNA-seq",
-  `N respondedores`     = sum(blood_scores$response == "Responder", na.rm = TRUE),
-  `N no respondedores`  = sum(blood_scores$response == "No_responder", na.rm = TRUE),
-  `AUC firma discovery` = round(blood_auc, 3),
-  Interpretacion        = "Señal debil esperada (firma derivada de tumor)"
-)
+blood_summary <- blood_sensitivity %>%
+  mutate(
+    signature_auc = round(signature_auc, 3),
+    Interpretacion = case_when(
+      dataset == "GSE91061" ~ "Senal debil esperada: sangre RNA-seq, varios ICIs",
+      dataset == "GSE94873" ~ "Senal debil esperada: sangre NanoString, anti-CTLA-4",
+      TRUE ~ "Sensibilidad en sangre"
+    )
+  ) %>%
+  select(
+    Dataset = dataset,
+    Tejido = tissue,
+    Plataforma = platform,
+    Tratamiento = treatment,
+    Genes = n_genes,
+    Muestras = n_samples,
+    Respondedores = n_responders,
+    No_respondedores = n_non_responders,
+    `Top N firma` = signature_top_n,
+    `AUC firma discovery` = signature_auc,
+    Interpretacion
+  )
 
 kable(blood_summary,
-      caption = "Tabla 6. Sensibilidad de la firma tumoral evaluada en sangre periferica (GSE91061)",
-      align   = "llrrrl") %>%
+      caption = "Tabla 6. Sensibilidad de la firma tumoral evaluada en sangre periferica",
+      align   = "llllrrrrrrl") %>%
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 ```
 
@@ -435,9 +447,10 @@ resumen <- tribble(
     paste0("1/50 genes discovery en panel (AXL); 0% misma direccion (AXL discordante); AUC firma=",
            round(val_summary$signature_auc[val_summary$dataset == "GSE211645"], 3),
            "; limitacion: panel NanoString diferente"),
-  "Sensibilidad sangre GSE91061 (n=51)",
-    paste0("AUC firma tumoral en sangre=", round(blood_auc, 3),
-           "; señal debil esperada dado que la firma es tumoral"),
+  "Sensibilidad sangre GSE91061/GSE94873",
+    paste0("AUC firma tumoral en sangre: GSE91061=", round(blood_auc, 3),
+           "; GSE94873=", round(blood_auc_94873, 3),
+           ". Senal debil esperada dado que la firma es tumoral"),
   "Consistencia multi-cohorte (200 genes)",
     "69/200 genes concordantes en las 3 cohortes (61 Up, 8 Down); firma IFN-gamma/MHC-I (HLA-A/B/C/E/F, PSMB8, IFNGR1) consistentemente Up en respondedores en las 3 cohortes"
 )
@@ -462,6 +475,7 @@ write.csv(resumen,
 
 3. **Consistencia multi-cohorte**: El analisis de 200 genes comunes entre las 3 cohortes tumorales revela una firma de activacion IFN-gamma / presentacion de antigeno (HLA-A/B/C/E/F, PSMB8, IFNGR1) consistentemente asociada con respuesta en las 3 cohortes y dos checkpoints distintos. Esta es la principal aportacion biologica del analisis.
 
-4. **Sensibilidad en sangre**: La señal debil en GSE91061 (AUC ~0.5) es coherente con que la firma deriva de tumor, donde los mecanismos de escape inmune son distintos.
+4. **Sensibilidad en sangre**: La señal debil en GSE91061 (AUC ~0.5) y GSE94873 (AUC ~0.48) es coherente con que la firma deriva de tumor, donde los mecanismos de escape inmune son distintos. GSE94873 además corresponde a sangre NanoString y anti-CTLA-4, por lo que se interpreta como sensibilidad periférica, no como validación directa anti-PD-1.
 
-5. **Pendiente**: Integracion del bloque pronostico (TCGA-SKCM) y evaluacion formal de GSE94873 (NanoString sangre) si se decide ampliar el analisis de sangre.
+5. **Pendiente**: Integracion del bloque pronostico (TCGA-SKCM) y, si se considera necesario, un modelo predictivo formal con regularizacion.
+
