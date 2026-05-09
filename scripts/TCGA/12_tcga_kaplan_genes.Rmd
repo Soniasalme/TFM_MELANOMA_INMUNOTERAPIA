@@ -1,0 +1,148 @@
+---
+title: "12 - Kaplan-Meier para genes candidatos"
+author: "TFM Melanoma"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Objetivo
+
+En esta etapa validamos visualmente los **genes candidatos** obtenidos en el screening transcriptómico (Cox univariante).
+
+Para los genes con menor FDR:
+
+- se divide la expresión en **alta vs baja** (mediana)
+- se generan **curvas Kaplan-Meier**
+- se evalúa si las diferencias de supervivencia son consistentes.
+
+---
+
+# Librerías
+
+```{r}
+library(dplyr)
+library(readr)
+library(survival)
+library(survminer)
+```
+
+---
+
+# 1. Cargar resultados del screening transcriptómico
+
+```{r}
+cox_results <- readRDS("results/cox_transcriptome_results.rds")
+
+head(cox_results)
+```
+
+---
+
+# 2. Seleccionar top genes candidatos
+
+Elegimos los **10 genes con menor FDR**.
+
+```{r}
+top_genes <- cox_results %>%
+  arrange(FDR) %>%
+  slice(1:10)
+
+top_genes
+```
+
+Guardamos los nombres:
+
+```{r}
+gene_list <- top_genes$gene
+gene_list
+```
+
+---
+
+# 3. Cargar dataset maestro
+
+```{r}
+master_dataset <- readRDS("data_processed/master_dataset_tcga_skcm.rds")
+
+dim(master_dataset)
+```
+
+---
+
+# 4. Función Kaplan-Meier por gen
+
+Para cada gen:
+
+- dividir expresión por mediana
+- generar curvas Kaplan-Meier
+
+```{r}
+kaplan_gene <- function(gene){
+
+  df <- master_dataset
+
+  # dividir expresión en alta/baja usando la mediana
+  median_expr <- median(df[[gene]], na.rm = TRUE)
+
+  df$expr_group <- ifelse(df[[gene]] >= median_expr,
+                          "High expression",
+                          "Low expression")
+
+  df$expr_group <- factor(df$expr_group)
+
+  # modelo supervivencia
+  fit <- survfit(Surv(OS_time, OS_event) ~ expr_group, data = df)
+
+  ggsurvplot(
+    fit,
+    data = df,
+    pval = TRUE,
+    risk.table = TRUE,
+    title = paste("Kaplan-Meier:", gene),
+    legend.title = gene,
+    legend.labs = c("High", "Low")
+  )
+
+}
+```
+
+---
+
+# 5. Generar curvas Kaplan-Meier
+
+Esto generará **10 figuras**, una por gen.
+
+```{r}
+for(g in gene_list){
+
+  print(kaplan_gene(g))
+
+}
+```
+
+---
+
+# Interpretación
+
+Las curvas Kaplan-Meier permiten visualizar:
+
+- diferencias de supervivencia entre **alta vs baja expresión**
+- consistencia del resultado obtenido en el modelo Cox
+
+Genes donde:
+
+- las curvas se separan claramente
+- p-value es significativo
+
+son **fuertes candidatos a biomarcadores pronósticos en melanoma**.
+
+En los siguientes pasos se podrá:
+
+- seleccionar los **genes más robustos**
+- construir una **firma transcriptómica multigénica**.

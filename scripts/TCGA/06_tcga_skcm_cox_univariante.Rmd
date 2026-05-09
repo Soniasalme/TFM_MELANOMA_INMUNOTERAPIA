@@ -1,0 +1,285 @@
+---
+title: "TFM melanoma - Cox univariante en TCGA-SKCM"
+author: "Sonia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+```{r setup}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = TRUE
+)
+```
+
+# 1. Instalación de paquetes
+
+```{r install}
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+
+paquetes_bioc <- c("TCGAbiolinks", "SummarizedExperiment")
+paquetes_cran <- c("dplyr", "tibble", "readr", "stringr", "ggplot2", "survival", "survminer", "broom")
+
+for (p in paquetes_bioc) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    BiocManager::install(p, ask = FALSE, update = FALSE)
+  }
+}
+
+for (p in paquetes_cran) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p)
+  }
+}
+```
+
+# 2. Carga de librerías
+
+```{r libraries}
+library(TCGAbiolinks)
+library(SummarizedExperiment)
+library(dplyr)
+library(tibble)
+library(readr)
+library(stringr)
+library(ggplot2)
+library(survival)
+library(survminer)
+library(broom)
+```
+
+# 3. Creación de carpetas de trabajo
+
+```{r folders}
+dir.create("data_raw", showWarnings = FALSE)
+dir.create("data_processed", showWarnings = FALSE)
+dir.create("results", showWarnings = FALSE)
+dir.create("figures", showWarnings = FALSE)
+```
+
+# 4. Descarga y preparación de datos clínicos
+
+```{r clinical}
+clinical_tcga <- GDCquery_clinic(
+  project = "TCGA-SKCM",
+  type = "clinical"
+)
+
+write_csv(clinical_tcga, "data_raw/tcga_skcm_clinical.csv")
+
+clinical_tcga$gender <- factor(clinical_tcga$gender)
+clinical_tcga$vital_status <- factor(clinical_tcga$vital_status)
+clinical_tcga$ajcc_pathologic_stage <- factor(clinical_tcga$ajcc_pathologic_stage)
+```
+
+# 5. Creación de variables de supervivencia
+
+```{r survival-vars}
+clinical_tcga <- clinical_tcga %>%
+  mutate(
+    OS_event = case_when(
+      vital_status == "Dead"  ~ 1,
+      vital_status == "Alive" ~ 0,
+      TRUE ~ NA_real_
+    ),
+    OS_time = case_when(
+      OS_event == 1 ~ as.numeric(days_to_death),
+      OS_event == 0 ~ as.numeric(days_to_last_follow_up),
+      TRUE ~ NA_real_
+    )
+  )
+
+clinical_surv <- clinical_tcga %>%
+  filter(!is.na(OS_time), !is.na(OS_event), OS_time >= 0)
+
+dim(clinical_surv)
+```
+
+# 6. Preparación de covariables clínicas
+
+## 6.1 Edad en años
+
+```{r age-years}
+# age_at_diagnosis en TCGA suele estar en días
+clinical_surv <- clinical_surv %>%
+  mutate(age_years = age_at_diagnosis / 365.25)
+
+summary(clinical_surv$age_years)
+```
+
+## 6.2 Grupos de estadio simplificados
+
+```{r stage-group}
+clinical_surv <- clinical_surv %>%
+  mutate(
+    stage_group = case_when(
+      ajcc_pathologic_stage %in% c("Stage 0", "Stage I", "Stage IA", "Stage IB") ~ "Stage I",
+      ajcc_pathologic_stage %in% c("Stage II", "Stage IIA", "Stage IIB", "Stage IIC") ~ "Stage II",
+      ajcc_pathologic_stage %in% c("Stage III", "Stage IIIA", "Stage IIIB", "Stage IIIC") ~ "Stage III",
+      ajcc_pathologic_stage %in% c("Stage IV") ~ "Stage IV",
+      TRUE ~ NA_character_
+    )
+  )
+
+clinical_surv$stage_group <- factor(
+  clinical_surv$stage_group,
+  levels = c("Stage I", "Stage II", "Stage III", "Stage IV")
+)
+
+table(clinical_surv$stage_group, useNA = "ifany")
+```
+
+## 6.3 Dataset para Cox clínico
+
+```{r cox-dataset}
+cox_data <- clinical_surv %>%
+  select(submitter_id, OS_time, OS_event, age_years, gender, stage_group) %>%
+  filter(
+    !is.na(OS_time),
+    !is.na(OS_event),
+    !is.na(age_years),
+    !is.na(gender),
+    !is.na(stage_group)
+  )
+
+dim(cox_data)
+summary(cox_data)
+```
+
+# 7. Modelo de Cox univariante
+
+En esta versión se evaluará de forma independiente el efecto pronóstico de variables clínicas básicas sobre la supervivencia global.
+
+## 7.1 Cox univariante para edad
+
+```{r cox-age}
+cox_age <- coxph(Surv(OS_time, OS_event) ~ age_years, data = cox_data)
+
+summary(cox_age)
+```
+
+## 7.2 Cox univariante para sexo
+
+```{r cox-gender}
+cox_gender <- coxph(Surv(OS_time, OS_event) ~ gender, data = cox_data)
+
+summary(cox_gender)
+```
+
+## 7.3 Cox univariante para estadio agrupado
+
+```{r cox-stage}
+cox_stage <- coxph(Surv(OS_time, OS_event) ~ stage_group, data = cox_data)
+
+summary(cox_stage)
+```
+
+# 8. Extracción ordenada de resultados
+
+## 8.1 Tabla de resultados de edad
+
+```{r tidy-age}
+res_age <- tidy(cox_age, exponentiate = TRUE, conf.int = TRUE) %>%
+  mutate(model = "Edad")
+
+res_age
+```
+
+## 8.2 Tabla de resultados de sexo
+
+```{r tidy-gender}
+res_gender <- tidy(cox_gender, exponentiate = TRUE, conf.int = TRUE) %>%
+  mutate(model = "Sexo")
+
+res_gender
+```
+
+## 8.3 Tabla de resultados de estadio
+
+```{r tidy-stage}
+res_stage <- tidy(cox_stage, exponentiate = TRUE, conf.int = TRUE) %>%
+  mutate(model = "Estadio")
+
+res_stage
+```
+
+## 8.4 Tabla conjunta de resultados univariantes
+
+```{r combined-results}
+cox_univ_results <- bind_rows(res_age, res_gender, res_stage) %>%
+  select(model, term, estimate, conf.low, conf.high, p.value) %>%
+  rename(
+    HR = estimate,
+    CI_low = conf.low,
+    CI_high = conf.high,
+    p_value = p.value
+  )
+
+cox_univ_results
+```
+
+# 9. Forest plot simple de los modelos univariantes
+
+```{r forest-plot}
+cox_plot_data <- cox_univ_results %>%
+  mutate(term_label = paste(model, term, sep = " - "))
+
+ggplot(cox_plot_data, aes(x = HR, y = reorder(term_label, HR))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = CI_low, xmax = CI_high), height = 0.2) +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  scale_x_log10() +
+  theme_minimal() +
+  labs(
+    title = "Forest plot - Cox univariante",
+    x = "Hazard Ratio (escala log)",
+    y = "Variable"
+  )
+```
+
+# 10. Comprobación básica del supuesto de riesgos proporcionales
+
+## 10.1 Edad
+
+```{r zph-age}
+cox.zph(cox_age)
+```
+
+## 10.2 Sexo
+
+```{r zph-gender}
+cox.zph(cox_gender)
+```
+
+## 10.3 Estadio
+
+```{r zph-stage}
+cox.zph(cox_stage)
+```
+
+# 11. Guardado de resultados
+
+```{r save-results}
+write_csv(cox_univ_results, "results/cox_univariate_results.csv")
+saveRDS(cox_age, "data_processed/cox_age.rds")
+saveRDS(cox_gender, "data_processed/cox_gender.rds")
+saveRDS(cox_stage, "data_processed/cox_stage.rds")
+saveRDS(cox_univ_results, "data_processed/cox_univariate_results.rds")
+```
+
+# 12. Interpretación inicial
+
+Los modelos de Cox univariantes permiten cuantificar el efecto de cada variable clínica sobre el riesgo de muerte.
+
+- Para la edad, el HR indica cómo cambia el riesgo por cada incremento de un año.
+- Para el sexo, el HR compara una categoría respecto a la categoría de referencia.
+- Para el estadio, los HR permiten comparar el riesgo relativo entre grupos clínicos.
+
+Este análisis constituye el paso previo natural al modelo de Cox multivariante, donde se evaluará el efecto conjunto de varias covariables clínicas.

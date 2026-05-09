@@ -1,0 +1,315 @@
+---
+title: "TFM melanoma - Integración clínica y transcriptómica en TCGA-SKCM"
+author: "Sonia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+```{r setup}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = TRUE
+)
+```
+
+# 1. Objetivo de este cuaderno
+
+En esta versión se integran los datos clínicos y transcriptómicos de TCGA-SKCM para construir un dataset maestro que permita analizar asociaciones entre expresión génica y supervivencia.
+
+Objetivos:
+
+- reconstruir el dataset clínico con variables de supervivencia
+- cargar la matriz transcriptómica procesada
+- armonizar identificadores de paciente
+- quedarnos con la intersección clínica + transcriptómica
+- generar un dataset maestro listo para futuros análisis de biomarcadores
+
+# 2. Instalación de paquetes
+
+```{r install}
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+
+paquetes_bioc <- c("TCGAbiolinks", "SummarizedExperiment", "edgeR", "limma")
+paquetes_cran <- c("dplyr", "tibble", "readr", "stringr", "ggplot2")
+
+for (p in paquetes_bioc) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    BiocManager::install(p, ask = FALSE, update = FALSE)
+  }
+}
+
+for (p in paquetes_cran) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p)
+  }
+}
+```
+
+# 3. Carga de librerías
+
+```{r libraries}
+library(TCGAbiolinks)
+library(SummarizedExperiment)
+library(edgeR)
+library(limma)
+library(dplyr)
+library(tibble)
+library(readr)
+library(stringr)
+library(ggplot2)
+```
+
+# 4. Creación de carpetas
+
+```{r folders}
+dir.create("data_raw", showWarnings = FALSE)
+dir.create("data_processed", showWarnings = FALSE)
+dir.create("results", showWarnings = FALSE)
+dir.create("figures", showWarnings = FALSE)
+```
+
+# 5. Reconstrucción del dataset clínico con supervivencia
+
+```{r clinical}
+clinical_tcga <- GDCquery_clinic(
+  project = "TCGA-SKCM",
+  type = "clinical"
+)
+
+clinical_tcga$gender <- factor(clinical_tcga$gender)
+clinical_tcga$vital_status <- factor(clinical_tcga$vital_status)
+clinical_tcga$ajcc_pathologic_stage <- factor(clinical_tcga$ajcc_pathologic_stage)
+
+clinical_tcga <- clinical_tcga %>%
+  mutate(
+    OS_event = case_when(
+      vital_status == "Dead"  ~ 1,
+      vital_status == "Alive" ~ 0,
+      TRUE ~ NA_real_
+    ),
+    OS_time = case_when(
+      OS_event == 1 ~ as.numeric(days_to_death),
+      OS_event == 0 ~ as.numeric(days_to_last_follow_up),
+      TRUE ~ NA_real_
+    ),
+    age_years = age_at_diagnosis / 365.25,
+    stage_group = case_when(
+      ajcc_pathologic_stage %in% c("Stage 0", "Stage I", "Stage IA", "Stage IB") ~ "Stage I",
+      ajcc_pathologic_stage %in% c("Stage II", "Stage IIA", "Stage IIB", "Stage IIC") ~ "Stage II",
+      ajcc_pathologic_stage %in% c("Stage III", "Stage IIIA", "Stage IIIB", "Stage IIIC") ~ "Stage III",
+      ajcc_pathologic_stage %in% c("Stage IV") ~ "Stage IV",
+      TRUE ~ NA_character_
+    )
+  )
+
+clinical_tcga$stage_group <- factor(
+  clinical_tcga$stage_group,
+  levels = c("Stage I", "Stage II", "Stage III", "Stage IV")
+)
+
+clinical_surv <- clinical_tcga %>%
+  filter(!is.na(OS_time), !is.na(OS_event), OS_time >= 0)
+
+dim(clinical_surv)
+```
+
+# 6. Carga de datos transcriptómicos procesados
+
+Este bloque intenta cargar primero la matriz más útil para análisis exploratorios (`expr_top`).  
+Si no existe, carga `cpm_matrix`.
+
+```{r load-expression}
+top_rds_path <- "data_processed/tcga_skcm_expression_top_variable.rds"
+cpm_rds_path <- "data_processed/tcga_skcm_expression_cpm.rds"
+
+if (file.exists(top_rds_path)) {
+  cat("Cargando matriz de genes más variables...\n")
+  expr_matrix <- readRDS(top_rds_path)
+  expr_source <- "top_variable"
+} else if (file.exists(cpm_rds_path)) {
+  cat("No se encontró expr_top. Cargando matriz CPM completa...\n")
+  expr_matrix <- readRDS(cpm_rds_path)
+  expr_source <- "cpm_full"
+} else {
+  stop("No se encontró ninguna matriz transcriptómica procesada en data_processed/. Ejecuta antes el cuaderno 08 o 09.")
+}
+
+expr_source
+dim(expr_matrix)
+```
+
+# 7. Comprobación de orientación de la matriz
+
+La matriz de expresión debe tener:
+
+- filas = genes
+- columnas = pacientes
+
+```{r orientation}
+expr_matrix[1:5, 1:5]
+head(colnames(expr_matrix))
+head(rownames(expr_matrix))
+```
+
+# 8. Identificadores de paciente en expresión
+
+En las matrices procesadas, las columnas deberían corresponder a `patient_id`.
+
+```{r expr-patients}
+expr_patient_ids <- colnames(expr_matrix)
+
+length(expr_patient_ids)
+head(expr_patient_ids)
+```
+
+# 9. Identificadores de paciente en clínica
+
+Usaremos `submitter_id`, que coincide con el formato TCGA de 12 caracteres.
+
+```{r clinical-patients}
+clinical_patient_ids <- clinical_surv$submitter_id
+
+length(clinical_patient_ids)
+head(clinical_patient_ids)
+```
+
+# 10. Intersección clínica + transcriptómica
+
+```{r intersection}
+common_patients <- intersect(clinical_patient_ids, expr_patient_ids)
+
+length(common_patients)
+head(common_patients)
+```
+
+# 11. Filtrado coordinado de clínica y expresión
+
+## 11.1 Filtrado de clínica
+
+```{r filter-clinical}
+clinical_master <- clinical_surv %>%
+  filter(submitter_id %in% common_patients) %>%
+  arrange(submitter_id)
+
+dim(clinical_master)
+head(clinical_master$submitter_id)
+```
+
+## 11.2 Filtrado de expresión
+
+```{r filter-expression}
+expr_master <- expr_matrix[, common_patients, drop = FALSE]
+
+# Reordenamos columnas para que coincidan exactamente con el orden clínico
+expr_master <- expr_master[, clinical_master$submitter_id, drop = FALSE]
+
+dim(expr_master)
+head(colnames(expr_master))
+```
+
+# 12. Verificación de la correspondencia
+
+```{r check-match}
+all(colnames(expr_master) == clinical_master$submitter_id)
+```
+
+Este paso es crítico: garantiza que cada columna de expresión corresponde al mismo paciente que la fila clínica homóloga.
+
+# 13. Construcción de tablas derivadas
+
+## 13.1 Tabla clínica maestra reducida
+
+```{r clinical-reduced}
+clinical_reduced <- clinical_master %>%
+  select(
+    submitter_id,
+    gender,
+    age_years,
+    ajcc_pathologic_stage,
+    stage_group,
+    vital_status,
+    OS_time,
+    OS_event
+  )
+
+dim(clinical_reduced)
+head(clinical_reduced)
+```
+
+## 13.2 Matriz de expresión transpuesta
+
+Para ciertos análisis conviene tener:
+
+- filas = pacientes
+- columnas = genes
+
+```{r expr-transposed}
+expr_master_t <- t(expr_master)
+
+dim(expr_master_t)
+expr_master_t[1:5, 1:5]
+```
+
+## 13.3 Dataset maestro integrado
+
+Aquí creamos una tabla integrada clínica + transcriptómica.
+
+```{r master-dataset}
+expr_df <- as.data.frame(expr_master_t) %>%
+  rownames_to_column("submitter_id")
+
+master_dataset <- clinical_reduced %>%
+  inner_join(expr_df, by = "submitter_id")
+
+dim(master_dataset)
+master_dataset[1:5, 1:10]
+```
+
+# 14. Control de calidad básico del dataset integrado
+
+```{r qc-master}
+cat("Pacientes clínicos con supervivencia:", nrow(clinical_surv), "\n")
+cat("Pacientes con transcriptómica:", ncol(expr_matrix), "\n")
+cat("Pacientes comunes:", length(common_patients), "\n")
+cat("Pacientes en master_dataset:", nrow(master_dataset), "\n")
+```
+
+```{r na-master}
+colSums(is.na(clinical_reduced))
+```
+
+# 15. Guardado de objetos integrados
+
+```{r save}
+saveRDS(clinical_master, "data_processed/clinical_master_tcga_skcm.rds")
+saveRDS(expr_master, "data_processed/expression_master_tcga_skcm.rds")
+saveRDS(expr_master_t, "data_processed/expression_master_transposed_tcga_skcm.rds")
+saveRDS(master_dataset, "data_processed/master_dataset_tcga_skcm.rds")
+
+write_csv(clinical_reduced, "data_processed/clinical_master_tcga_skcm.csv")
+write_csv(expr_df, "data_processed/expression_master_transposed_tcga_skcm.csv")
+```
+
+# 16. Interpretación
+
+En esta versión se ha construido el **dataset maestro integrado** del TFM, uniendo:
+
+- información clínica
+- variables de supervivencia
+- matriz transcriptómica procesada
+
+Este paso es fundamental porque permite pasar del análisis clínico al análisis de biomarcadores.
+
+A partir de aquí, los siguientes pasos naturales del proyecto son:
+
+- análisis de asociación entre expresión génica y supervivencia
+- Cox por gen o por firmas transcriptómicas
+- selección de biomarcadores candidatos
+- construcción de modelos integrativos clínico-moleculares

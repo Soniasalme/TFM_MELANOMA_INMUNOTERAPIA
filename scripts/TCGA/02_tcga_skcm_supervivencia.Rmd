@@ -1,0 +1,286 @@
+---
+title: "TFM melanoma - Descarga inicial de TCGA-SKCM y creación de variables de supervivencia"
+author: "Sonia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+```{r setup}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = TRUE
+)
+```
+
+# 1. Instalación de paquetes
+
+```{r install}
+# Si BiocManager no está instalado, lo instalamos.
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+
+# Paquetes de Bioconductor
+paquetes_bioc <- c("TCGAbiolinks", "SummarizedExperiment")
+
+# Paquetes de CRAN
+paquetes_cran <- c("dplyr", "tibble", "readr", "stringr", "ggplot2")
+
+for (p in paquetes_bioc) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    BiocManager::install(p, ask = FALSE, update = FALSE)
+  }
+}
+
+for (p in paquetes_cran) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p)
+  }
+}
+```
+
+# 2. Carga de librerías
+
+```{r libraries}
+library(TCGAbiolinks)
+library(SummarizedExperiment)
+library(dplyr)
+library(tibble)
+library(readr)
+library(stringr)
+library(ggplot2)
+```
+
+# 3. Creación de carpetas de trabajo
+
+```{r folders}
+dir.create("data_raw", showWarnings = FALSE)
+dir.create("data_processed", showWarnings = FALSE)
+dir.create("results", showWarnings = FALSE)
+dir.create("figures", showWarnings = FALSE)
+```
+
+# 4. Descarga de datos clínicos
+
+```{r clinical}
+# Descargamos la información clínica del proyecto TCGA-SKCM.
+clinical_tcga <- GDCquery_clinic(
+  project = "TCGA-SKCM",
+  type = "clinical"
+)
+
+# Dimensiones del dataset
+dim(clinical_tcga)
+
+# Nombres de columnas
+colnames(clinical_tcga)
+
+# Guardamos la tabla clínica cruda
+write_csv(clinical_tcga, "data_raw/tcga_skcm_clinical.csv")
+```
+
+# 5. EDA clínico (TCGA melanoma)
+
+Este bloque permite revisar el contenido básico del dataset clínico antes de construir variables derivadas.
+
+## 5.1 Dimensión del dataset
+
+```{r}
+dim(clinical_tcga)
+```
+
+El dataset clínico TCGA-SKCM contiene 470 pacientes y 90 variables clínicas que describen características demográficas, tumorales, pronósticas y de tratamiento.
+
+## 5.2 Estructura del dataset
+
+```{r}
+glimpse(clinical_tcga)
+```
+
+## 5.3 Valores únicos por variable
+
+```{r}
+sapply(clinical_tcga, function(x) length(unique(x)))
+```
+
+## 5.4 Variables clínicas relevantes
+
+```{r}
+table(clinical_tcga$gender, useNA = "ifany")
+table(clinical_tcga$vital_status, useNA = "ifany")
+table(clinical_tcga$ajcc_pathologic_stage, useNA = "ifany")
+```
+
+## 5.5 Exploración de edad
+
+```{r}
+summary(clinical_tcga$age_at_diagnosis)
+
+hist(clinical_tcga$age_at_diagnosis,
+     breaks = 30,
+     col = "steelblue",
+     main = "Distribución de edad al diagnóstico",
+     xlab = "Edad")
+```
+
+## 5.6 Exploración de valores faltantes (NA)
+
+```{r}
+colSums(is.na(clinical_tcga))
+```
+
+```{r}
+colSums(is.na(clinical_tcga[, c(
+  "age_at_diagnosis",
+  "gender",
+  "vital_status",
+  "days_to_death",
+  "days_to_last_follow_up",
+  "ajcc_pathologic_stage"
+)]))
+```
+
+## 5.7 Variables de supervivencia crudas
+
+```{r}
+summary(clinical_tcga$days_to_death)
+summary(clinical_tcga$days_to_last_follow_up)
+```
+
+## 5.8 Conversión de variables categóricas a factor
+
+```{r}
+clinical_tcga$gender <- factor(clinical_tcga$gender)
+clinical_tcga$vital_status <- factor(clinical_tcga$vital_status)
+clinical_tcga$ajcc_pathologic_stage <- factor(clinical_tcga$ajcc_pathologic_stage)
+
+class(clinical_tcga$gender)
+levels(clinical_tcga$gender)
+```
+
+## 5.9 Resumen descriptivo general
+
+```{r}
+summary(clinical_tcga)
+```
+
+# 6. Creación de variables de supervivencia
+
+En TCGA, la supervivencia global suele construirse a partir de dos variables clínicas:
+
+- `days_to_death`: número de días hasta el fallecimiento.
+- `days_to_last_follow_up`: número de días hasta el último seguimiento disponible.
+
+A partir de ellas construiremos dos variables clave:
+
+- `OS_time`: tiempo de supervivencia global.
+- `OS_event`: indicador del evento (1 = fallecimiento, 0 = censura).
+
+## 6.1 Construcción de `OS_event`
+
+```{r}
+# Definimos el evento de supervivencia global.
+# 1 = paciente fallecido
+# 0 = paciente vivo en el último seguimiento
+clinical_tcga <- clinical_tcga %>%
+  mutate(
+    OS_event = case_when(
+      vital_status == "Dead"  ~ 1,
+      vital_status == "Alive" ~ 0,
+      TRUE ~ NA_real_
+    )
+  )
+
+table(clinical_tcga$OS_event, useNA = "ifany")
+```
+
+## 6.2 Construcción de `OS_time`
+
+```{r}
+# Definimos el tiempo de supervivencia global.
+# Si el paciente falleció, usamos days_to_death.
+# Si sigue vivo, usamos days_to_last_follow_up.
+clinical_tcga <- clinical_tcga %>%
+  mutate(
+    OS_time = case_when(
+      OS_event == 1 ~ as.numeric(days_to_death),
+      OS_event == 0 ~ as.numeric(days_to_last_follow_up),
+      TRUE ~ NA_real_
+    )
+  )
+
+summary(clinical_tcga$OS_time)
+```
+
+## 6.3 Comprobación conjunta de las nuevas variables
+
+```{r}
+# Revisamos las primeras filas de las variables clave
+clinical_tcga %>%
+  select(submitter_id,
+         vital_status,
+         days_to_death,
+         days_to_last_follow_up,
+         OS_event,
+         OS_time) %>%
+  head(10)
+```
+
+## 6.4 Comprobación de valores faltantes en supervivencia
+
+```{r}
+colSums(is.na(clinical_tcga[, c(
+  "vital_status",
+  "days_to_death",
+  "days_to_last_follow_up",
+  "OS_event",
+  "OS_time"
+)]))
+```
+
+## 6.5 Filtrado opcional de tiempos no válidos
+
+En algunos datasets TCGA pueden aparecer tiempos negativos o inconsistentes en seguimiento. Para análisis de supervivencia, conviene revisarlos.
+
+```{r}
+summary(clinical_tcga$OS_time)
+table(clinical_tcga$OS_time < 0, useNA = "ifany")
+```
+
+```{r}
+# Creamos una versión limpia para análisis de supervivencia
+clinical_surv <- clinical_tcga %>%
+  filter(!is.na(OS_time), !is.na(OS_event), OS_time >= 0)
+
+dim(clinical_surv)
+```
+
+## 6.6 Resumen descriptivo de supervivencia
+
+```{r}
+table(clinical_surv$OS_event, useNA = "ifany")
+
+summary(clinical_surv$OS_time)
+```
+
+## 6.7 Guardado del dataset clínico con supervivencia
+
+```{r}
+# Guardamos el dataset clínico enriquecido con las variables de supervivencia
+write_csv(clinical_surv, "data_processed/tcga_skcm_clinical_survival.csv")
+saveRDS(clinical_surv, "data_processed/tcga_skcm_clinical_survival.rds")
+```
+
+# 7. Resultado de este cuaderno
+
+Al finalizar este documento, se habrá obtenido un dataset clínico preparado para análisis de supervivencia con:
+
+- información clínica básica,
+- variable `OS_event`,
+- variable `OS_time`,
+- y una versión filtrada lista para Kaplan-Meier y modelos de Cox.
