@@ -1,0 +1,352 @@
+---
+title: "TFM melanoma - Descarga y preparación inicial de TCGA-SKCM"
+author: "Sonia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+# Primer chunk: opciones globales
+
+```{r setup}
+# Configuración global de los chunks de R Markdown.
+# echo = TRUE hace que se vea el código en el documento final.
+# warning = FALSE oculta avisos para que el informe quede más limpio.
+# message = TRUE muestra mensajes de carga/descarga útiles en esta fase.
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = TRUE
+)
+```
+
+# Segundo chunk: instalación de paquetes
+
+```{r install}
+# Si BiocManager no está instalado, lo instalamos.
+# BiocManager es el gestor de paquetes de Bioconductor,
+# donde está TCGAbiolinks.
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+
+# Lista de paquetes de Bioconductor que vamos a necesitar.
+# TCGAbiolinks: descarga y manejo de datos TCGA/GDC.
+# SummarizedExperiment: estructura de datos habitual para expresión génica.
+paquetes_bioc <- c("TCGAbiolinks", "SummarizedExperiment")
+
+# Lista de paquetes CRAN para manipulación y visualización.
+# dplyr/tibble/readr/stringr: limpieza y manejo de datos.
+# ggplot2: visualización.
+paquetes_cran <- c("dplyr", "tibble", "readr", "stringr", "ggplot2")
+
+# Instalamos cada paquete de Bioconductor solo si no está ya instalado.
+for (p in paquetes_bioc) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    BiocManager::install(p, ask = FALSE, update = FALSE)
+  }
+}
+
+# Instalamos cada paquete de CRAN solo si no está ya instalado.
+for (p in paquetes_cran) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p)
+  }
+}
+```
+
+# Tercer chunk: cargar librerías
+Prepara el entorno de trabajo. Así, el script puede ejecutarse en cualquier ordenador aunque aún no tengas los paquetes instalados.
+
+```{r librerias}
+# Cargamos las librerías que vamos a usar en el resto del documento.
+library(TCGAbiolinks)
+library(SummarizedExperiment)
+library(dplyr)
+library(tibble)
+library(readr)
+library(stringr)
+library(ggplot2)
+```
+
+### Qué hace este bloque
+Activa los paquetes instalados para poder usar sus funciones.
+
+---
+
+# Cuarto chunk: crear carpetas de trabajo
+
+Esto te ordena el proyecto desde el principio. Esto es muy importante para que luego el TFM sea reproducible.
+
+
+```{r folders}
+# Creamos carpetas para mantener el proyecto ordenado.
+# data_raw: archivos descargados sin procesar.
+# data_processed: archivos ya limpios o preparados.
+# results: tablas de resultados.
+# figures: gráficos.
+dir.create("data_raw", showWarnings = FALSE)
+dir.create("data_processed", showWarnings = FALSE)
+dir.create("results", showWarnings = FALSE)
+dir.create("figures", showWarnings = FALSE)
+```
+
+# Quinto chunk: descargar datos clínicos
+
+Descarga la **tabla clínica** del melanoma TCGA y la guarda en disco.  
+Esto te servirá para construir variables como:
+
+- edad,
+- sexo,
+- estado vital,
+- tiempo de seguimiento,
+- estadio.
+
+
+```{r clinical}
+# Descargamos la información clínica del proyecto TCGA-SKCM.
+# project = "TCGA-SKCM" indica que trabajamos con melanoma cutáneo.
+# type = "clinical" pide la tabla clínica del proyecto.
+clinical_tcga <- GDCquery_clinic(
+  project = "TCGA-SKCM",
+  type = "clinical"
+)
+
+# Mostramos dimensiones del dataset:
+# número de filas (pacientes/registros) y columnas (variables clínicas).
+dim(clinical_tcga)
+
+# Mostramos los nombres de las columnas para ver qué variables tenemos.
+colnames(clinical_tcga)
+
+# Guardamos la tabla clínica cruda en CSV para poder consultarla fuera de R.
+write_csv(clinical_tcga, "data_raw/tcga_skcm_clinical.csv")
+```
+# # EDA clínico (TCGA melanoma)
+
+
+Te ayudará a responder estas preguntas:
+
+¿Cuántos pacientes fallecieron?
+
+¿Cuántos están vivos?
+
+¿Cuántos tienen estadio informado?
+
+¿Cuántos NA hay en las variables clave?
+
+Eso es muy importante antes de construir el dataset final.
+
+- **1. Dimensión del dataset**
+
+```{r}
+dim(clinical_tcga)
+```
+El dataset clínico TCGA-SKCM contiene 470 pacientes y 90 variables clínicas que describen características demográficas, tumorales, pronósticas y de tratamiento.
+
+- **2. Estructura del dataset**
+
+Esto permite identificar:
+
+variables categóricas
+
+variables numéricas
+
+variables de fecha
+
+identificadores de paciente
+
+
+```{r}
+glimpse(clinical_tcga)
+```
+**- 3. Valores únicos por variable**
+
+Esto es muy útil cuando hay muchas variables, sirve para detectar:
+
+variables binarias
+
+variables categóricas
+
+variables continuas
+
+```{r}
+sapply(clinical_tcga, function(x) length(unique(x)))
+```
+
+**- 4. Exploración de variables clínicas relevantes**
+
+En datasets clínicos es buena práctica centrarse en variables clave.
+
+```{r}
+table(clinical_tcga$gender, useNA = "ifany")
+table(clinical_tcga$vital_status, useNA = "ifany")
+table(clinical_tcga$ajcc_pathologic_stage, useNA = "ifany")
+```
+
+
+Interpretación típica:
+
+proporción hombres/mujeres
+
+proporción vivos/muertos
+
+distribución por estadio tumoral
+
+Esto queda muy bien explicado en la memoria.
+
+**- 5. Exploración de edad**
+
+```{r}
+summary(clinical_tcga$age_at_diagnosis)
+```
+
+y un gráfico:
+
+```{r}
+hist(clinical_tcga$age_at_diagnosis,
+     breaks = 30,
+     col = "steelblue",
+     main = "Distribución de edad al diagnóstico",
+     xlab = "Edad")
+```
+
+Esto añade EDA visual, algo muy valorado en TFM.
+
+**- 6. Exploración de valores faltantes (NA)**
+
+Muy importante en datasets clínicos.
+
+```{r}
+colSums(is.na(clinical_tcga))
+```
+
+Para centrarse en variables relevantes:
+
+```{r}
+colSums(is.na(clinical_tcga[, c(
+  "age_at_diagnosis",
+  "gender",
+  "vital_status",
+  "days_to_death",
+  "days_to_last_follow_up",
+  "ajcc_pathologic_stage"
+)]))
+```
+
+Interpretación típica en la memoria:
+
+Algunas variables clínicas presentan valores faltantes, lo cual es habitual en datasets clínicos retrospectivos.
+
+**- 7. Variables de supervivencia**
+
+Esto es MUY importante para tu TFM.
+
+Exploramos:
+
+```{r}
+summary(clinical_tcga$days_to_death)
+summary(clinical_tcga$days_to_last_follow_up)
+```
+
+Esto permitirá después construir:
+
+OS_time
+
+OS_event
+
+para análisis de supervivencia.
+
+**-8. Conversión de variables categóricas a factor**
+
+Por ejemplo:
+
+```{r}
+clinical_tcga$gender <- factor(clinical_tcga$gender)
+clinical_tcga$vital_status <- factor(clinical_tcga$vital_status)
+clinical_tcga$ajcc_pathologic_stage <- factor(clinical_tcga$ajcc_pathologic_stage)
+```
+
+Después comprobamos:
+
+```{r}
+class(clinical_tcga$gender)
+levels(clinical_tcga$gender)
+```
+
+
+**-9. Resumen descriptivo general**
+
+```{r}
+summary(clinical_tcga)
+```
+
+Esto da:
+
+mínimo
+
+máximo
+
+mediana
+
+cuartiles
+
+Lo que añadiría para que tu EDA sea de nivel TFM
+
+Dos cosas más que quedan muy bien:
+
+**- 10. Distribución de estadio (visual)**
+
+```{r}
+ggplot(clinical_tcga, aes(x = ajcc_pathologic_stage)) +
+  geom_bar(fill = "darkred") +
+  theme_minimal() +
+  labs(
+    title = "Distribución de estadio tumoral",
+    x = "Estadio AJCC",
+    y = "Número de pacientes"
+  )
+```
+
+
+**-11. Edad vs estado vital**
+
+```{r}
+ggplot(clinical_tcga, aes(x = age_at_diagnosis, fill = vital_status)) +
+  geom_histogram(position = "identity", alpha = 0.6, bins = 30) +
+  theme_minimal() +
+  labs(
+    title = "Edad al diagnóstico según estado vital",
+    x = "Edad",
+    y = "Frecuencia"
+  )
+```
+
+
+```{r}
+# Ver primeras filas
+head(clinical_tcga)
+
+# Ver estructura general
+glimpse(clinical_tcga)
+
+# Ver distribución de estado vital
+table(clinical_tcga$vital_status, useNA = "ifany")
+
+# Ver distribución de estadio
+table(clinical_tcga$ajcc_pathologic_stage, useNA = "ifany")
+
+# Ver cuántos valores faltan hay en variables clave
+colSums(is.na(clinical_tcga[, c(
+  "submitter_id",
+  "age_at_diagnosis",
+  "gender",
+  "vital_status",
+  "days_to_death",
+  "days_to_last_follow_up",
+  "ajcc_pathologic_stage"
+)]))
+```
+

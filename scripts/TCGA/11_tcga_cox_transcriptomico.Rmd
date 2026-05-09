@@ -1,0 +1,205 @@
+---
+title: "11 - Cox transcriptómico por gen (screening de biomarcadores)"
+author: "TFM Melanoma"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Objetivo
+
+En este documento comenzamos el **análisis de biomarcadores transcriptómicos**.
+
+Se realizará:
+
+- Integración final de datos clínicos y transcriptómicos
+- Corrección de pacientes con estadio desconocido
+- **Cox univariante por gen**
+- Ranking de genes asociados a supervivencia
+
+Esto constituye el **primer screening transcriptómico del TFM**.
+
+---
+
+# 1. Librerías
+
+```{r}
+library(dplyr)
+library(readr)
+library(survival)
+library(tibble)
+library(purrr)
+```
+
+---
+
+# 2. Cargar dataset maestro
+
+```{r}
+master_dataset <- readRDS("data_processed/master_dataset_tcga_skcm.rds")
+
+dim(master_dataset)
+```
+
+---
+
+# 3. Corrección del problema detectado en versión 10
+
+En el análisis previo se detectaron pacientes con:
+
+- `ajcc_pathologic_stage = NA`
+
+Esto no afecta a supervivencia pero puede afectar modelos posteriores.
+
+**Estrategia adoptada:**
+
+Crear categoría `"Unknown"`.
+
+```{r}
+master_dataset$stage_group <- as.character(master_dataset$stage_group)
+
+master_dataset$stage_group[is.na(master_dataset$stage_group)] <- "Unknown"
+
+master_dataset$stage_group <- factor(master_dataset$stage_group,
+                                     levels = c("Stage I","Stage II","Stage III","Stage IV","Unknown"))
+
+table(master_dataset$stage_group)
+```
+
+---
+
+# 4. Variables clínicas
+
+```{r}
+clinical_vars <- c(
+"submitter_id",
+"gender",
+"age_years",
+"stage_group",
+"OS_time",
+"OS_event"
+)
+
+clinical_data <- master_dataset[,clinical_vars]
+
+head(clinical_data)
+```
+
+---
+
+# 5. Identificación de genes
+
+Los genes empiezan después de las variables clínicas.
+
+```{r}
+gene_columns <- setdiff(colnames(master_dataset), clinical_vars)
+
+length(gene_columns)
+```
+
+---
+
+# 6. Dataset de expresión
+
+```{r}
+expr_data <- master_dataset[,gene_columns]
+
+dim(expr_data)
+```
+
+---
+
+# 7. Cox univariante por gen
+
+Función auxiliar.
+
+```{r}
+cox_gene <- function(gene){
+
+  df <- data.frame(
+    time = master_dataset$OS_time,
+    event = master_dataset$OS_event,
+    expr = master_dataset[[gene]]
+  )
+
+  model <- coxph(Surv(time,event) ~ expr, data = df)
+
+  summary_model <- summary(model)
+
+  tibble(
+    gene = gene,
+    HR = summary_model$coefficients[1,2],
+    pvalue = summary_model$coefficients[1,5]
+  )
+
+}
+```
+
+---
+
+# 8. Aplicación a todos los genes
+
+Este paso puede tardar unos minutos.
+
+```{r}
+results_cox <- map_dfr(gene_columns, cox_gene)
+
+dim(results_cox)
+```
+
+---
+
+# 9. Corrección por múltiples test
+
+```{r}
+results_cox <- results_cox %>%
+  mutate(
+    FDR = p.adjust(pvalue, method="fdr")
+  )
+```
+
+---
+
+# 10. Ranking de genes candidatos
+
+```{r}
+top_genes <- results_cox %>%
+  arrange(FDR)
+
+head(top_genes,20)
+```
+
+---
+
+# 11. Guardar resultados
+
+```{r}
+write_csv(results_cox,"results/cox_transcriptome_results.csv")
+
+saveRDS(results_cox,"results/cox_transcriptome_results.rds")
+```
+
+---
+
+# Interpretación
+
+Este análisis identifica **genes cuya expresión se asocia con supervivencia global**.
+
+Los genes con:
+
+- **p‑value bajo**
+- **FDR bajo**
+- **HR alejado de 1**
+
+son candidatos a **biomarcadores pronósticos en melanoma**.
+
+En las siguientes versiones del TFM se realizará:
+
+- visualización Kaplan‑Meier de genes candidatos
+- modelos multivariantes clínico‑moleculares
+- posible construcción de **firmas transcriptómicas**.

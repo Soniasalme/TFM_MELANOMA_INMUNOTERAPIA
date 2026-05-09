@@ -1,0 +1,281 @@
+---
+title: "TFM melanoma - Integración transcriptómica TCGA-SKCM"
+author: "Sonia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+```{r setup}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = TRUE
+)
+```
+
+# 1. Objetivo de este cuaderno
+
+En este paso del TFM comenzamos la **integración transcriptómica** utilizando datos RNA-seq del proyecto **TCGA-SKCM**.
+
+Objetivos:
+
+- Descargar datos de expresión génica RNA-seq.
+- Construir una matriz de expresión (genes × pacientes).
+- Armonizar los identificadores de pacientes con el dataset clínico.
+- Preparar el dataset para futuros análisis de biomarcadores.
+
+---
+
+# 2. Instalación de paquetes
+
+```{r install}
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+
+paquetes_bioc <- c(
+  "TCGAbiolinks",
+  "SummarizedExperiment",
+  "edgeR",
+  "limma"
+)
+
+paquetes_cran <- c(
+  "dplyr",
+  "tibble",
+  "readr",
+  "stringr",
+  "ggplot2"
+)
+
+for (p in paquetes_bioc) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    BiocManager::install(p, ask = FALSE, update = FALSE)
+  }
+}
+
+for (p in paquetes_cran) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p)
+  }
+}
+```
+
+---
+
+# 3. Carga de librerías
+
+```{r libraries}
+library(TCGAbiolinks)
+library(SummarizedExperiment)
+library(edgeR)
+library(limma)
+library(dplyr)
+library(tibble)
+library(readr)
+library(stringr)
+library(ggplot2)
+```
+
+---
+
+# 4. Creación de carpetas
+
+```{r folders}
+dir.create("data_raw", showWarnings = FALSE)
+dir.create("data_processed", showWarnings = FALSE)
+dir.create("results", showWarnings = FALSE)
+dir.create("figures", showWarnings = FALSE)
+```
+
+---
+
+# 5. Consulta de datos RNA-seq en TCGA
+
+Seleccionamos:
+
+- proyecto: **TCGA-SKCM**
+- tipo de dato: **Transcriptome Profiling**
+- data type: **Gene Expression Quantification**
+- workflow: **STAR - Counts**
+
+```{r query}
+query_exp <- GDCquery(
+  project = "TCGA-SKCM",
+  data.category = "Transcriptome Profiling",
+  data.type = "Gene Expression Quantification",
+  workflow.type = "STAR - Counts"
+)
+
+query_exp
+```
+
+---
+
+# 6. Descarga de datos
+
+Este paso puede tardar algunos minutos dependiendo de la conexión.
+
+```{r download}
+GDCdownload(query_exp)
+```
+
+---
+
+# 7. Preparación del objeto SummarizedExperiment
+
+```{r prepare}
+exp_data <- GDCprepare(query_exp)
+
+exp_data
+```
+
+El objeto contiene:
+
+- matriz de conteos
+- anotaciones de genes
+- metadatos de muestras
+
+---
+
+# 8. Extracción de matriz de expresión
+
+En los datasets actuales de GDC, `assay(exp_data)` suele devolver la matriz principal.  
+Si hubiese más de un assay, este bloque usa el primero.
+
+```{r counts}
+assay_names <- assayNames(exp_data)
+assay_names
+
+count_matrix <- assay(exp_data, assay_names[1])
+
+dim(count_matrix)
+```
+
+La matriz tiene:
+
+- **filas = genes**
+- **columnas = muestras**
+
+---
+
+# 9. Extracción de identificadores de pacientes
+
+Los identificadores TCGA completos incluyen información de muestra. Para integrarlos con datos clínicos necesitamos el identificador de paciente.
+
+```{r patient-ids}
+sample_ids <- colnames(count_matrix)
+
+patient_ids <- substr(sample_ids, 1, 12)
+
+head(patient_ids)
+```
+
+---
+
+# 10. Construcción de matriz con IDs de paciente
+
+```{r matrix-patients}
+colnames(count_matrix) <- patient_ids
+
+count_matrix[1:5,1:5]
+```
+
+---
+
+# 11. Eliminación de duplicados de paciente
+
+Algunos pacientes pueden tener varias muestras. Conservamos la primera aparición.
+
+```{r duplicates}
+count_matrix <- count_matrix[, !duplicated(colnames(count_matrix))]
+
+dim(count_matrix)
+```
+
+---
+
+# 12. Filtrado básico de genes de baja expresión
+
+Antes de normalizar, eliminamos genes con expresión muy baja.
+
+```{r filter-low}
+dge <- DGEList(counts = count_matrix)
+
+keep <- filterByExpr(dge)
+table(keep)
+
+dge <- dge[keep, , keep.lib.sizes = FALSE]
+
+dim(dge)
+```
+
+---
+
+# 13. Normalización básica (log-CPM)
+
+Para análisis exploratorios transformamos los conteos a **log-CPM**.
+
+```{r cpm}
+dge <- calcNormFactors(dge)
+
+cpm_matrix <- cpm(dge, log = TRUE, prior.count = 1)
+
+dim(cpm_matrix)
+```
+
+---
+
+# 14. Exploración de la matriz de expresión
+
+```{r explore}
+summary(as.vector(cpm_matrix))
+```
+
+```{r variance}
+gene_variance <- apply(cpm_matrix, 1, var)
+
+summary(gene_variance)
+```
+
+---
+
+# 15. Selección de genes más variables
+
+Para reducir dimensionalidad seleccionamos los **genes más variables**.
+
+```{r variable-genes}
+top_n <- min(5000, nrow(cpm_matrix))
+top_genes <- names(sort(gene_variance, decreasing = TRUE))[1:top_n]
+
+expr_top <- cpm_matrix[top_genes, ]
+
+dim(expr_top)
+```
+
+---
+
+# 16. Guardado de datasets
+
+```{r save}
+saveRDS(count_matrix, "data_processed/tcga_skcm_counts_raw.rds")
+saveRDS(cpm_matrix, "data_processed/tcga_skcm_expression_cpm.rds")
+saveRDS(expr_top, "data_processed/tcga_skcm_expression_top_variable.rds")
+```
+
+---
+
+# 17. Interpretación
+
+En este paso se ha construido una **matriz transcriptómica normalizada** lista para análisis bioinformático.
+
+Los siguientes pasos del TFM incluirán:
+
+- integración con datos clínicos y de supervivencia
+- análisis de asociación entre expresión génica y supervivencia
+- identificación de biomarcadores transcriptómicos
+- desarrollo de modelos pronósticos

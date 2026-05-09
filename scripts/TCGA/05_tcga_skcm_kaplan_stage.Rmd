@@ -1,0 +1,325 @@
+---
+title: "TFM melanoma - Kaplan-Meier por estadio en TCGA-SKCM"
+author: "Sonia"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+```{r setup}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = TRUE
+)
+```
+
+# 1. Instalación de paquetes
+
+```{r install}
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+
+paquetes_bioc <- c("TCGAbiolinks", "SummarizedExperiment")
+paquetes_cran <- c("dplyr", "tibble", "readr", "stringr", "ggplot2", "survival", "survminer")
+
+for (p in paquetes_bioc) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    BiocManager::install(p, ask = FALSE, update = FALSE)
+  }
+}
+
+for (p in paquetes_cran) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p)
+  }
+}
+```
+
+# 2. Carga de librerías
+
+```{r libraries}
+library(TCGAbiolinks)
+library(SummarizedExperiment)
+library(dplyr)
+library(tibble)
+library(readr)
+library(stringr)
+library(ggplot2)
+library(survival)
+library(survminer)
+```
+
+# 3. Creación de carpetas de trabajo
+
+```{r folders}
+dir.create("data_raw", showWarnings = FALSE)
+dir.create("data_processed", showWarnings = FALSE)
+dir.create("results", showWarnings = FALSE)
+dir.create("figures", showWarnings = FALSE)
+```
+
+# 4. Descarga de datos clínicos
+
+```{r clinical}
+clinical_tcga <- GDCquery_clinic(
+  project = "TCGA-SKCM",
+  type = "clinical"
+)
+
+dim(clinical_tcga)
+write_csv(clinical_tcga, "data_raw/tcga_skcm_clinical.csv")
+```
+
+# 5. Preparación básica de variables clínicas
+
+```{r}
+clinical_tcga$gender <- factor(clinical_tcga$gender)
+clinical_tcga$vital_status <- factor(clinical_tcga$vital_status)
+clinical_tcga$ajcc_pathologic_stage <- factor(clinical_tcga$ajcc_pathologic_stage)
+```
+
+# 6. Creación de variables de supervivencia
+
+## 6.1 Evento de supervivencia global
+
+```{r}
+clinical_tcga <- clinical_tcga %>%
+  mutate(
+    OS_event = case_when(
+      vital_status == "Dead"  ~ 1,
+      vital_status == "Alive" ~ 0,
+      TRUE ~ NA_real_
+    )
+  )
+
+table(clinical_tcga$OS_event, useNA = "ifany")
+```
+
+## 6.2 Tiempo de supervivencia global
+
+```{r}
+clinical_tcga <- clinical_tcga %>%
+  mutate(
+    OS_time = case_when(
+      OS_event == 1 ~ as.numeric(days_to_death),
+      OS_event == 0 ~ as.numeric(days_to_last_follow_up),
+      TRUE ~ NA_real_
+    )
+  )
+
+summary(clinical_tcga$OS_time)
+```
+
+## 6.3 Filtrado de tiempos válidos
+
+```{r}
+clinical_surv <- clinical_tcga %>%
+  filter(!is.na(OS_time), !is.na(OS_event), OS_time >= 0)
+
+dim(clinical_surv)
+```
+
+# 7. Kaplan-Meier global y por sexo
+
+## 7.1 Kaplan-Meier global
+
+```{r}
+km_fit_global <- survfit(Surv(OS_time, OS_event) ~ 1, data = clinical_surv)
+
+km_global_plot <- ggsurvplot(
+  km_fit_global,
+  data = clinical_surv,
+  conf.int = TRUE,
+  risk.table = TRUE,
+  censor = TRUE,
+  xlab = "Tiempo (días)",
+  ylab = "Probabilidad de supervivencia global",
+  title = "Curva Kaplan-Meier global en TCGA-SKCM",
+  ggtheme = theme_minimal()
+)
+
+km_global_plot
+```
+
+## 7.2 Kaplan-Meier por sexo
+
+```{r}
+km_fit_gender <- survfit(Surv(OS_time, OS_event) ~ gender, data = clinical_surv)
+
+km_gender_plot <- ggsurvplot(
+  km_fit_gender,
+  data = clinical_surv,
+  conf.int = TRUE,
+  pval = TRUE,
+  risk.table = TRUE,
+  censor = TRUE,
+  xlab = "Tiempo (días)",
+  ylab = "Probabilidad de supervivencia global",
+  title = "Curvas Kaplan-Meier por sexo",
+  legend.title = "Sexo",
+  ggtheme = theme_minimal()
+)
+
+km_gender_plot
+```
+
+# 8. Kaplan-Meier por estadio tumoral
+
+En esta versión se incorpora la estratificación por estadio AJCC, una variable clínica central en el pronóstico del melanoma.
+
+## 8.1 Exploración de niveles de estadio
+
+```{r}
+table(clinical_surv$ajcc_pathologic_stage, useNA = "ifany")
+levels(clinical_surv$ajcc_pathologic_stage)
+```
+
+## 8.2 Limpieza de estadio para análisis
+
+Algunos niveles tienen pocos casos o representan categorías no informativas para el análisis principal. Aquí eliminamos valores perdidos y mantenemos las categorías con información clínica interpretable.
+
+```{r}
+clinical_stage <- clinical_surv %>%
+  filter(!is.na(ajcc_pathologic_stage))
+
+dim(clinical_stage)
+
+table(clinical_stage$ajcc_pathologic_stage)
+```
+
+## 8.3 Kaplan-Meier por estadio detallado
+
+```{r}
+km_fit_stage <- survfit(Surv(OS_time, OS_event) ~ ajcc_pathologic_stage, data = clinical_stage)
+
+summary(km_fit_stage)
+```
+
+## 8.4 Gráfico Kaplan-Meier por estadio detallado
+
+```{r}
+km_stage_plot <- ggsurvplot(
+  km_fit_stage,
+  data = clinical_stage,
+  conf.int = FALSE,
+  pval = TRUE,
+  risk.table = TRUE,
+  censor = TRUE,
+  xlab = "Tiempo (días)",
+  ylab = "Probabilidad de supervivencia global",
+  title = "Curvas Kaplan-Meier por estadio AJCC",
+  legend.title = "Estadio",
+  ggtheme = theme_minimal()
+)
+
+km_stage_plot
+```
+
+## 8.5 Test log-rank por estadio
+
+```{r}
+logrank_stage <- survdiff(Surv(OS_time, OS_event) ~ ajcc_pathologic_stage, data = clinical_stage)
+
+logrank_stage
+```
+
+# 9. Agrupación clínica opcional de estadios
+
+Para facilitar la interpretación, puede ser útil agrupar subestadios en categorías más amplias.
+
+## 9.1 Creación de grupos simplificados
+
+```{r}
+clinical_stage <- clinical_stage %>%
+  mutate(
+    stage_group = case_when(
+      ajcc_pathologic_stage %in% c("Stage 0", "Stage I", "Stage IA", "Stage IB") ~ "Stage I",
+      ajcc_pathologic_stage %in% c("Stage II", "Stage IIA", "Stage IIB", "Stage IIC") ~ "Stage II",
+      ajcc_pathologic_stage %in% c("Stage III", "Stage IIIA", "Stage IIIB", "Stage IIIC") ~ "Stage III",
+      ajcc_pathologic_stage %in% c("Stage IV") ~ "Stage IV",
+      TRUE ~ NA_character_
+    )
+  )
+
+clinical_stage$stage_group <- factor(
+  clinical_stage$stage_group,
+  levels = c("Stage I", "Stage II", "Stage III", "Stage IV")
+)
+
+table(clinical_stage$stage_group, useNA = "ifany")
+```
+
+## 9.2 Kaplan-Meier por grupos simplificados
+
+```{r}
+km_fit_stage_group <- survfit(Surv(OS_time, OS_event) ~ stage_group, data = clinical_stage)
+
+summary(km_fit_stage_group)
+```
+
+## 9.3 Gráfico Kaplan-Meier por grupos simplificados
+
+```{r}
+km_stage_group_plot <- ggsurvplot(
+  km_fit_stage_group,
+  data = clinical_stage,
+  conf.int = FALSE,
+  pval = TRUE,
+  risk.table = TRUE,
+  censor = TRUE,
+  xlab = "Tiempo (días)",
+  ylab = "Probabilidad de supervivencia global",
+  title = "Curvas Kaplan-Meier por grupos de estadio",
+  legend.title = "Grupo de estadio",
+  ggtheme = theme_minimal()
+)
+
+km_stage_group_plot
+```
+
+## 9.4 Test log-rank por grupos simplificados
+
+```{r}
+logrank_stage_group <- survdiff(Surv(OS_time, OS_event) ~ stage_group, data = clinical_stage)
+
+logrank_stage_group
+```
+
+# 10. Guardado de resultados
+
+```{r}
+saveRDS(clinical_stage, "data_processed/tcga_skcm_clinical_stage_survival.rds")
+saveRDS(km_fit_stage, "data_processed/km_fit_stage.rds")
+saveRDS(km_fit_stage_group, "data_processed/km_fit_stage_group.rds")
+
+ggsave(
+  "figures/km_stage_plot.png",
+  plot = km_stage_plot$plot,
+  width = 9,
+  height = 6,
+  dpi = 300
+)
+
+ggsave(
+  "figures/km_stage_group_plot.png",
+  plot = km_stage_group_plot$plot,
+  width = 9,
+  height = 6,
+  dpi = 300
+)
+```
+
+# 11. Interpretación inicial
+
+La estratificación por estadio tumoral permite evaluar si la supervivencia global difiere entre categorías AJCC, algo esperable desde el punto de vista clínico en melanoma. Este análisis es importante porque:
+
+- valida que la cohorte reproduce patrones clínicos conocidos,
+- permite comprobar que las variables de supervivencia han sido construidas correctamente,
+- y establece una referencia clínica antes de incorporar biomarcadores moleculares.
+
+El análisis por grupos simplificados también será útil en las siguientes fases del TFM, especialmente al construir modelos de Cox con covariables clínicas.

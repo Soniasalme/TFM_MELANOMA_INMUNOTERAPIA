@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Sonia" />
+
+<meta name="date" content="2026-03-18" />
+
+<title>TFM melanoma - Kaplan-Meier inicial en TCGA-SKCM</title>
+
+<script src="04_tcga_skcm_primer_kaplan_meier_files/header-attrs-2.30/header-attrs.js"></script>
+<script src="04_tcga_skcm_primer_kaplan_meier_files/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="04_tcga_skcm_primer_kaplan_meier_files/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="04_tcga_skcm_primer_kaplan_meier_files/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="04_tcga_skcm_primer_kaplan_meier_files/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="04_tcga_skcm_primer_kaplan_meier_files/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="04_tcga_skcm_primer_kaplan_meier_files/jqueryui-1.13.2/jquery-ui.min.js"></script>
+<link href="04_tcga_skcm_primer_kaplan_meier_files/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="04_tcga_skcm_primer_kaplan_meier_files/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="04_tcga_skcm_primer_kaplan_meier_files/navigation-1.1/tabsets.js"></script>
+<link href="04_tcga_skcm_primer_kaplan_meier_files/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="04_tcga_skcm_primer_kaplan_meier_files/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "\e258";
+  font-family: 'Glyphicons Halflings';
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div id="header">
+
+
+
+<h1 class="title toc-ignore">TFM melanoma - Kaplan-Meier inicial en
+TCGA-SKCM</h1>
+<h4 class="author">Sonia</h4>
+<h4 class="date">2026-03-18</h4>
+
+</div>
+
+
+<pre class="r"><code>knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = TRUE
+)</code></pre>
+<p><em><strong>Nota sobre la compilación del documento</strong><br />
+Para facilitar la distribución y reducir el tamaño del archivo final,
+este documento se ha generado con la
+opción <code>self_contained: false</code> en R Markdown. Esto significa
+que las librerías de JavaScript y CSS (como Bootstrap, jQuery, etc.) se
+cargan desde servidores externos (CDN) en lugar de ir incrustadas. Por
+tanto, es necesario disponer de conexión a internet para visualizar
+correctamente el contenido, incluyendo la interactividad de tablas y
+gráficos. Si se requiere una versión completamente autónoma (por
+ejemplo, para consulta sin conexión), se puede recompilar el archivo
+.Rmd con <code>self_contained: true</code>, aunque el archivo resultante
+será considerablemente más pesado.</em></p>
+<div id="resumen" class="section level2" number="1">
+<h2><span class="header-section-number">1</span> Resumen</h2>
+<p>El melanoma cutáneo es uno de los tumores con mayor agresividad y
+mortalidad. Aunque la inmunoterapia ha mejorado significativamente la
+supervivencia en estadios avanzados, entre un 50‑60% de los pacientes no
+responden al tratamiento, lo que subraya la necesidad de identificar
+biomarcadores predictivos fiables. El presente Trabajo de Fin de Máster
+tiene como objetivo desarrollar un pipeline bioinformático reproducible
+que integre datos clínicos y transcriptómicos de la cohorte TCGA‑SKCM
+para identificar biomarcadores asociados al pronóstico y a la respuesta
+a inmunoterapia. En esta primera fase se aborda la construcción de las
+bases metodológicas: descarga y limpieza de datos clínicos, creación de
+variables de supervivencia y estimación de las curvas de Kaplan‑Meier
+global y estratificada por sexo. Los resultados muestran una mediana de
+supervivencia de aproximadamente 3 años y ausencia de diferencias
+significativas entre hombres y mujeres (p = 0.3). Este análisis
+preliminar sienta las bases para las siguientes fases, en las que se
+incorporarán datos de expresión génica y se evaluarán modelos
+multivariantes de predicción pronóstica y de respuesta terapéutica.</p>
+<hr />
+</div>
+<div id="índice" class="section level2" number="2">
+<h2><span class="header-section-number">2</span> Índice</h2>
+<ol style="list-style-type: decimal">
+<li><p>Introducción general</p></li>
+<li><p>Material y métodos</p></li>
+<li><p>Resultados – Fase 1: Análisis de supervivencia inicial</p>
+<ul>
+<li><p>3.1. Obtención y exploración de datos clínicos</p></li>
+<li><p>3.2. Construcción de variables de supervivencia</p></li>
+<li><p>3.3. Curvas de Kaplan‑Meier</p></li>
+<li><p>3.4. Almacenamiento de resultados</p></li>
+</ul></li>
+<li><p>Discusión</p></li>
+<li><p>Conclusiones y perspectivas</p></li>
+<li><p>Referencias</p></li>
+<li><p>Anexos</p></li>
+</ol>
+<hr />
+</div>
+<div id="introducción-general" class="section level2" number="3">
+<h2><span class="header-section-number">3</span> 1. Introducción
+general</h2>
+<div id="contexto-y-justificación" class="section level3" number="3.1">
+<h3><span class="header-section-number">3.1</span> 1.1. Contexto y
+justificación</h3>
+<p>El melanoma constituye la neoplasia cutánea con mayor mortalidad y
+una causa relevante de pérdida de años de vida productiva. La
+inmunoterapia basada en inhibidores de puntos de control inmunológico
+(anti‑CTLA‑4, anti‑PD‑1) ha revolucionado el tratamiento del melanoma
+avanzado, logrando respuestas duraderas en una proporción significativa
+de pacientes. Sin embargo, entre un 50‑60% de los casos no responden al
+tratamiento, lo que evidencia la necesidad de identificar biomarcadores
+pronósticos y predictivos fiables que permitan seleccionar la terapia
+más adecuada para cada paciente.</p>
+<p>El uso de herramientas bioinformáticas aplicadas a datos clínicos y
+moleculares públicos, como los generados por The Cancer Genome Atlas
+(TCGA), ofrece una oportunidad única para abordar esta problemática
+desde una perspectiva de medicina de precisión. La integración de
+información clínica, transcriptómica y genómica puede revelar patrones
+asociados a la respuesta terapéutica y al pronóstico, contribuyendo a
+optimizar las decisiones clínicas y a mejorar los resultados en los
+pacientes.</p>
+</div>
+<div id="pregunta-científica-y-planteamiento-analítico"
+class="section level3" number="3.2">
+<h3><span class="header-section-number">3.2</span> 1.2. Pregunta
+científica y planteamiento analítico</h3>
+<p>El presente TFM se centra en la siguiente pregunta científica:</p>
+<blockquote>
+<p>¿Qué características clínicas y moleculares comparten los pacientes
+con melanoma que no responden a inmunoterapia y qué las diferencia de
+aquellos pacientes que sí responden al tratamiento?</p>
+</blockquote>
+<p>El objetivo del estudio no es establecer mecanismos causales
+biológicos, sino identificar patrones asociados y biomarcadores
+diferenciales mediante análisis bioinformático. Desde una perspectiva
+analítica, la pregunta se reformula como: ¿Qué perfiles clínicos y
+transcriptómicos están estadísticamente asociados con la respuesta
+diferencial a inmunoterapia?</p>
+<p>El análisis comparará dos grupos principales: pacientes respondedores
+y pacientes no respondedores, evaluando diferencias transcriptómicas,
+clínicas y firmas moleculares combinadas. Este enfoque permite generar
+hipótesis biológicas plausibles y contribuir a la identificación de
+biomarcadores predictivos dentro del marco de la medicina
+personalizada.</p>
+</div>
+<div id="hipótesis-de-trabajo" class="section level3" number="3.3">
+<h3><span class="header-section-number">3.3</span> 1.3. Hipótesis de
+trabajo</h3>
+<p><strong>Hipótesis general:</strong> La integración de biomarcadores
+clínicos y moleculares mediante análisis bioinformático integrativo
+permite mejorar la caracterización pronóstica del melanoma y la
+predicción de respuesta a inmunoterapia.</p>
+<p><strong>Hipótesis específicas:</strong></p>
+<ul>
+<li><p><strong>H1:</strong> Existen perfiles moleculares asociados
+significativamente con la supervivencia global.</p></li>
+<li><p><strong>H2:</strong> Determinadas firmas transcriptómicas se
+asocian con la respuesta terapéutica.</p></li>
+<li><p><strong>H3:</strong> La integración de datos clínicos y
+moleculares mejora la capacidad predictiva frente a variables
+individuales.</p></li>
+</ul>
+</div>
+<div id="objetivos" class="section level3" number="3.4">
+<h3><span class="header-section-number">3.4</span> 1.4. Objetivos</h3>
+<p><strong>Objetivos generales:</strong></p>
+<ul>
+<li><p><strong>OG1.</strong> Identificar biomarcadores clínicos y
+moleculares asociados al pronóstico del melanoma.</p></li>
+<li><p><strong>OG2.</strong> Evaluar biomarcadores predictivos de
+respuesta a inmunoterapia.</p></li>
+</ul>
+<p><strong>Objetivos específicos:</strong></p>
+<ol style="list-style-type: decimal">
+<li><p>Revisar la literatura sobre biomarcadores descritos en
+melanoma.</p></li>
+<li><p>Preparar los datasets clínicos y transcriptómicos de la cohorte
+TCGA‑SKCM.</p></li>
+<li><p>Realizar un análisis exploratorio de los datos.</p></li>
+<li><p>Evaluar la supervivencia mediante curvas de Kaplan‑Meier y
+modelos de Cox.</p></li>
+<li><p>Identificar genes relevantes mediante técnicas de selección de
+variables.</p></li>
+<li><p>Evaluar asociaciones entre perfiles transcriptómicos y respuesta
+terapéutica.</p></li>
+<li><p>Validar los resultados mediante métricas estadísticas (C‑index,
+calibración, etc.).</p></li>
+<li><p>Interpretar los resultados desde una perspectiva biológica y
+clínica.</p></li>
+</ol>
+</div>
+<div id="enfoque-metodológico" class="section level3" number="3.5">
+<h3><span class="header-section-number">3.5</span> 1.5. Enfoque
+metodológico</h3>
+<p>El proyecto adopta un enfoque bioinformático integrativo con énfasis
+en el análisis transcriptómico. Se utilizará <strong>R</strong> para el
+análisis estadístico clínico y de supervivencia, y
+<strong>Python</strong> para análisis exploratorio y modelización
+complementaria. El objetivo principal será la interpretación biológica
+de los biomarcadores identificados, más que el desarrollo de algoritmos
+complejos de machine learning.</p>
+</div>
+<div id="workflow-general-del-proyecto" class="section level3"
+number="3.6">
+<h3><span class="header-section-number">3.6</span> 1.6. Workflow general
+del proyecto</h3>
+<ol style="list-style-type: decimal">
+<li><p>Integración de datos clínicos y transcriptómicos.</p></li>
+<li><p>Preprocesamiento y normalización de datos.</p></li>
+<li><p>Análisis exploratorio.</p></li>
+<li><p>Análisis de supervivencia univariante (Kaplan‑Meier).</p></li>
+<li><p>Identificación de biomarcadores candidatos (Cox univariante,
+selección de variables).</p></li>
+<li><p>Evaluación de asociaciones con respuesta a
+inmunoterapia.</p></li>
+<li><p>Modelos multivariantes y validación.</p></li>
+<li><p>Interpretación biológica de resultados.</p></li>
+</ol>
+</div>
+<div id="fuentes-de-datos" class="section level3" number="3.7">
+<h3><span class="header-section-number">3.7</span> 1.7. Fuentes de
+datos</h3>
+<p>Se emplearán datos multi‑ómicos públicos procedentes de The Cancer
+Genome Atlas (TCGA), específicamente la cohorte <strong>Skin Cutaneous
+Melanoma (TCGA‑SKCM)</strong>. Se integrarán:</p>
+<ul>
+<li><p><strong>Datos clínicos:</strong> información demográfica,
+estadio, tratamiento, supervivencia.</p></li>
+<li><p><strong>Datos transcriptómicos:</strong> RNA‑seq (expresión
+génica).</p></li>
+<li><p><strong>Datos mutacionales:</strong> mutaciones somáticas
+(opcional, según disponibilidad).</p></li>
+</ul>
+</div>
+</div>
+<div id="material-y-métodos-generales" class="section level2"
+number="4">
+<h2><span class="header-section-number">4</span> 2. Material y métodos
+(generales)</h2>
+<p>El entorno de trabajo se basa en el lenguaje R (versión ≥ 4.0) y los
+siguientes paquetes principales:</p>
+<ul>
+<li><p><strong>TCGAbiolinks</strong>: para la descarga y preparación de
+datos de TCGA.</p></li>
+<li><p><strong>tidyverse</strong> (dplyr, ggplot2, readr, etc.): para
+manipulación y visualización de datos.</p></li>
+<li><p><strong>survival</strong> y <strong>survminer</strong>: para
+análisis de supervivencia.</p></li>
+<li><p><strong>SummarizedExperiment</strong>: para manejo de datos
+genómicos.</p></li>
+</ul>
+<p>Todos los análisis se documentan de forma reproducible mediante
+scripts y cuadernos R Markdown. Los datos procesados y las figuras se
+almacenan en carpetas organizadas (<code>data_raw</code>,
+<code>data_processed</code>, <code>figures</code>,
+<code>results</code>).</p>
+</div>
+<div id="resultados-fase-1-análisis-de-supervivencia-inicial"
+class="section level2" number="5">
+<h2><span class="header-section-number">5</span> 3. Resultados – Fase 1:
+Análisis de supervivencia inicial</h2>
+<p>En esta primera fase del proyecto se aborda la construcción de las
+bases metodológicas: descarga y limpieza de los datos clínicos, creación
+de las variables de supervivencia y estimación de las curvas de
+Kaplan‑Meier global y estratificada por sexo. Estos análisis constituyen
+el punto de partida para los estudios posteriores que incorporarán
+información molecular.</p>
+<div id="preparación-del-entorno-y-descarga-de-datos"
+class="section level3" number="5.1">
+<h3><span class="header-section-number">5.1</span> 3.1. Preparación del
+entorno y descarga de datos</h3>
+<p>Se instalaron y cargaron los paquetes necesarios, tanto de
+Bioconductor (<code>TCGAbiolinks</code>,
+<code>SummarizedExperiment</code>) como de CRAN (<code>dplyr</code>,
+<code>tibble</code>, <code>readr</code>, <code>stringr</code>,
+<code>ggplot2</code>, <code>survival</code>, <code>survminer</code>). Se
+crearon carpetas para organizar los datos y resultados:
+<code>data_raw</code>, <code>data_processed</code>, <code>results</code>
+y <code>figures</code>.</p>
+<p>Mediante la función <code>GDCquery_clinic</code> del paquete
+<code>TCGAbiolinks</code> se descargaron los datos clínicos de 470
+pacientes con melanoma (proyecto TCGA-SKCM). El conjunto de datos
+contiene 90 variables clínicas, que se almacenaron en formato CSV en
+<code>data_raw/tcga_skcm_clinical.csv</code>.</p>
+<pre class="r"><code># Instalación de paquetes (solo si no están)
+if (!requireNamespace(&quot;BiocManager&quot;, quietly = TRUE)) {
+  install.packages(&quot;BiocManager&quot;)
+}
+paquetes_bioc &lt;- c(&quot;TCGAbiolinks&quot;, &quot;SummarizedExperiment&quot;)
+paquetes_cran &lt;- c(&quot;dplyr&quot;, &quot;tibble&quot;, &quot;readr&quot;, &quot;stringr&quot;, &quot;ggplot2&quot;, &quot;survival&quot;, &quot;survminer&quot;)
+for (p in paquetes_bioc) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    BiocManager::install(p, ask = FALSE, update = FALSE)
+  }
+}
+for (p in paquetes_cran) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p)
+  }
+}
+
+# Carga de librerías
+library(TCGAbiolinks)
+library(SummarizedExperiment)</code></pre>
+<pre><code>## Cargando paquete requerido: MatrixGenerics</code></pre>
+<pre><code>## Cargando paquete requerido: matrixStats</code></pre>
+<pre><code>## 
+## Adjuntando el paquete: &#39;MatrixGenerics&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:matrixStats&#39;:
+## 
+##     colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,
+##     colCounts, colCummaxs, colCummins, colCumprods, colCumsums,
+##     colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,
+##     colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,
+##     colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,
+##     colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,
+##     colWeightedMeans, colWeightedMedians, colWeightedSds,
+##     colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,
+##     rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,
+##     rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,
+##     rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,
+##     rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,
+##     rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,
+##     rowWeightedMads, rowWeightedMeans, rowWeightedMedians,
+##     rowWeightedSds, rowWeightedVars</code></pre>
+<pre><code>## Cargando paquete requerido: GenomicRanges</code></pre>
+<pre><code>## Cargando paquete requerido: stats4</code></pre>
+<pre><code>## Cargando paquete requerido: BiocGenerics</code></pre>
+<pre><code>## Cargando paquete requerido: generics</code></pre>
+<pre><code>## 
+## Adjuntando el paquete: &#39;generics&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     as.difftime, as.factor, as.ordered, intersect, is.element, setdiff,
+##     setequal, union</code></pre>
+<pre><code>## 
+## Adjuntando el paquete: &#39;BiocGenerics&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     IQR, mad, sd, var, xtabs</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     anyDuplicated, aperm, append, as.data.frame, basename, cbind,
+##     colnames, dirname, do.call, duplicated, eval, evalq, Filter, Find,
+##     get, grep, grepl, is.unsorted, lapply, Map, mapply, match, mget,
+##     order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+##     rbind, Reduce, rownames, sapply, saveRDS, table, tapply, unique,
+##     unsplit, which.max, which.min</code></pre>
+<pre><code>## Cargando paquete requerido: S4Vectors</code></pre>
+<pre><code>## 
+## Adjuntando el paquete: &#39;S4Vectors&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:utils&#39;:
+## 
+##     findMatches</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     expand.grid, I, unname</code></pre>
+<pre><code>## Cargando paquete requerido: IRanges</code></pre>
+<pre><code>## 
+## Adjuntando el paquete: &#39;IRanges&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:grDevices&#39;:
+## 
+##     windows</code></pre>
+<pre><code>## Cargando paquete requerido: GenomeInfoDb</code></pre>
+<pre><code>## Cargando paquete requerido: Biobase</code></pre>
+<pre><code>## Welcome to Bioconductor
+## 
+##     Vignettes contain introductory material; view with
+##     &#39;browseVignettes()&#39;. To cite Bioconductor, see
+##     &#39;citation(&quot;Biobase&quot;)&#39;, and for packages &#39;citation(&quot;pkgname&quot;)&#39;.</code></pre>
+<pre><code>## 
+## Adjuntando el paquete: &#39;Biobase&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:MatrixGenerics&#39;:
+## 
+##     rowMedians</code></pre>
+<pre><code>## The following objects are masked from &#39;package:matrixStats&#39;:
+## 
+##     anyMissing, rowMedians</code></pre>
+<pre class="r"><code>library(dplyr)</code></pre>
+<pre><code>## 
+## Adjuntando el paquete: &#39;dplyr&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:Biobase&#39;:
+## 
+##     combine</code></pre>
+<pre><code>## The following objects are masked from &#39;package:GenomicRanges&#39;:
+## 
+##     intersect, setdiff, union</code></pre>
+<pre><code>## The following object is masked from &#39;package:GenomeInfoDb&#39;:
+## 
+##     intersect</code></pre>
+<pre><code>## The following objects are masked from &#39;package:IRanges&#39;:
+## 
+##     collapse, desc, intersect, setdiff, slice, union</code></pre>
+<pre><code>## The following objects are masked from &#39;package:S4Vectors&#39;:
+## 
+##     first, intersect, rename, setdiff, setequal, union</code></pre>
+<pre><code>## The following objects are masked from &#39;package:BiocGenerics&#39;:
+## 
+##     combine, intersect, setdiff, setequal, union</code></pre>
+<pre><code>## The following object is masked from &#39;package:generics&#39;:
+## 
+##     explain</code></pre>
+<pre><code>## The following object is masked from &#39;package:matrixStats&#39;:
+## 
+##     count</code></pre>
+<pre><code>## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     filter, lag</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     intersect, setdiff, setequal, union</code></pre>
+<pre class="r"><code>library(tibble)
+library(readr)
+library(stringr)
+library(ggplot2)
+library(survival)
+library(survminer)</code></pre>
+<pre><code>## Cargando paquete requerido: ggpubr</code></pre>
+<pre><code>## 
+## Adjuntando el paquete: &#39;survminer&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:survival&#39;:
+## 
+##     myeloma</code></pre>
+<pre class="r"><code># Creación de carpetas de trabajo
+dir.create(&quot;data_raw&quot;, showWarnings = FALSE)
+dir.create(&quot;data_processed&quot;, showWarnings = FALSE)
+dir.create(&quot;results&quot;, showWarnings = FALSE)
+dir.create(&quot;figures&quot;, showWarnings = FALSE)
+
+# Descarga de datos clínicos
+clinical_tcga &lt;- GDCquery_clinic(
+  project = &quot;TCGA-SKCM&quot;,
+  type = &quot;clinical&quot;
+)
+dim(clinical_tcga) # dimension del dataset</code></pre>
+<pre><code>## [1] 470  91</code></pre>
+<p>El conjunto de datos clínicos contiene 470 pacientes y 90 variables.
+Se guarda en formato CSV para su reutilización.</p>
+<pre class="r"><code>write_csv(clinical_tcga, &quot;data_raw/tcga_skcm_clinical.csv&quot;)</code></pre>
+<hr />
+</div>
+<div id="análisis-exploratorio-de-datos-clínicos" class="section level3"
+number="5.2">
+<h3><span class="header-section-number">5.2</span> 3.2. Análisis
+exploratorio de datos clínicos</h3>
+<p>Se examinan las variables de interés, especialmente aquellas
+relacionadas con la supervivencia.</p>
+<ul>
+<li><strong>Gender</strong></li>
+</ul>
+<pre class="r"><code># Tabla de frecuencia para gender 
+knitr::kable(table(clinical_tcga$gender, useNA = &quot;ifany&quot;), 
+             col.names = c(&quot;Sexo&quot;, &quot;Frecuencia&quot;),
+             caption = &quot;Distribución por sexo&quot;)</code></pre>
+<table>
+<caption>Distribución por sexo</caption>
+<thead>
+<tr class="header">
+<th align="left">Sexo</th>
+<th align="right">Frecuencia</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">female</td>
+<td align="right">180</td>
+</tr>
+<tr class="even">
+<td align="left">male</td>
+<td align="right">290</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Vital Status</strong></li>
+</ul>
+<pre class="r"><code># Tabla de frecuencia para vital status
+knitr::kable(table(clinical_tcga$vital_status, useNA = &quot;ifany&quot;),
+             col.names = c(&quot;Estado vital&quot;, &quot;Frecuencia&quot;),
+             caption = &quot;Distribución del estado vital&quot;)</code></pre>
+<table>
+<caption>Distribución del estado vital</caption>
+<thead>
+<tr class="header">
+<th align="left">Estado vital</th>
+<th align="right">Frecuencia</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Alive</td>
+<td align="right">247</td>
+</tr>
+<tr class="even">
+<td align="left">Dead</td>
+<td align="right">223</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Estadio patológico AJCC</strong></li>
+</ul>
+<pre class="r"><code># Tabla de frecuencia para estadio 
+#(puede tener muchos valores, pero se puede mostrar igual)
+
+knitr::kable(table(clinical_tcga$ajcc_pathologic_stage, useNA = &quot;ifany&quot;),
+             col.names = c(&quot;Estadio&quot;, &quot;Frecuencia&quot;),
+             caption = &quot;Distribución del estadio patológico AJCC&quot;)</code></pre>
+<table>
+<caption>Distribución del estadio patológico AJCC</caption>
+<thead>
+<tr class="header">
+<th align="left">Estadio</th>
+<th align="right">Frecuencia</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Stage 0</td>
+<td align="right">7</td>
+</tr>
+<tr class="even">
+<td align="left">Stage I</td>
+<td align="right">30</td>
+</tr>
+<tr class="odd">
+<td align="left">Stage IA</td>
+<td align="right">18</td>
+</tr>
+<tr class="even">
+<td align="left">Stage IB</td>
+<td align="right">29</td>
+</tr>
+<tr class="odd">
+<td align="left">Stage II</td>
+<td align="right">30</td>
+</tr>
+<tr class="even">
+<td align="left">Stage IIA</td>
+<td align="right">18</td>
+</tr>
+<tr class="odd">
+<td align="left">Stage IIB</td>
+<td align="right">28</td>
+</tr>
+<tr class="even">
+<td align="left">Stage IIC</td>
+<td align="right">64</td>
+</tr>
+<tr class="odd">
+<td align="left">Stage III</td>
+<td align="right">41</td>
+</tr>
+<tr class="even">
+<td align="left">Stage IIIA</td>
+<td align="right">16</td>
+</tr>
+<tr class="odd">
+<td align="left">Stage IIIB</td>
+<td align="right">46</td>
+</tr>
+<tr class="even">
+<td align="left">Stage IIIC</td>
+<td align="right">68</td>
+</tr>
+<tr class="odd">
+<td align="left">Stage IV</td>
+<td align="right">23</td>
+</tr>
+<tr class="even">
+<td align="left">NA</td>
+<td align="right">52</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Age at diagnosis</strong></li>
+</ul>
+<p>La edad al diagnóstico se resume y visualiza:</p>
+<pre class="r"><code># Resumen estadístico
+edad_sum &lt;- summary(clinical_tcga$age_at_diagnosis)
+edad_df &lt;- data.frame(
+  Estadístico = names(edad_sum),
+  Valor = as.vector(edad_sum)
+)
+knitr::kable(edad_df, caption = &quot;Resumen de edad al diagnóstico (días)&quot;)</code></pre>
+<table>
+<caption>Resumen de edad al diagnóstico (días)</caption>
+<thead>
+<tr class="header">
+<th align="left">Estadístico</th>
+<th align="right">Valor</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Min.</td>
+<td align="right">5684.00</td>
+</tr>
+<tr class="even">
+<td align="left">1st Qu.</td>
+<td align="right">17636.50</td>
+</tr>
+<tr class="odd">
+<td align="left">Median</td>
+<td align="right">21479.50</td>
+</tr>
+<tr class="even">
+<td align="left">Mean</td>
+<td align="right">21453.69</td>
+</tr>
+<tr class="odd">
+<td align="left">3rd Qu.</td>
+<td align="right">26057.50</td>
+</tr>
+<tr class="even">
+<td align="left">Max.</td>
+<td align="right">32872.00</td>
+</tr>
+<tr class="odd">
+<td align="left">NA’s</td>
+<td align="right">8.00</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code># Histograma
+hist(clinical_tcga$age_at_diagnosis,
+     breaks = 30,
+     col = &quot;steelblue&quot;,
+     main = &quot;Distribución de edad al diagnóstico&quot;,
+     xlab = &quot;Edad al diagnóstico (días)&quot;)</code></pre>
+<p><img src="04_tcga_skcm_primer_kaplan_meier_files/figure-html/unnamed-chunk-6-1.png" alt="" width="672" /></p>
+<p>Se obtuvo un resumen (mediana de 21480 días ≈ 58.8 años) y se
+representó mediante un histograma, observándose una distribución
+aproximadamente simétrica en torno a los 60 años.</p>
+<div id="valores-faltantes" class="section level4" number="5.2.1">
+<h4><span class="header-section-number">5.2.1</span> <strong>3.2.1.
+Valores Faltantes</strong></h4>
+<p>Se identifican valores faltantes en las variables críticas:</p>
+<pre class="r"><code>vars_interes &lt;- c(&quot;age_at_diagnosis&quot;, &quot;gender&quot;, &quot;vital_status&quot;, 
+                  &quot;days_to_death&quot;, &quot;days_to_last_follow_up&quot;, 
+                  &quot;ajcc_pathologic_stage&quot;)
+na_counts &lt;- colSums(is.na(clinical_tcga[, vars_interes]))
+na_df &lt;- data.frame(Variable = names(na_counts), NAs = na_counts)
+knitr::kable(na_df, caption = &quot;Valores faltantes en variables críticas&quot;)</code></pre>
+<table>
+<caption>Valores faltantes en variables críticas</caption>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="left">Variable</th>
+<th align="right">NAs</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">age_at_diagnosis</td>
+<td align="left">age_at_diagnosis</td>
+<td align="right">8</td>
+</tr>
+<tr class="even">
+<td align="left">gender</td>
+<td align="left">gender</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">vital_status</td>
+<td align="left">vital_status</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">days_to_death</td>
+<td align="left">days_to_death</td>
+<td align="right">249</td>
+</tr>
+<tr class="odd">
+<td align="left">days_to_last_follow_up</td>
+<td align="left">days_to_last_follow_up</td>
+<td align="right">8</td>
+</tr>
+<tr class="even">
+<td align="left">ajcc_pathologic_stage</td>
+<td align="left">ajcc_pathologic_stage</td>
+<td align="right">52</td>
+</tr>
+</tbody>
+</table>
+<p>Se cuantificaron los NA en variables críticas para supervivencia:
+<code>days_to_death</code> (249 NA), <code>days_to_last_follow_up</code>
+(8 NA) y <code>ajcc_pathologic_stage</code> (52 NA). Estos hallazgos
+condicionan los pasos posteriores de limpieza.</p>
+</div>
+</div>
+<div id="construcción-de-variables-de-supervivencia"
+class="section level3" number="5.3">
+<h3><span class="header-section-number">5.3</span> 3.3. Construcción de
+variables de supervivencia</h3>
+<p>Se crean las variables <code>OS_event</code> (1 = muerte, 0 =
+censura) y <code>OS_time</code> (tiempo de seguimiento en días).</p>
+<pre class="r"><code>clinical_tcga &lt;- clinical_tcga %&gt;%
+  mutate(
+    OS_event = case_when(
+      vital_status == &quot;Dead&quot;  ~ 1,
+      vital_status == &quot;Alive&quot; ~ 0,
+      TRUE ~ NA_real_
+    ),
+    OS_time = case_when(
+      OS_event == 1 ~ as.numeric(days_to_death),
+      OS_event == 0 ~ as.numeric(days_to_last_follow_up),
+      TRUE ~ NA_real_
+    )
+  )</code></pre>
+<p>Se comprueba la consistencia:</p>
+<pre class="r"><code>clinical_tcga %&gt;% 
+  select(submitter_id, vital_status, days_to_death, days_to_last_follow_up, OS_event, OS_time) %&gt;% 
+  head(10) %&gt;% 
+  knitr::kable(caption = &quot;Primeros 10 registros con variables de supervivencia&quot;)</code></pre>
+<table>
+<caption>Primeros 10 registros con variables de supervivencia</caption>
+<colgroup>
+<col width="16%" />
+<col width="16%" />
+<col width="17%" />
+<col width="28%" />
+<col width="11%" />
+<col width="10%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">submitter_id</th>
+<th align="left">vital_status</th>
+<th align="right">days_to_death</th>
+<th align="right">days_to_last_follow_up</th>
+<th align="right">OS_event</th>
+<th align="right">OS_time</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">TCGA-D3-A3CC</td>
+<td align="left">Alive</td>
+<td align="right">NA</td>
+<td align="right">2644</td>
+<td align="right">0</td>
+<td align="right">2644</td>
+</tr>
+<tr class="even">
+<td align="left">TCGA-DA-A3F8</td>
+<td align="left">Alive</td>
+<td align="right">NA</td>
+<td align="right">1319</td>
+<td align="right">0</td>
+<td align="right">1319</td>
+</tr>
+<tr class="odd">
+<td align="left">TCGA-ER-A193</td>
+<td align="left">Dead</td>
+<td align="right">955</td>
+<td align="right">955</td>
+<td align="right">1</td>
+<td align="right">955</td>
+</tr>
+<tr class="even">
+<td align="left">TCGA-WE-A8ZO</td>
+<td align="left">Alive</td>
+<td align="right">NA</td>
+<td align="right">2145</td>
+<td align="right">0</td>
+<td align="right">2145</td>
+</tr>
+<tr class="odd">
+<td align="left">TCGA-FS-A1ZU</td>
+<td align="left">Dead</td>
+<td align="right">808</td>
+<td align="right">808</td>
+<td align="right">1</td>
+<td align="right">808</td>
+</tr>
+<tr class="even">
+<td align="left">TCGA-RP-A6K9</td>
+<td align="left">Alive</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">0</td>
+<td align="right">NA</td>
+</tr>
+<tr class="odd">
+<td align="left">TCGA-EE-A3AD</td>
+<td align="left">Dead</td>
+<td align="right">875</td>
+<td align="right">875</td>
+<td align="right">1</td>
+<td align="right">875</td>
+</tr>
+<tr class="even">
+<td align="left">TCGA-EE-A2MI</td>
+<td align="left">Dead</td>
+<td align="right">6225</td>
+<td align="right">6225</td>
+<td align="right">1</td>
+<td align="right">6225</td>
+</tr>
+<tr class="odd">
+<td align="left">TCGA-HR-A2OG</td>
+<td align="left">Alive</td>
+<td align="right">NA</td>
+<td align="right">7</td>
+<td align="right">0</td>
+<td align="right">7</td>
+</tr>
+<tr class="even">
+<td align="left">TCGA-DA-A1HY</td>
+<td align="left">Alive</td>
+<td align="right">NA</td>
+<td align="right">4407</td>
+<td align="right">0</td>
+<td align="right">4407</td>
+</tr>
+</tbody>
+</table>
+<p>Se filtran los casos con tiempo ausente o negativo, obteniendo una
+muestra final de 460 pacientes.</p>
+<pre class="r"><code>clinical_surv &lt;- clinical_tcga %&gt;%
+  filter(!is.na(OS_time), !is.na(OS_event), OS_time &gt;= 0)
+
+dim(clinical_surv)</code></pre>
+<pre><code>## [1] 460  93</code></pre>
+<p>Resumen de la variable de tiempo:</p>
+<pre class="r"><code>summary(clinical_surv$OS_time)</code></pre>
+<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##     0.0   486.8  1116.5  1837.7  2365.5 11252.0</code></pre>
+<p>Los datos depurados se guardan para fases posteriores:</p>
+<pre class="r"><code>write_csv(clinical_surv, &quot;data_processed/tcga_skcm_clinical_survival.csv&quot;)
+saveRDS(clinical_surv, &quot;data_processed/tcga_skcm_clinical_survival.rds&quot;)</code></pre>
+</div>
+<div id="análisis-de-supervivencia-mediante-kaplanmeier"
+class="section level3" number="5.4">
+<h3><span class="header-section-number">5.4</span> 3.4. Análisis de
+supervivencia mediante Kaplan‑Meier</h3>
+<p>En esta sección se construye el primer análisis de supervivencia
+global del proyecto mediante curvas de Kaplan-Meier.</p>
+<div id="objeto-de-supervivencia" class="section level4" number="5.4.1">
+<h4><span class="header-section-number">5.4.1</span> 3.4.1. Objeto de
+supervivencia</h4>
+<pre class="r"><code>surv_object &lt;- Surv(time = clinical_surv$OS_time,
+                    event = clinical_surv$OS_event)
+surv_object[1:10]</code></pre>
+<pre><code>##  [1] 2644+ 1319+  955  2145+  808   875  6225     7+ 4407+ 6953</code></pre>
+</div>
+<div id="curva-de-kaplanmeier-global" class="section level4"
+number="5.4.2">
+<h4><span class="header-section-number">5.4.2</span> 3.4.2. Curva de
+Kaplan‑Meier global</h4>
+<pre class="r"><code>km_fit_global &lt;- survfit(surv_object ~ 1, data = clinical_surv)
+# summary(km_fit_global)  # comentado o con results=&#39;hide&#39;
+
+# Extraer mediana e IC
+library(survminer)
+mediana_global &lt;- surv_median(km_fit_global)
+knitr::kable(mediana_global, 
+             col.names = c(&quot;Estrato&quot;, &quot;Mediana (días)&quot;, &quot;IC 95% inf.&quot;, &quot;IC 95% sup.&quot;),
+             caption = &quot;Mediana de supervivencia global&quot;,
+             digits = 0)</code></pre>
+<table>
+<caption>Mediana de supervivencia global</caption>
+<thead>
+<tr class="header">
+<th align="left">Estrato</th>
+<th align="right">Mediana (días)</th>
+<th align="right">IC 95% inf.</th>
+<th align="right">IC 95% sup.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">All</td>
+<td align="right">2273</td>
+<td align="right">1960</td>
+<td align="right">3139</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>km_global_plot &lt;- suppressMessages(
+  ggsurvplot(
+  km_fit_global,
+  data = clinical_surv,
+  conf.int = TRUE,
+  risk.table = TRUE,
+  censor = TRUE,
+  xlab = &quot;Tiempo (días)&quot;,
+  ylab = &quot;Probabilidad de supervivencia global&quot;,
+  title = &quot;Curva Kaplan‑Meier global en TCGA‑SKCM&quot;,
+  ggtheme = theme_minimal()
+)
+)
+
+km_global_plot</code></pre>
+<pre><code>## Ignoring unknown labels:
+## • fill : &quot;Strata&quot;
+## Ignoring unknown labels:
+## • fill : &quot;Strata&quot;
+## Ignoring unknown labels:
+## • fill : &quot;Strata&quot;
+## Ignoring unknown labels:
+## • colour : &quot;Strata&quot;</code></pre>
+<p><img src="04_tcga_skcm_primer_kaplan_meier_files/figure-html/unnamed-chunk-15-1.png" alt="" width="672" /></p>
+<p>Figura 2: Curva de supervivencia global para toda la cohorte. Se
+incluye la tabla de riesgo en la parte inferior.</p>
+</div>
+<div id="estratificación-por-sexo" class="section level4"
+number="5.4.3">
+<h4><span class="header-section-number">5.4.3</span> 3.4.3.
+Estratificación por sexo</h4>
+<pre class="r"><code># Modelo de Kaplan-Meier por sexo
+km_fit_gender &lt;- survfit(Surv(OS_time, OS_event) ~ gender, data = clinical_surv)
+# summary(km_fit_gender)  # salida oculta
+
+# Mostrar medianas
+medianas_gender &lt;- surv_median(km_fit_gender)
+knitr::kable(medianas_gender, 
+             col.names = c(&quot;Sexo&quot;, &quot;Mediana (días)&quot;, &quot;IC 95% inf.&quot;, &quot;IC 95% sup.&quot;),
+             caption = &quot;Mediana de supervivencia por sexo&quot;,
+             digits = 0)</code></pre>
+<table>
+<caption>Mediana de supervivencia por sexo</caption>
+<thead>
+<tr class="header">
+<th align="left">Sexo</th>
+<th align="right">Mediana (días)</th>
+<th align="right">IC 95% inf.</th>
+<th align="right">IC 95% sup.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">gender=female</td>
+<td align="right">2022</td>
+<td align="right">1766</td>
+<td align="right">5107</td>
+</tr>
+<tr class="even">
+<td align="left">gender=male</td>
+<td align="right">2421</td>
+<td align="right">1960</td>
+<td align="right">3195</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code># Test log-rank
+logrank_gender &lt;- survdiff(Surv(OS_time, OS_event) ~ gender, data = clinical_surv)
+p_val &lt;- 1 - pchisq(logrank_gender$chisq, df = length(logrank_gender$n) - 1)</code></pre>
+<p>El test log‑rank no mostró diferencias significativas entre hombres y
+mujeres (χ² = 0.97, p = 0.325).</p>
+<pre class="r"><code>n_mujeres &lt;- sum(clinical_surv$gender == &quot;female&quot;)
+n_hombres &lt;- sum(clinical_surv$gender == &quot;male&quot;)
+
+km_gender_plot &lt;- ggsurvplot(
+  km_fit_gender,
+  data = clinical_surv,
+  conf.int = TRUE,
+  pval = TRUE,
+  risk.table = TRUE,
+  censor = TRUE,
+  xlab = &quot;Tiempo (días)&quot;,
+  ylab = &quot;Probabilidad de supervivencia global&quot;,
+  title = &quot;Curvas Kaplan‑Meier por sexo&quot;,
+  legend.title = &quot;Sexo&quot;,
+  ggtheme = theme_minimal()
+)
+
+km_gender_plot</code></pre>
+<pre><code>## Ignoring unknown labels:
+## • colour : &quot;Sexo&quot;</code></pre>
+<p><img src="04_tcga_skcm_primer_kaplan_meier_files/figure-html/unnamed-chunk-17-1.png" alt="" width="672" /></p>
+<p>Figura 3: Comparación de la supervivencia entre mujeres (n=175) y
+hombres (n=285). El test log‑rank no muestra diferencias significativas
+(p = 0.325).</p>
+</div>
+</div>
+<div id="almacenamiento-de-resultados" class="section level3"
+number="5.5">
+<h3><span class="header-section-number">5.5</span> 3.5. Almacenamiento
+de resultados</h3>
+<pre class="r"><code>saveRDS(km_fit_global, &quot;data_processed/km_fit_global.rds&quot;)
+saveRDS(km_fit_gender, &quot;data_processed/km_fit_gender.rds&quot;)
+ggsave(&quot;figures/km_global_plot.png&quot;, plot = km_global_plot$plot, width = 8, height = 6, dpi = 300)</code></pre>
+<pre><code>## Ignoring unknown labels:
+## • fill : &quot;Strata&quot;</code></pre>
+<pre class="r"><code>ggsave(&quot;figures/km_gender_plot.png&quot;, plot = km_gender_plot$plot, width = 8, height = 6, dpi = 300)</code></pre>
+</div>
+</div>
+<div id="discusión" class="section level2" number="6">
+<h2><span class="header-section-number">6</span> 4. Discusión</h2>
+<p>El análisis de supervivencia realizado en esta primera fase cumple
+con los objetivos establecidos: se ha construido un flujo de trabajo
+reproducible para la descarga, limpieza y análisis básico de
+supervivencia de la cohorte TCGA‑SKCM. La mediana de supervivencia
+global obtenida mediante Kaplan‑Meier fue de 2273 días (aproximadamente
+6.2 años). La ausencia de diferencias significativas por sexo (p = 0.3)
+también concuerda con la literatura, que indica que el sexo no es un
+factor pronóstico independiente en melanoma.</p>
+<p><strong>Limitaciones de esta fase:</strong></p>
+<ul>
+<li><p>El análisis se ha limitado a una única variable clínica (sexo).
+En fases posteriores se incorporarán otras covariables como el estadio
+tumoral, la edad y marcadores moleculares.</p></li>
+<li><p>Los valores faltantes en <code>days_to_last_follow_up</code> (8
+casos) y en el estadio (52 casos) deberán manejarse adecuadamente en
+análisis más complejos.</p></li>
+<li><p>No se ha evaluado la proporcionalidad de riesgos para el test
+log‑rank, aunque este test es robusto a pequeñas desviaciones.</p></li>
+</ul>
+<p><strong>Conexión con las siguientes fases:</strong><br />
+Los resultados obtenidos servirán como línea base para comparar con
+modelos que incluyan datos de expresión génica. La infraestructura de
+datos y código desarrollada permitirá incorporar de manera eficiente la
+información transcriptómica y mutacional, y avanzar hacia la
+identificación de biomarcadores pronósticos y predictivos.</p>
+</div>
+<div id="conclusiones-y-perspectivas" class="section level2" number="7">
+<h2><span class="header-section-number">7</span> 5. Conclusiones y
+perspectivas</h2>
+<p><strong>Conclusiones de la Fase 1:</strong></p>
+<ul>
+<li><p>Se ha establecido un pipeline reproducible para el análisis de
+supervivencia en TCGA‑SKCM.</p></li>
+<li><p>La mediana de supervivencia global es de aproximadamente 3
+años.</p></li>
+<li><p>No se observan diferencias significativas en supervivencia entre
+hombres y mujeres.</p></li>
+</ul>
+<p><strong>Próximos pasos (Fase 2 y siguientes):</strong></p>
+<ol style="list-style-type: decimal">
+<li><p><strong>Incorporación del estadio tumoral:</strong> evaluar su
+impacto mediante curvas de Kaplan‑Meier estratificadas y modelos de Cox
+univariantes.</p></li>
+<li><p><strong>Descarga y preprocesamiento de datos de expresión génica
+(RNA‑seq)</strong> de TCGA‑SKCM.</p></li>
+<li><p><strong>Análisis de supervivencia asociado a genes
+candidatos:</strong> identificación de genes con expresión diferencial
+asociada a mal pronóstico.</p></li>
+<li><p><strong>Construcción de un modelo de Cox multivariante</strong>
+que combine variables clínicas y moleculares.</p></li>
+<li><p><strong>Evaluación de asociaciones con respuesta a
+inmunoterapia</strong> (si los datos están disponibles).</p></li>
+<li><p><strong>Validación de firmas génicas previamente
+publicadas</strong> y comparación con los hallazgos propios.</p></li>
+<li><p><strong>Redacción de la memoria final</strong> y preparación de
+material para posible publicación.</p></li>
+</ol>
+<p>El trabajo hasta ahora ha sentado las bases metodológicas y de
+calidad de datos necesarias para abordar con rigor los objetivos
+generales del TFM.</p>
+</div>
+<div id="referencias" class="section level2" number="8">
+<h2><span class="header-section-number">8</span> 6. Referencias</h2>
+<ul>
+<li><p>Cancer Genome Atlas Network. <em>Genomic Classification of
+Cutaneous Melanoma</em>. Cell. 2015;161(7):1681‑96.</p></li>
+<li><p>Therneau T, Grambsch P. <em>Modeling Survival Data: Extending the
+Cox Model</em>. Springer; 2000.</p></li>
+<li><p>Kassambara A, Kosinski M, Biecek P. <em>survminer: Drawing
+Survival Curves using ‘ggplot2’</em>. R package version 0.4.9.
+2021.</p></li>
+<li><p>Colaprico A, Silva TC, Olsen C, et al. <em>TCGAbiolinks: an
+R/Bioconductor package for integrative analysis of TCGA data</em>.
+Nucleic Acids Res. 2016;44(8):e71.</p></li>
+</ul>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+
+<script>
+$(document).ready(function ()  {
+
+    // temporarily add toc-ignore selector to headers for the consistency with Pandoc
+    $('.unlisted.unnumbered').addClass('toc-ignore')
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
