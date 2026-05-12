@@ -28,6 +28,15 @@ raw_data/
 data/raw/
 
 # =========================
+# TCGA/GDC downloaded data: reproducible and too heavy for GitHub
+# =========================
+scripts/TCGA/GDCdata/
+scripts/TCGA/data_raw/
+scripts/TCGA/data_processed/expression_master_transposed_tcga_skcm.csv
+scripts/TCGA/gdc_manifest*.txt
+scripts/TCGA/MANIFEST.txt
+
+# =========================
 # Intermediate objects: reproducible
 # =========================
 SummarizedExperiment_objects/
