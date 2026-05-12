@@ -2,7 +2,7 @@
 
 \section{Descubrimiento en GSE78220}
 
-El análisis principal se realizó en GSE78220 (25 muestras, tumor, RNA-seq, anti-PD-1). Tras verificar que los datos están en escala FPKM lineal, se aplicó la transformación $\log_2(\text{FPKM}+1)$ y se realizó un filtrado explícito de baja expresión: se eliminaron los genes con FPKM $< 1$ en al menos 5 muestras (20\,\% del total), lo que redujo el transcriptoma de 25.268 genes originales a \textbf{14.549 genes testados} (Tabla~\ref{tab:qc_gse78220}). No se detectaron genes significativos tras corrección FDR, resultado esperable por el tamaño muestral. Se identificaron \textbf{539 genes nominales} ($p < 0{,}05$, $|logFC| \geq 0{,}5$) como candidatos exploratorios.
+El análisis principal se realizó en GSE78220 (25 muestras, tumor, RNA-seq, anti-PD-1). Tras verificar que los datos están en escala FPKM lineal, se aplicó la transformación $\log_2(\text{FPKM}+1)$ y se realizó un filtrado explícito de baja expresión: se retuvieron los genes con FPKM $\geq 1$ en al menos 5 muestras (20\,\% del total), lo que redujo el transcriptoma de 25.268 genes originales a \textbf{14.549 genes testados} (Tabla~\ref{tab:qc_gse78220}). No se detectaron genes significativos tras corrección FDR, resultado esperable por el tamaño muestral. Se identificaron \textbf{539 genes nominales} ($p < 0{,}05$, $|logFC| \geq 0{,}5$) como candidatos exploratorios.
 
 \begin{table}[H]
 \centering
@@ -14,7 +14,7 @@ Paso de filtrado & Genes \\
 \midrule
 Genes/filas originales & 25.268 \\
 Retirados por varianza cero & 2.663 \\
-Retirados por baja expresión (FPKM $< 1$ en $<$5 muestras) & 10.719 \\
+Retirados por baja expresión (FPKM $\geq 1$ en $<$5 muestras) & 10.719 \\
 \textbf{Genes retenidos para DEA} & \textbf{14.549} \\
 \bottomrule
 \end{tabularx}

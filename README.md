@@ -91,7 +91,7 @@ Los `.Rmd` correspondientes estan en la misma carpeta.
 
 ## Datos y reproducibilidad
 
-Los datos crudos de GEO no se incluyen en GitHub porque son descargables y ocupan mas espacio. Los objetos intermedios por cohorte tampoco se suben por defecto porque son regenerables desde los R Markdown.
+Los datos crudos de GEO y TCGA/GDC no se incluyen en GitHub porque son descargables, ocupan mucho espacio y son regenerables desde los R Markdown. Tampoco se versionan por defecto las matrices procesadas muy pesadas ni los objetos intermedios por cohorte, salvo algunos objetos clave seleccionados para facilitar la revision.
 
 Se incluyen algunos objetos clave para facilitar la revision:
 
@@ -120,7 +120,7 @@ Esa separacion ya queda iniciada en `scripts/analysis/`:
 - `GSE94873`: sensibilidad en sangre NanoString anti-CTLA-4.
 - `Dataset integrado tumoral`: consistencia exploratoria en 200 genes comunes.
 
-Los analisis de `scripts/analysis/` aplican `log2(expr + 1)` antes de `limma` para trabajar en una escala compatible con los supuestos del modelo lineal. En `GSE78220` no aparecen genes significativos tras FDR, aunque si candidatos nominales para exploracion y validacion.
+Los analisis de `scripts/analysis/` verifican la escala de entrada antes de aplicar `limma`. Solo `GSE78220` se transforma con `log2(FPKM + 1)` porque la matriz esta en escala FPKM lineal. Las cohortes NanoString y la matriz RLD de `GSE91061` ya llegan normalizadas y no se vuelven a transformar. En `GSE78220` no aparecen genes significativos tras FDR, aunque si candidatos nominales para exploracion y validacion.
 
 El informe `04_consistency_integrated.html` usa el objeto integrado tumoral como analisis de apoyo: compara la direccion del logFC en los 200 genes comunes entre `GSE78220`, `GSE215868` y `GSE211645`. Este bloque no se interpreta como descubrimiento principal, sino como comprobacion de consistencia limitada por los paneles NanoString.
 
