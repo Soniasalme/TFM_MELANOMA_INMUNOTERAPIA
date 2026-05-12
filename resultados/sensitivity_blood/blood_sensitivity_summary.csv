@@ -1,3 +1,3 @@
-"dataset","tissue","platform","treatment","n_genes","n_samples","n_response_available","n_responders","n_non_responders","signature_top_n","signature_auc"
-"GSE91061","Blood","RNA-seq","varios ICIs",19540,51,49,10,39,20,0.5
-"GSE94873","Blood","NanoString","Tremelimumab (anti-CTLA-4)",162,360,360,46,314,100,0.477014677374688
+"dataset","tissue","platform","treatment","n_genes","n_samples","n_response_available","n_responders","n_non_responders","n_signature_genes","signature_top_n","signature_auc"
+"GSE91061","Blood","RNA-seq","varios ICIs",22069,51,49,10,39,19,20,0.474358974358974
+"GSE94873","Blood","NanoString","Tremelimumab (anti-CTLA-4)",162,360,360,46,314,4,500,0.475076156189421

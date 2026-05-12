@@ -1,0 +1,63 @@
+\documentclass[IB,BIB]{TFUOC}
+
+% Paquetes de apoyo para tablas, enlaces y figuras.
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{float}
+\usepackage[hidelinks]{hyperref}
+\usepackage{doi}
+\setlength{\headheight}{43pt}
+
+% Datos del trabajo
+\title{Identificación de biomarcadores transcriptómicos pronósticos y predictivos de respuesta a inmunoterapia en melanoma mediante análisis bioinformático integrativo}
+\titcrt{Biomarcadores en melanoma}
+\author{Sonia Salmerón Fructuoso}
+\date{Mayo de 2026}
+
+\nomPDC{Dra. Teresa Torres Moral}
+\nomPRA{Pendiente de completar}
+\titulac{Máster Universitario en Bioinformática y Bioestadística}
+\area{Bioinformática traslacional y análisis transcriptómico}
+\idioma{Castellano}
+\credits{15}
+\parcla{melanoma; inmunoterapia; biomarcadores; transcriptómica; RNA-seq; NanoString; GEO; TCGA}
+
+\licenc{ccByNcNd}
+
+\abstractidioma{
+El melanoma avanzado es una neoplasia heterogénea en la que la inmunoterapia con inhibidores de checkpoint ha mejorado el pronóstico de un subgrupo de pacientes, aunque una proporción relevante no responde o desarrolla resistencia. Este trabajo plantea un análisis bioinformático integrativo para identificar biomarcadores transcriptómicos asociados al pronóstico y a la respuesta a inmunoterapia. El bloque pronóstico se basa en TCGA-SKCM, mientras que el bloque predictivo utiliza cohortes GEO con datos de expresión y respuesta clínica. Tras una fase inicial de integración multi-cohorte, el análisis predictivo se reorganizó en una estrategia de descubrimiento, validación y sensibilidad: GSE78220 como cohorte principal RNA-seq tumoral anti-PD-1, GSE215868 como validación tumoral anti-PD-1 en NanoString, GSE211645 como validación exploratoria anti-CTLA-4, y GSE91061/GSE94873 como sensibilidad en sangre periférica. Los resultados preliminares muestran una señal coherente relacionada con presentación antigénica MHC-I y respuesta a IFN-gamma, aunque limitada por tamaño muestral y diferencias de plataforma. La memoria documenta el diseño, la metodología reproducible y la interpretación crítica de estos resultados.
+}
+
+\abstractenglish{
+Advanced melanoma is a heterogeneous malignancy in which immune checkpoint inhibitors have improved outcomes for a subset of patients, although many patients do not respond or develop resistance. This project proposes an integrative bioinformatics analysis to identify transcriptomic biomarkers associated with prognosis and response to immunotherapy. The prognostic block is based on TCGA-SKCM, whereas the predictive block uses GEO cohorts with gene expression and clinical response data. After an initial multi-cohort integration stage, the predictive analysis was reorganized into a discovery, validation and sensitivity framework: GSE78220 as the main tumor RNA-seq anti-PD-1 discovery cohort, GSE215868 as tumor anti-PD-1 NanoString validation, GSE211645 as exploratory anti-CTLA-4 validation, and GSE91061/GSE94873 as peripheral blood sensitivity analyses. Preliminary results point to a biologically coherent signal related to MHC-I antigen presentation and IFN-gamma response, while being limited by sample size and platform heterogeneity. This report documents the study design, reproducible methodology and critical interpretation of the results.
+}
+
+\begin{document}
+
+\estructura
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\input{chapters/01_introduccion}
+\input{chapters/02_estado_arte}
+\input{chapters/03_metodologia}
+\input{chapters/04_resultados}
+\input{chapters/05_discusion}
+\input{chapters/06_conclusiones}
+\input{chapters/07_glosario}
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Bibliografía}
+\bibliographystyle{unsrt}
+\bibliography{bibliografia}
+
+\appendix
+\input{chapters/08_anexos}
+
+\end{document}

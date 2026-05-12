@@ -1,0 +1,8 @@
+"paso","valor"
+"Genes/filas originales",25268
+"Simbolos duplicados colapsados",0
+"Genes tras colapsar simbolos",25268
+"Genes retirados por NA",0
+"Genes retirados por varianza cero",2663
+"Genes retirados por baja expresion (FPKM < 1 en al menos 5 muestras)",10719
+"Genes retenidos para DEA",14549

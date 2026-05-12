@@ -1,0 +1,60 @@
+\chapter{Metodología}
+
+\section{Diseño general del estudio}
+
+El proyecto se organiza en dos bloques. El primero es un bloque pronóstico basado en TCGA-SKCM \cite{TCGA}. El segundo es un bloque predictivo basado en cohortes GEO \cite{GEO} con datos de expresión y respuesta a inmunoterapia. Este capítulo describe principalmente el bloque GEO, que constituye el desarrollo metodológico más avanzado hasta el momento.
+
+\section{Cohortes utilizadas}
+
+\begin{table}[H]
+\centering
+\caption{Cohortes GEO utilizadas en el bloque predictivo. Los tratamientos anti-PD-1 incluyen pembrolizumab y nivolumab \cite{Hamid2013,Robert2014}; el tratamiento anti-CTLA-4 es tremelimumab (análogo a ipilimumab) \cite{Schadendorf2015,Lebbe2014}.}
+\label{tab:cohortes_geo}
+\begin{tabularx}{\textwidth}{l l l l l}
+\toprule
+Cohorte & Tejido & Plataforma & Tratamiento & Rol \\
+\midrule
+GSE78220 \cite{GSE78220}   & Tumor       & RNA-seq    & anti-PD-1                & Descubrimiento \\
+GSE215868 \cite{GSE215868} & Tumor       & NanoString & anti-PD-1                & Validación tumoral \\
+GSE211645 \cite{GSE211645} & Tumor       & NanoString & anti-CTLA-4              & Validación exploratoria \\
+GSE91061 \cite{GSE91061}   & Sangre/PBMC & RNA-seq    & varios ICI               & Sensibilidad \\
+GSE94873 \cite{GSE94873}   & Sangre      & NanoString & tremelimumab (anti-CTLA-4) & Sensibilidad \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Preprocesamiento y objetos de análisis}
+
+Para cada cohorte se construyó un objeto SummarizedExperiment con matriz de expresión, metadatos clínicos y anotación génica. Se verificó la coherencia entre columnas de la matriz y filas del colData, se recodificó la variable de respuesta binaria y se documentaron las muestras pretratamiento. En GSE78220 se aplicó transformación log2(expr + 1) antes del análisis diferencial.
+
+\section{Verificación de escala y preprocesamiento por cohorte}
+
+Antes del análisis diferencial se verificó explícitamente la escala de cada cohorte para evitar dobles transformaciones. GSE78220 contiene valores FPKM en escala lineal (rango 0--8\,M), por lo que se aplica $\log_2(\text{FPKM}+1)$ antes del modelo \textit{limma}. Las cohortes de validación (GSE215868, GSE211645) y de sensibilidad (GSE91061 en escala RLD, GSE94873 en NanoString normalizado) ya están en escala razonablemente normalizada y pueden contener valores negativos, por lo que \textbf{no} se les aplica ninguna transformación logarítmica adicional. En GSE78220 se realizó además un filtrado de baja expresión: se retienen únicamente los genes con FPKM $\geq 1$ en al menos el 20\,\% de las muestras (mínimo 5), lo que reduce el espacio de genes de 25.268 a 14.549. Este criterio está inspirado en el uso de \texttt{filterByExpr} de edgeR en datos de recuentos crudos, adaptado aquí a la escala FPKM al no disponer de recuentos originales.
+
+\section{Control de calidad previo al análisis diferencial}
+
+Para cada cohorte se generaron gráficos de control de calidad: boxplot de la distribución de expresión por muestra y análisis de componentes principales (PCA) coloreado por respuesta, siguiendo el estándar de las prácticas de análisis de datos ómicos \cite{Lawrence2013}. La homogeneidad de las distribuciones y la ausencia de muestras atípicas se verificaron antes de proceder al análisis diferencial. Los resultados del PCA y las puntuaciones por muestra se exportaron como ficheros CSV para trazabilidad. Al final de cada informe se incluye \texttt{sessionInfo()} para garantizar la reproducibilidad computacional.
+
+\section{Análisis diferencial}
+
+El análisis diferencial entre respondedores y no respondedores se realizó con limma \cite{Smyth2004, Ritchie2015}. En el análisis principal de GSE78220 \cite{GSE78220} se utilizó el transcriptoma filtrado (14.549 genes), evitando la restricción a genes presentes en paneles NanoString. Para las cohortes de validación, se evaluó el solapamiento de genes candidatos y la dirección del efecto. El análisis incluye volcano plot, MA plot y heatmap de los genes nominales más significativos para una inspección visual completa de los resultados.
+
+\section{Modelos predictivos exploratorios}
+
+Se construyó un score de firma basado en genes seleccionados dentro de cada iteración de validación leave-one-out cross-validation (LOOCV), con el objetivo de evitar filtración de información entre entrenamiento y test. El área bajo la curva ROC (AUC) se utilizó como métrica principal por su robustez relativa ante desbalance de clases.
+
+\section{Validación, sensibilidad y consistencia}
+
+GSE215868 \cite{GSE215868} se utilizó como validación tumoral anti-PD-1 en plataforma NanoString. GSE211645 \cite{GSE211645} se trató como validación exploratoria en otro checkpoint, no como validación directa de anti-PD-1. GSE91061 \cite{GSE91061} y GSE94873 \cite{GSE94873} se analizaron como sensibilidad en sangre. Finalmente, el dataset integrado tumoral de 200 genes comunes se conservó para evaluar consistencia de dirección de efecto entre cohortes.
+
+\section{Anotación funcional y análisis de sobrerrepresentación}
+
+Una vez identificados los genes asociados a la supervivencia mediante el screening Cox, se realiza su anotación funcional en dos pasos. Primero, los identificadores Ensembl (formato de salida de TCGA-RNA-seq) se convierten a símbolo génico y Entrez ID mediante el paquete de Bioconductor \texttt{org.Hs.eg.db} \cite{Lawrence2013}, eliminando previamente el número de versión del identificador (e.g., \texttt{ENSG00000162645.13} $\to$ \texttt{ENSG00000162645}). Segundo, se aplica un análisis de sobrerrepresentación (ORA, \textit{Over-Representation Analysis}) sobre los genes con FDR $< 0{,}05$, separando genes protectores (HR $< 1$) y genes de riesgo (HR $> 1$). El ORA se ejecuta sobre la ontología GO-BP (\textit{Gene Ontology, Biological Process}) mediante la función \texttt{enrichGO} de \texttt{clusterProfiler} \cite{clusterProfiler2012}, con el universo de genes testados como referencia y corrección de Benjamini-Hochberg. Este paso proporciona la base funcional para la interpretación biológica de la firma transcriptómica pronóstica.
+
+\section{Reproducibilidad}
+
+Todos los análisis se documentaron mediante R Markdown y se guardaron tablas CSV de resultados. El repositorio GitHub del proyecto se utiliza como mecanismo de control de versiones y trazabilidad:
+
+\begin{center}
+\url{https://github.com/Soniasalme/TFM_MELANOMA_INMUNOTERAPIA}
+\end{center}

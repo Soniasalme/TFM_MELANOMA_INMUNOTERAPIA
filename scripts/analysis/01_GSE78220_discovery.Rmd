@@ -1,4 +1,4 @@
----
+﻿---
 title: "Descubrimiento principal: GSE78220 RNA-seq tumor anti-PD-1"
 author: "TFM Melanoma Inmunoterapia"
 date: "`r Sys.Date()`"
@@ -50,7 +50,10 @@ required_packages <- c(
   "knitr",
   "matrixStats",
   "tidyr",
-  "here"
+  "here",
+  "AnnotationDbi",
+  "org.Hs.eg.db",
+  "clusterProfiler"
 )
 
 for (pkg in required_packages) {
@@ -125,14 +128,16 @@ cd %>%
 # Preparacion de expresion y respuesta
 
 ```{r preparar_datos}
-prepare_expression <- function(se_obj) {
+prepare_expression <- function(se_obj, min_fpkm = 1, min_samples = NULL) {
   expr <- assay(se_obj, "expr")
   expr <- as.matrix(expr)
   mode(expr) <- "numeric"
+  n_rows_original <- nrow(expr)
 
   gene_symbols <- as.character(rowData(se_obj)$gene_symbol)
   gene_symbols[is.na(gene_symbols) | trimws(gene_symbols) == ""] <- rownames(expr)[is.na(gene_symbols) | trimws(gene_symbols) == ""]
   gene_symbols <- toupper(trimws(gene_symbols))
+  n_duplicate_symbols <- sum(duplicated(gene_symbols[!is.na(gene_symbols) & gene_symbols != ""]))
 
   expr_df <- as.data.frame(expr, check.names = FALSE)
   expr_df$gene_symbol <- gene_symbols
@@ -145,25 +150,67 @@ prepare_expression <- function(se_obj) {
   genes <- expr_collapsed$gene_symbol
   expr_mat <- as.matrix(expr_collapsed[, setdiff(colnames(expr_collapsed), "gene_symbol"), drop = FALSE])
   rownames(expr_mat) <- genes
+  expr_linear <- expr_mat
 
-  # Los datos de GSE78220 están en escala TPM lineal: se aplica log2(x+1)
+  # La metadata del objeto indica FPKM; se trata como escala lineal de RNA-seq
+  # y se transforma a log2(FPKM+1) antes del modelo limma.
+
+  # Los datos de GSE78220 estÃ¡n en escala FPKM lineal: se aplica log2(x+1)
   # para estabilizar la varianza y cumplir los supuestos de limma.
   expr_mat <- log2(expr_mat + 1)
 
+  if (is.null(min_samples)) {
+    min_samples <- max(3, ceiling(0.20 * ncol(expr_mat)))
+  }
+
   na_genes <- rowSums(is.na(expr_mat)) > 0
   zero_var_genes <- matrixStats::rowVars(expr_mat, na.rm = TRUE) == 0
-  keep_genes <- !na_genes & !zero_var_genes
+  low_expr_genes <- rowSums(expr_linear >= min_fpkm, na.rm = TRUE) < min_samples
+  keep_genes <- !na_genes & !zero_var_genes & !low_expr_genes
 
-  expr_mat[keep_genes, , drop = FALSE]
+  qc_summary <- tibble(
+    paso = c(
+      "Genes/filas originales",
+      "Simbolos duplicados colapsados",
+      "Genes tras colapsar simbolos",
+      "Genes retirados por NA",
+      "Genes retirados por varianza cero",
+      paste0("Genes retirados por baja expresion (FPKM < ", min_fpkm,
+             " en al menos ", min_samples, " muestras)"),
+      "Genes retenidos para DEA"
+    ),
+    valor = c(
+      n_rows_original,
+      n_duplicate_symbols,
+      nrow(expr_mat),
+      sum(na_genes),
+      sum(zero_var_genes),
+      sum(low_expr_genes),
+      sum(keep_genes)
+    )
+  )
+
+  list(
+    expr = expr_mat[keep_genes, , drop = FALSE],
+    expr_log_unfiltered = expr_mat[!na_genes & !zero_var_genes, , drop = FALSE],
+    expr_linear_collapsed = expr_linear,
+    qc = qc_summary,
+    min_fpkm = min_fpkm,
+    min_samples = min_samples
+  )
 }
 
-expr <- prepare_expression(se)
+prepared <- prepare_expression(se)
+expr <- prepared$expr
+expr_unfiltered <- prepared$expr_log_unfiltered
 
 response_group <- factor(cd$response_binary)
 response_group <- relevel(response_group, ref = "No_responder")
 
 stopifnot(ncol(expr) == nrow(cd))
 stopifnot(nlevels(response_group) == 2)
+
+kable(prepared$qc, caption = "Control de calidad y filtrado de expresion")
 
 kable(
   tibble(
@@ -177,6 +224,53 @@ kable(
   ),
   caption = "Dimensiones del analisis de descubrimiento"
 )
+```
+
+# Analisis exploratorio y control de calidad
+
+```{r qc_distribuciones, fig.height=5}
+expr_long <- as.data.frame(expr, check.names = FALSE) %>%
+  rownames_to_column("gene") %>%
+  pivot_longer(-gene, names_to = "sample_id", values_to = "log2_expression") %>%
+  left_join(
+    cd %>% select(sample_id_model, response_binary),
+    by = c("sample_id" = "sample_id_model")
+  )
+
+ggplot(expr_long, aes(x = sample_id, y = log2_expression, fill = response_binary)) +
+  geom_boxplot(outlier.size = 0.2, alpha = 0.8) +
+  labs(
+    title = "Distribucion de expresion por muestra tras log2(FPKM+1) y filtrado",
+    x = "Muestra",
+    y = "log2(FPKM+1)",
+    fill = "Respuesta"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+```
+
+```{r qc_pca, fig.height=5}
+pca_res <- prcomp(t(expr), center = TRUE, scale. = FALSE)
+pca_var <- round(summary(pca_res)$importance[2, 1:2] * 100, 1)
+
+pca_df <- as.data.frame(pca_res$x[, 1:2, drop = FALSE]) %>%
+  rownames_to_column("sample_id") %>%
+  left_join(
+    cd %>% select(sample_id_model, response_binary),
+    by = c("sample_id" = "sample_id_model")
+  )
+
+write.csv(pca_df, file.path(output_dir, "GSE78220_QC_PCA_scores.csv"), row.names = FALSE)
+
+ggplot(pca_df, aes(x = PC1, y = PC2, color = response_binary)) +
+  geom_point(size = 3, alpha = 0.9) +
+  labs(
+    title = "PCA de GSE78220 tras preprocesado",
+    x = paste0("PC1 (", pca_var[1], "%)"),
+    y = paste0("PC2 (", pca_var[2], "%)"),
+    color = "Respuesta"
+  ) +
+  theme_minimal(base_size = 13)
 ```
 
 # DEA con limma
@@ -242,7 +336,7 @@ kable(dea_summary, digits = 4, caption = "Resumen del DEA en GSE78220")
 ```{r volcano}
 res_dea %>%
   mutate(
-    neg_log10_adjP = -log10(adj.P.Val),
+    neg_log10_P = -log10(P.Value),
     grupo = case_when(
       adj.P.Val < adjp_cutoff & logFC >= logfc_cutoff ~ "Up in responders (FDR)",
       adj.P.Val < adjp_cutoff & logFC <= -logfc_cutoff ~ "Down in responders (FDR)",
@@ -250,22 +344,223 @@ res_dea %>%
       TRUE ~ "Not significant"
     )
   ) %>%
-  ggplot(aes(x = logFC, y = neg_log10_adjP, color = grupo)) +
+  ggplot(aes(x = logFC, y = neg_log10_P, color = grupo)) +
   geom_point(alpha = 0.7, size = 1.5) +
   geom_vline(xintercept = c(-logfc_cutoff, logfc_cutoff), linetype = "dashed") +
-  geom_hline(yintercept = -log10(adjp_cutoff), linetype = "dashed") +
+  geom_hline(yintercept = -log10(p_cutoff), linetype = "dashed") +
   labs(
     title = "DEA GSE78220: Respondedores vs No respondedores",
     x = "logFC (Responder - No_responder)",
-    y = "-log10(adj.P.Val)",
+    y = "-log10(P.Value)",
     color = "Resultado"
   ) +
   theme_minimal(base_size = 13)
 ```
 
+```{r ma_plot, fig.height=5}
+res_dea %>%
+  mutate(
+    grupo = case_when(
+      adj.P.Val < adjp_cutoff & abs(logFC) >= logfc_cutoff ~ "FDR",
+      P.Value < p_cutoff & abs(logFC) >= logfc_cutoff ~ "Nominal",
+      TRUE ~ "No significativo"
+    )
+  ) %>%
+  ggplot(aes(x = AveExpr, y = logFC, color = grupo)) +
+  geom_point(alpha = 0.65, size = 1.4) +
+  geom_hline(yintercept = 0, color = "grey30") +
+  geom_hline(yintercept = c(-logfc_cutoff, logfc_cutoff), linetype = "dashed") +
+  labs(
+    title = "MA plot GSE78220",
+    x = "Expresion media (AveExpr)",
+    y = "logFC (Responder - No_responder)",
+    color = "Resultado"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+```{r heatmap_top_genes, fig.width=10, fig.height=8}
+top_heatmap_genes <- res_dea %>%
+  filter(P.Value < p_cutoff, abs(logFC) >= logfc_cutoff) %>%
+  arrange(P.Value) %>%
+  slice_head(n = 40) %>%
+  pull(gene)
+
+heat_df <- NULL
+
+if (length(top_heatmap_genes) >= 2) {
+  expr_heat <- expr[top_heatmap_genes, , drop = FALSE]
+  expr_heat_z <- t(scale(t(expr_heat)))
+  expr_heat_z[!is.finite(expr_heat_z)] <- 0
+
+  sample_order <- cd %>%
+    mutate(response_binary = factor(response_binary, levels = c("No_responder", "Responder"))) %>%
+    arrange(response_binary, sample_id_model) %>%
+    pull(sample_id_model)
+  sample_order <- intersect(sample_order, colnames(expr_heat_z))
+
+  gene_order <- res_dea %>%
+    filter(gene %in% top_heatmap_genes) %>%
+    arrange(desc(logFC)) %>%
+    pull(gene)
+  heat_df <- data.frame(.ready = TRUE)
+} else {
+  heat_df <- NULL
+}
+
+if (!is.null(heat_df)) {
+  heat_df <- as.data.frame(expr_heat_z[gene_order, sample_order, drop = FALSE], check.names = FALSE) %>%
+    rownames_to_column("gene") %>%
+    pivot_longer(-gene, names_to = "sample_id", values_to = "z_score") %>%
+    mutate(
+      gene = factor(gene, levels = rev(gene_order)),
+      sample_id = factor(sample_id, levels = sample_order)
+    ) %>%
+    left_join(
+      cd %>% select(sample_id_model, response_binary),
+      by = c("sample_id" = "sample_id_model")
+    )
+
+  ggplot(heat_df, aes(x = sample_id, y = gene, fill = z_score)) +
+    geom_tile() +
+    scale_fill_gradient2(low = "#2166ac", mid = "white", high = "#b2182b", midpoint = 0) +
+    labs(
+      title = "Heatmap de los top genes nominales de GSE78220",
+      subtitle = "Expresion escalada por gen; muestras ordenadas por respuesta",
+      x = "Muestras",
+      y = NULL,
+      fill = "z-score"
+    ) +
+    theme_minimal(base_size = 11) +
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+} else {
+  cat("No hay suficientes genes nominales para construir el heatmap.\n")
+}
+```
+
+# Enriquecimiento funcional exploratorio
+
+Como el tamanio muestral de `GSE78220` es reducido, no se esperan genes significativos tras FDR. Por ello, el enriquecimiento se interpreta como analisis exploratorio sobre genes nominales, usando todos los genes testados como universo.
+
+```{r enrichment_go}
+map_symbols_to_entrez <- function(symbols) {
+  symbols <- unique(toupper(trimws(symbols)))
+  symbols <- symbols[!is.na(symbols) & symbols != ""]
+
+  suppressMessages(
+    AnnotationDbi::select(
+      org.Hs.eg.db::org.Hs.eg.db,
+      keys = symbols,
+      columns = c("SYMBOL", "ENTREZID"),
+      keytype = "SYMBOL"
+    )
+  ) %>%
+    filter(!is.na(ENTREZID), ENTREZID != "") %>%
+    distinct(SYMBOL, ENTREZID)
+}
+
+run_go_ora <- function(gene_symbols, universe_symbols, direction_label) {
+  gene_map <- map_symbols_to_entrez(gene_symbols)
+  universe_map <- map_symbols_to_entrez(universe_symbols)
+
+  gene_entrez <- unique(gene_map$ENTREZID)
+  universe_entrez <- unique(universe_map$ENTREZID)
+
+  if (length(gene_entrez) < 5 || length(universe_entrez) < 20) {
+    return(tibble())
+  }
+
+  ora <- clusterProfiler::enrichGO(
+    gene = gene_entrez,
+    universe = universe_entrez,
+    OrgDb = org.Hs.eg.db::org.Hs.eg.db,
+    keyType = "ENTREZID",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    pvalueCutoff = 0.10,
+    qvalueCutoff = 0.25,
+    readable = TRUE
+  )
+
+  out <- as.data.frame(ora)
+  if (nrow(out) == 0) {
+    return(tibble())
+  }
+
+  out %>%
+    as_tibble() %>%
+    mutate(direction = direction_label)
+}
+
+genes_up_nominal <- res_dea %>%
+  filter(P.Value < p_cutoff, logFC >= logfc_cutoff) %>%
+  pull(gene)
+
+genes_down_nominal <- res_dea %>%
+  filter(P.Value < p_cutoff, logFC <= -logfc_cutoff) %>%
+  pull(gene)
+
+universe_genes <- res_dea$gene
+
+ora_up <- run_go_ora(genes_up_nominal, universe_genes, "Up en respondedores")
+ora_down <- run_go_ora(genes_down_nominal, universe_genes, "Down en respondedores")
+ora_all <- bind_rows(ora_up, ora_down)
+
+write.csv(ora_up, file.path(output_dir, "GSE78220_ORA_GO_BP_up_nominal.csv"), row.names = FALSE)
+write.csv(ora_down, file.path(output_dir, "GSE78220_ORA_GO_BP_down_nominal.csv"), row.names = FALSE)
+write.csv(ora_all, file.path(output_dir, "GSE78220_ORA_GO_BP_nominal_combined.csv"), row.names = FALSE)
+
+ora_summary <- tibble(
+  contraste = c("Up en respondedores", "Down en respondedores"),
+  n_genes_nominales = c(length(unique(genes_up_nominal)), length(unique(genes_down_nominal))),
+  n_terminos_GO = c(nrow(ora_up), nrow(ora_down))
+)
+
+kable(ora_summary, caption = "Resumen del enriquecimiento GO BP exploratorio")
+
+if (nrow(ora_all) > 0) {
+  ora_all %>%
+    group_by(direction) %>%
+    arrange(p.adjust, .by_group = TRUE) %>%
+    slice_head(n = 10) %>%
+    ungroup() %>%
+    select(direction, ID, Description, GeneRatio, Count, pvalue, p.adjust) %>%
+    kable(digits = 4, caption = "Top terminos GO BP enriquecidos")
+} else {
+  cat("No se detectaron terminos GO BP enriquecidos con los umbrales exploratorios definidos.\n")
+}
+```
+
+```{r enrichment_plot, fig.width=10, fig.height=6}
+if (nrow(ora_all) > 0) {
+  ora_plot <- ora_all %>%
+    group_by(direction) %>%
+    arrange(p.adjust, .by_group = TRUE) %>%
+    slice_head(n = 8) %>%
+    ungroup() %>%
+    mutate(
+      term_label = paste(direction, Description, sep = " | "),
+      term_label = factor(term_label, levels = rev(unique(term_label)))
+    )
+
+  ggplot(ora_plot, aes(x = -log10(p.adjust), y = term_label, size = Count, color = direction)) +
+    geom_point(alpha = 0.85) +
+    labs(
+      title = "Enriquecimiento GO BP exploratorio en genes nominales",
+      x = "-log10(FDR del termino GO)",
+      y = NULL,
+      size = "N genes",
+      color = NULL
+    ) +
+    theme_minimal(base_size = 12)
+} else {
+  cat("No se genera grafico de enriquecimiento porque no hay terminos enriquecidos.\n")
+}
+```
+
 # Modelo predictivo exploratorio
 
-Este bloque no pretende cerrar un modelo clinico definitivo. Con 25 muestras, se usa como evaluacion preliminar de si la señal transcriptomica permite separar respondedores y no respondedores.
+Este bloque no pretende cerrar un modelo clinico definitivo. Con 25 muestras, se usa como evaluacion preliminar de si la seÃ±al transcriptomica permite separar respondedores y no respondedores.
 
 Para reducir fuga de informacion, en cada iteracion leave-one-out se seleccionan genes usando solo el conjunto de entrenamiento.
 
@@ -372,6 +667,7 @@ loocv_predictions %>%
 write.csv(res_dea, file.path(output_dir, "GSE78220_DEA_limma_response.csv"), row.names = FALSE)
 write.csv(loocv_predictions, file.path(output_dir, "GSE78220_LOOCV_signature_predictions.csv"), row.names = FALSE)
 write.csv(loocv_summary, file.path(output_dir, "GSE78220_LOOCV_signature_summary.csv"), row.names = FALSE)
+write.csv(prepared$qc, file.path(output_dir, "GSE78220_expression_QC_summary.csv"), row.names = FALSE)
 saveRDS(dea, file.path(output_dir, "GSE78220_DEA_limma_response.rds"))
 
 list.files(output_dir, full.names = TRUE)
@@ -386,6 +682,9 @@ checks <- tibble(
     "Cohorte tumoral",
     "Plataforma RNA-seq",
     "Dos grupos de respuesta",
+    "Filtrado de baja expresion documentado",
+    "QC PCA guardado",
+    "Enriquecimiento GO exploratorio ejecutado",
     "DEA ejecutado sobre transcriptoma completo",
     "Modelo LOOCV generado",
     "Resultados guardados"
@@ -395,6 +694,9 @@ checks <- tibble(
     all(cd$tissue == "Tumor"),
     all(cd$platform == "RNA-seq"),
     nlevels(response_group) == 2,
+    file.exists(file.path(output_dir, "GSE78220_expression_QC_summary.csv")),
+    file.exists(file.path(output_dir, "GSE78220_QC_PCA_scores.csv")),
+    file.exists(file.path(output_dir, "GSE78220_ORA_GO_BP_nominal_combined.csv")),
     nrow(res_dea) > 1000,
     nrow(loocv_predictions) > 0,
     file.exists(file.path(output_dir, "GSE78220_DEA_limma_response.csv"))
@@ -411,3 +713,9 @@ if (!all(checks$estado)) {
 # Conclusion metodologica
 
 Este informe deja preparado el bloque de descubrimiento principal usando `GSE78220` sin restriccion por panel NanoString. Los genes candidatos y la firma exploratoria obtenidos aqui deben interpretarse como hipotesis de descubrimiento y validarse posteriormente en `GSE215868` y `GSE211645`.
+
+# Informacion de sesion
+
+```{r session_info}
+sessionInfo()
+```
