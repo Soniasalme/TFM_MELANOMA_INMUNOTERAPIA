@@ -1,0 +1,62 @@
+\chapter{Discusión}
+
+\section{Bloque predictivo GEO}
+
+\subsection{Filtrado de baja expresión y escala de entrada}
+
+La revisión de las escalas de entrada de cada cohorte constituye una mejora metodológica relevante respecto a versiones anteriores del análisis. En GSE78220, los datos están en escala FPKM lineal y la transformación $\log_2(\text{FPKM}+1)$ es apropiada. En cambio, las cohortes NanoString (GSE215868, GSE211645, GSE94873) y RLD (GSE91061) ya están normalizadas y pueden contener valores negativos, por lo que aplicarles una segunda transformación logarítmica produciría artefactos. Esta distinción, motivada por el análisis de datos ómicos, mejora la coherencia del flujo de preprocesado y evita distorsiones en los modelos limma.
+
+El filtrado de baja expresión en GSE78220 (retener genes con FPKM $\geq 1$ en al menos 5 muestras) reduce el espacio de prueba de 25.268 a 14.549 genes. Este paso tiene dos efectos positivos: (1) elimina ruido de genes no detectados que inflarían la corrección por múltiples comparaciones, y (2) mejora la potencia estadística al concentrar el análisis en genes con señal real. El resultado es un incremento en los genes nominales identificados (539 vs.\ 505 en la versión anterior) y una AUC LOOCV más alta (0{,}853 con top 5 genes).
+
+\subsection{Señal biológica: microambiente estromal vs.\ activación inmune}
+
+El enriquecimiento funcional de los genes nominales de GSE78220 revela una dicotomía biológica clara entre respondedores y no respondedores. Los genes con mayor expresión en \textbf{no respondedores} están enriquecidos en remodelación de la MEC (\textit{extracellular matrix organization}, FDR $= 1{,}2\times10^{-22}$; 44 genes: colágenos, MMPs, PDGFRA/B, VEGFC, FLT1) y angiogénesis (FDR $= 9{,}1\times10^{-12}$; 43 genes). Este perfil es característico de los fibroblastos asociados al cáncer (CAFs) y del fenotipo mesenquimal, que se ha asociado consistentemente con resistencia primaria a los inhibidores de checkpoint en melanoma \cite{Kim2022, Dempke2017}.
+
+Los genes con mayor expresión en \textbf{respondedores}, aunque con menor magnitud de enriquecimiento (FDR $\sim 0{,}03$), se asocian a metabolismo mitocondrial (cadena de transporte de electrones) y síntesis proteica (traducción citoplasmática), coherentes con un microambiente tumoral metabólicamente activo. Esta firma metabólica en respondedores podría reflejar la mayor presencia de células T efectoras y células NK, cuya función citotóxica requiere un metabolismo oxidativo activo \cite{FifeBluestone2008}.
+
+Esta dicotomía estromal--inmune es biológicamente coherente y complementa la señal de activación inmune (MHC-I, IFN-$\gamma$) identificada en el análisis de consistencia multi-cohorte. Juntas sugieren que la respuesta a inmunoterapia en melanoma está modulada por la interacción entre el infiltrado inmune y el compartimento estromal.
+
+\subsection{Validación en NanoString y sangre}
+
+La ausencia de genes significativos tras FDR en GSE78220 debe interpretarse con cautela y no como ausencia de señal biológica. El tamaño muestral reducido ($n=25$) limita la potencia estadística al testar 14.549 genes. Por ello, los genes nominales se utilizan como candidatos exploratorios.
+
+La validación en NanoString está condicionada por el diseño de panel. En GSE215868, 6 de los top 50 genes solapan (AUC firma $= 0{,}547$), con 66{,}7\,\% de concordancia de dirección, una señal débil pero coherente con la hipótesis de descubrimiento. GSE211645 (anti-CTLA-4) solo aportó 1 gen solapado, lo que lo convierte en una generalización exploratoria a otro checkpoint y no en una validación directa. La falta de transferencia de la firma a sangre periférica (AUC $\approx 0{,}47$--$0{,}48$ en GSE91061 y GSE94873) es coherente con la distancia biológica y técnica entre las cohortes, y con el limitado solapamiento génico impuesto por los paneles NanoString de sangre (solo 4 genes de firma disponibles en GSE94873).
+
+\section{Bloque pronóstico TCGA-SKCM}
+
+\subsection{Factores clínicos de supervivencia}
+
+Los modelos de Cox aplicados a TCGA-SKCM confirman que la edad al diagnóstico y el estadio AJCC son los principales determinantes clínicos del pronóstico en melanoma cutáneo. El efecto de la edad es continuo e independiente (HR = 1{,}020 por año, $p < 0{,}001$ en el modelo multivariante), lo que es coherente con la menor capacidad de respuesta inmune observada en pacientes de mayor edad y con el mayor tiempo acumulado de exposición solar que predispone a cargas mutacionales más elevadas \cite{Podlipnik2021}.
+
+El estadio AJCC sigue una gradación de riesgo clara: el estadio IV multiplica por tres el riesgo de muerte respecto al estadio I en el análisis univariante (HR = 3{,}094), efecto que se mantiene tras el ajuste multivariante (HR = 2{,}993). El estadio III también conserva su asociación independiente (HR = 1{,}819, $p = 0{,}002$). Sin embargo, el estadio II pierde significación estadística en el modelo multivariante (HR = 1{,}265, $p = 0{,}257$), a pesar de ser significativo en el univariante (HR = 1{,}518, $p = 0{,}038$). Este fenómeno puede reflejar una interacción con la distribución de la edad: los pacientes de mayor edad tienden a diagnosticarse en estadios más avanzados, lo que podría sobreestimar el efecto aparente del estadio II cuando no se ajusta por edad. Esta observación subraya la importancia del ajuste multivariante en el análisis de supervivencia.
+
+El sexo masculino no resultó un factor pronóstico independiente (HR = 1{,}007; $p = 0{,}963$), en línea con la heterogeneidad de los resultados reportados en la literatura sobre el papel del sexo en la supervivencia del melanoma \cite{Bastian2014}.
+
+\subsection{Firma transcriptómica pronóstica}
+
+El screening Cox sobre 5.002 genes identificó 944 genes con FDR $< 0{,}01$, lo que representa una potencia estadística notable dado el número de observaciones disponibles (470 pacientes con eventos de supervivencia). El patrón direccional de los genes candidatos es predominantemente protector (HR $< 1$): alta expresión se asocia a mayor supervivencia.
+
+Los diez genes con menor FDR pertenecen mayoritariamente a vías de inmunidad innata y adaptativa relacionadas con interferón-gamma (IFN-$\gamma$):
+
+\begin{itemize}
+  \item \textit{GBP2} y \textit{GBP4} son proteínas de unión a guanilato inducidas por IFN-$\gamma$, implicadas en la respuesta antiviral y antiparasitaria. Su sobreexpresión en el microambiente tumoral se ha asociado a infiltración de linfocitos T y mejor pronóstico en varios tipos de cáncer.
+  \item \textit{IL15} es una citocina esencial para la proliferación, supervivencia y activación de células NK y linfocitos T CD8$^+$ \cite{FifeBluestone2008}. Su alta expresión en el tumor refleja un microambiente con mayor capacidad de reconocimiento inmune.
+  \item \textit{KLRD1} (CD94) es un receptor de células NK, y su presencia indica infiltración por células citotóxicas. \textit{DDX60} es una helicasa de la inmunidad innata que potencia la señalización antiviral. \textit{CCL8} (MCP-2) es una quimiocina que recluta linfocitos T y monocitos hacia el microambiente tumoral.
+  \item \textit{APOBEC3G} y \textit{UBA7} participan en vías de defensa innata (edición de ácidos nucleicos e ISGilación mediada por interferón, respectivamente).
+\end{itemize}
+
+En conjunto, estos genes forman una firma coherente de activación inmune, con énfasis en el eje IFN-$\gamma$ y las células NK/CD8$^+$. Este patrón es consistente con la hipótesis de trabajo formulada en el capítulo de estado del arte: los melanomas con mayor infiltración inmune y señalización por IFN-$\gamma$ presentan mejor supervivencia global, independientemente del tratamiento recibido \cite{DasTCGA2020}.
+
+\subsection{Convergencia entre el bloque pronóstico y el bloque predictivo}
+
+La coincidencia entre los genes candidatos del bloque pronóstico (TCGA-SKCM) y los genes identificados en el bloque predictivo (GSE78220, análisis de respuesta a anti-PD-1) no es casual. Genes como los de la familia \textit{GBP}, \textit{IL15} y marcadores de células NK/CD8$^+$ aparecen asociados tanto a mejor pronóstico basal como a respuesta favorable a inmunoterapia. Esto sugiere que el perfil inmune del tumor es un determinante transversal del comportamiento clínico del melanoma, con independencia del tipo de tratamiento. Esta convergencia refuerza la plausibilidad biológica de ambos bloques y apoya el diseño integrativo del proyecto.
+
+\subsection{Metodología funcional: transferencia desde el análisis de datos ómicos}
+
+La metodología de anotación y ORA implementada en el script \texttt{13\_tcga\_anotacion\_ora.Rmd} es una adaptación directa del flujo de trabajo aplicado en el análisis de RNA-seq de cáncer colorrectal (GSE50760). Ambos análisis comparten la misma cadena metodológica: (1) objeto SummarizedExperiment como contenedor de datos, (2) normalización en escala log-CPM, (3) identificación de genes diferenciales mediante modelos lineales, (4) conversión de identificadores a Entrez ID con \texttt{org.Hs.eg.db}, y (5) ORA sobre GO-BP con \texttt{clusterProfiler}. La principal diferencia es que en el bloque pronóstico el criterio de selección de genes es el FDR del modelo Cox (asociación a supervivencia) en lugar del logFC del análisis de expresión diferencial. Ambas aproximaciones son metodológicamente válidas para definir el gene set de entrada en la ORA.
+
+Esta transferencia metodológica demuestra que el aprendizaje obtenido en el análisis de datos ómicos de cáncer colorrectal es directamente aplicable al análisis transcriptómico de melanoma, con las adaptaciones necesarias al tipo de dato (recuentos RNA-seq vs.\ Cox de supervivencia) y al identificador de partida (Ensembl vs.\ símbolo génico).
+
+\subsection{Limitaciones del bloque pronóstico}
+
+Las principales limitaciones del análisis en TCGA-SKCM son: (1) la cohorte mezcla pacientes con y sin tratamiento sistémico, lo que introduce heterogeneidad en los tiempos de seguimiento; (2) el estadio AJCC no está disponible para todos los pacientes, requiriendo la asignación de una categoría ``desconocido'' en los modelos transcriptómicos; (3) los identificadores Ensembl de los genes deben anotarse formalmente mediante paquetes de Bioconductor (\texttt{org.Hs.eg.db} o \texttt{biomaRt}) para integrar la ontología génica y los análisis de enriquecimiento funcional, que constituyen el siguiente paso previsto en el desarrollo del TFM.

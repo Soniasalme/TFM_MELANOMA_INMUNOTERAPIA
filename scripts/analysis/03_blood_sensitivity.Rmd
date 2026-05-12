@@ -94,7 +94,8 @@ derive_response <- function(response_raw, response_binary = NULL) {
   factor(response, levels = c("No_responder", "Responder"))
 }
 
-prepare_expression <- function(se_obj, log2_transform = TRUE) {
+prepare_expression <- function(se_obj, transform = c("none", "log2")) {
+  transform <- match.arg(transform)
   assay_name <- if ("expr" %in% assayNames(se_obj)) "expr" else assayNames(se_obj)[1]
   expr <- assay(se_obj, assay_name)
   expr <- as.matrix(expr)
@@ -117,9 +118,13 @@ prepare_expression <- function(se_obj, log2_transform = TRUE) {
   expr_mat <- as.matrix(expr_collapsed[, setdiff(colnames(expr_collapsed), "gene_symbol"), drop = FALSE])
   rownames(expr_mat) <- genes
 
-  # GSE91061 se transforma con log2(x+1); GSE94873 NanoString ya llega
-  # en escala log-normalizada y no se vuelve a transformar.
-  if (isTRUE(log2_transform)) {
+  # Las matrices de sensibilidad ya llegan normalizadas: GSE91061 como RLD
+  # y GSE94873 como NanoString normalizado. Solo se transforma una matriz
+  # lineal si se indica explicitamente y no contiene valores negativos.
+  if (transform == "log2") {
+    if (any(expr_mat < 0, na.rm = TRUE)) {
+      stop("No se puede aplicar log2(x+1): la matriz contiene valores negativos.")
+    }
     expr_mat <- log2(expr_mat + 1)
   }
 
@@ -188,6 +193,32 @@ score_discovery_signature <- function(expr_matrix, discovery_results, top_n = 20
 
   colMeans(expr_z * directions[rownames(expr_z)], na.rm = TRUE)
 }
+
+count_signature_overlap <- function(expr_matrix, discovery_results, top_n) {
+  signature_genes <- discovery_results %>%
+    arrange(P.Value) %>%
+    slice_head(n = top_n) %>%
+    pull(gene) %>%
+    toupper()
+
+  length(intersect(signature_genes, rownames(expr_matrix)))
+}
+
+choose_signature_top_n <- function(expr_matrix, discovery_results,
+                                   candidate_top_n = c(100, 200, 500, 1000),
+                                   min_overlap = 3) {
+  overlap_counts <- vapply(
+    candidate_top_n,
+    function(n) count_signature_overlap(expr_matrix, discovery_results, n),
+    numeric(1)
+  )
+
+  if (any(overlap_counts >= min_overlap)) {
+    candidate_top_n[which(overlap_counts >= min_overlap)[1]]
+  } else {
+    candidate_top_n[which.max(overlap_counts)]
+  }
+}
 ```
 
 # Correccion de metadatos y respuesta
@@ -223,7 +254,7 @@ kable(
 # DEA en sangre
 
 ```{r dea_sangre}
-expr <- prepare_expression(se, log2_transform = TRUE)
+expr <- prepare_expression(se, transform = "none")
 response <- cd$response_group
 
 dea_blood <- run_limma_dea(expr, response)
@@ -285,7 +316,7 @@ cd_94873 <- as.data.frame(colData(se_94873)) %>%
   rownames_to_column("sample_id_model")
 
 cd_94873$response_group <- derive_response(cd_94873$response_raw, cd_94873$response_binary)
-expr_94873 <- prepare_expression(se_94873, log2_transform = FALSE)
+expr_94873 <- prepare_expression(se_94873, transform = "none")
 response_94873 <- cd_94873$response_group
 
 kable(
@@ -303,8 +334,10 @@ write.csv(dea_94873, file.path(output_dir, "GSE94873_blood_DEA_limma_response.cs
 ```
 
 ```{r firma_gse94873}
-# En GSE94873 el panel es pequeno; top 100 permite al menos 2 genes solapados con discovery.
-signature_score_94873 <- score_discovery_signature(expr_94873, discovery, top_n = 100)
+top_n_94873 <- choose_signature_top_n(expr_94873, discovery)
+n_signature_genes_94873 <- count_signature_overlap(expr_94873, discovery, top_n_94873)
+
+signature_score_94873 <- score_discovery_signature(expr_94873, discovery, top_n = top_n_94873)
 signature_auc_94873 <- calc_auc(signature_score_94873, response_94873)
 
 signature_df_94873 <- tibble(
@@ -312,7 +345,8 @@ signature_df_94873 <- tibble(
   sample_id = colnames(expr_94873),
   response = as.character(response_94873),
   signature_score = signature_score_94873,
-  top_n_signature = 100
+  top_n_signature = top_n_94873,
+  n_signature_genes = n_signature_genes_94873
 )
 
 kable(
@@ -323,6 +357,8 @@ kable(
     n_response_available = sum(!is.na(response_94873)),
     n_responders = sum(response_94873 == "Responder", na.rm = TRUE),
     n_non_responders = sum(response_94873 == "No_responder", na.rm = TRUE),
+    n_signature_genes = n_signature_genes_94873,
+    signature_top_n = top_n_94873,
     signature_auc = signature_auc_94873
   ),
   digits = 3,
@@ -342,6 +378,7 @@ blood_sensitivity_summary <- bind_rows(
     n_response_available = sum(!is.na(response)),
     n_responders = sum(response == "Responder", na.rm = TRUE),
     n_non_responders = sum(response == "No_responder", na.rm = TRUE),
+    n_signature_genes = count_signature_overlap(expr, discovery, 20),
     signature_top_n = 20,
     signature_auc = signature_auc
   ),
@@ -355,7 +392,8 @@ blood_sensitivity_summary <- bind_rows(
     n_response_available = sum(!is.na(response_94873)),
     n_responders = sum(response_94873 == "Responder", na.rm = TRUE),
     n_non_responders = sum(response_94873 == "No_responder", na.rm = TRUE),
-    signature_top_n = 100,
+    n_signature_genes = n_signature_genes_94873,
+    signature_top_n = top_n_94873,
     signature_auc = signature_auc_94873
   )
 )
@@ -427,3 +465,9 @@ if (!all(checks$estado)) {
 # Conclusion metodologica
 
 `GSE91061` y `GSE94873` se usan como sensibilidad en sangre, no como parte del descubrimiento tumoral. `GSE94873` aporta una cohorte NanoString de sangre pretratamiento tratada con tremelimumab (anti-CTLA-4), por lo que se interpreta como sensibilidad periferica y de checkpoint distinto, no como validacion directa de la firma tumoral anti-PD-1.
+
+# Informacion de sesion
+
+```{r session_info}
+sessionInfo()
+```

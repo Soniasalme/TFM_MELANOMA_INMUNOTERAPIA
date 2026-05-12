@@ -1,0 +1,61 @@
+\chapter{Introducción}
+
+\section{Contexto y justificación del trabajo}
+
+El melanoma cutáneo es el tumor maligno de piel de mayor mortalidad y constituye un problema clínico relevante en estadios avanzados o metastásicos. La introducción de los inhibidores de checkpoint inmunológico, especialmente anti-PD-1 y anti-CTLA-4, ha modificado de forma sustancial el tratamiento de la enfermedad. Sin embargo, la respuesta clínica es heterogénea: una parte de los pacientes responde de forma duradera, mientras que otros no responden o desarrollan resistencia secundaria.
+
+Esta heterogeneidad justifica la búsqueda de biomarcadores moleculares que ayuden a estratificar pacientes y a comprender los mecanismos asociados a respuesta o resistencia. La transcriptómica permite estudiar de forma global la actividad génica del tumor y de su microambiente, por lo que resulta especialmente adecuada para explorar firmas relacionadas con presentación antigénica, señalización de interferón, infiltración inmune y otros procesos relevantes en inmunoterapia.
+
+El proyecto se plantea como un análisis bioinformático integrativo de datos públicos, combinando un bloque pronóstico basado en TCGA-SKCM y un bloque predictivo basado en cohortes GEO con datos de tratamiento y respuesta a inmunoterapia.
+
+\section{Objetivos del trabajo}
+
+\subsection{Objetivo general}
+
+Identificar y evaluar biomarcadores transcriptómicos asociados al pronóstico y a la respuesta a inmunoterapia en melanoma mediante análisis bioinformático reproducible de cohortes públicas.
+
+\subsection{Objetivos específicos}
+
+\begin{itemize}
+    \item Explorar la utilidad de TCGA-SKCM como cohorte pronóstica en melanoma.
+    \item Construir y documentar objetos de análisis reproducibles para cohortes GEO con datos transcriptómicos y respuesta a inmunoterapia.
+    \item Realizar un análisis principal de descubrimiento en GSE78220, cohorte tumoral RNA-seq tratada con anti-PD-1.
+    \item Validar la dirección y transferibilidad de los genes candidatos en cohortes independientes tumorales y de sangre.
+    \item Evaluar la consistencia de la señal en genes comunes entre plataformas, interpretando las limitaciones derivadas de RNA-seq y NanoString.
+    \item Documentar el flujo de trabajo mediante R Markdown, objetos SummarizedExperiment, tablas de resultados y repositorio GitHub.
+\end{itemize}
+
+\section{Impacto en sostenibilidad, ético-social y de diversidad}
+\label{s:etic}
+
+Este trabajo utiliza exclusivamente datos públicos y anonimizados procedentes de repositorios reconocidos, principalmente GEO y TCGA \cite{GEO,TCGA}. Por tanto, no implica contacto directo con pacientes ni tratamiento de datos identificativos. El impacto ético-social se relaciona principalmente con la reutilización responsable de datos biomédicos, la reproducibilidad del análisis y la interpretación prudente de resultados exploratorios.
+
+En relación con los Objetivos de Desarrollo Sostenible, el proyecto se alinea con el ODS 3 (salud y bienestar), al buscar biomarcadores que puedan contribuir a mejorar la selección de tratamientos en cáncer; con el ODS 9 (industria, innovación e infraestructura), por el desarrollo de un pipeline bioinformático reproducible; y con el ODS 17 (alianzas para lograr los objetivos), por basarse en ciencia abierta, datos públicos y herramientas de código abierto.
+
+Desde la perspectiva de género y diversidad, el análisis no excluye muestras por sexo. En TCGA-SKCM la variable sexo está disponible y se podrá considerar como covariable en los modelos pronósticos. En cambio, las cohortes GEO del bloque predictivo no disponen de información de sexo armonizada en las variables actualmente utilizadas, lo que se documenta como limitación.
+
+\section{Enfoque y método seguido}
+
+El enfoque inicial integraba varias cohortes GEO en un único objeto común. Tras revisar las limitaciones metodológicas, especialmente la restricción a genes presentes en paneles NanoString y la mezcla de tejido tumoral, sangre y tratamientos distintos, el análisis predictivo se reorganizó en una arquitectura de descubrimiento, validación y sensibilidad.
+
+La estrategia final separa el descubrimiento principal, realizado en GSE78220 por ser una cohorte tumoral RNA-seq anti-PD-1 con transcriptoma completo, de las validaciones en cohortes NanoString y de los análisis de sensibilidad en sangre. Esta decisión reduce el riesgo de mezclar mecanismos biológicos distintos y permite interpretar cada resultado en su contexto.
+
+\section{Planificación del trabajo}
+
+La planificación se ha adaptado a la evolución metodológica del proyecto. El bloque GEO se ha priorizado por su mayor complejidad técnica y biológica, mientras que el bloque TCGA se mantiene como análisis pronóstico paralelo. La memoria final integrará ambos bloques de forma diferenciada: pronóstico en TCGA-SKCM y predicción de respuesta en GEO.
+
+\section{Breve sumario de productos obtenidos}
+
+Hasta el momento se han generado objetos SummarizedExperiment por cohorte, informes HTML de exploración y análisis, tablas CSV de resultados, scripts R Markdown reproducibles y un repositorio GitHub actualizado:
+
+\begin{center}
+\url{https://github.com/Soniasalme/TFM_MELANOMA_INMUNOTERAPIA}
+\end{center}
+
+\section{Breve descripción de los otros capítulos}
+
+El capítulo 2 resume el estado del arte biológico y computacional. El capítulo 3 describe los datos y la metodología. El capítulo 4 presenta los resultados del bloque predictivo y la estructura prevista del bloque pronóstico. El capítulo 5 discute la interpretación biológica y las limitaciones. El capítulo 6 resume conclusiones, planificación y líneas futuras.
+
+\section{Declaración sobre el uso de inteligencia artificial generativa}
+
+Durante el desarrollo del trabajo se ha utilizado inteligencia artificial generativa como apoyo para organizar ideas, revisar redacción, estructurar documentos, depurar scripts y preparar borradores de explicación metodológica. La selección de datos, ejecución de análisis, interpretación científica y validación final de los resultados recaen íntegramente en la estudiante. Los contenidos generados con ayuda de IA han sido revisados críticamente y contrastados con los datos, scripts y recomendaciones de la tutora. Esta utilización se declara de forma explícita por transparencia académica y no sustituye la autoría ni la responsabilidad intelectual del trabajo.

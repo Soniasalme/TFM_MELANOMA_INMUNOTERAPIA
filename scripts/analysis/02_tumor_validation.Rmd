@@ -1,4 +1,4 @@
----
+﻿---
 title: "Validacion tumoral: GSE215868 anti-PD-1 y GSE211645 anti-CTLA-4"
 author: "TFM Melanoma Inmunoterapia"
 date: "`r Sys.Date()`"
@@ -96,7 +96,8 @@ derive_response <- function(response_raw, response_binary = NULL) {
   factor(response, levels = c("No_responder", "Responder"))
 }
 
-prepare_expression <- function(se_obj) {
+prepare_expression <- function(se_obj, transform = c("none", "log2")) {
+  transform <- match.arg(transform)
   assay_name <- if ("expr" %in% assayNames(se_obj)) "expr" else assayNames(se_obj)[1]
   expr <- assay(se_obj, assay_name)
   expr <- as.matrix(expr)
@@ -124,9 +125,16 @@ prepare_expression <- function(se_obj) {
   expr_mat <- as.matrix(expr_collapsed[, setdiff(colnames(expr_collapsed), "gene_symbol"), drop = FALSE])
   rownames(expr_mat) <- genes
 
-  # Los datos de GEO (NanoString y RNA-seq) están en escala lineal:
-  # se aplica log2(x+1) para estabilizar varianza y cumplir supuestos de limma.
-  expr_mat <- log2(expr_mat + 1)
+  # Las cohortes de validacion ya llegan como matrices normalizadas.
+  # No se retransforman salvo que transform = "log2" se pida explicitamente.
+  # Nota actualizada: en este informe se usa transform = "none" para no
+  # retransformar matrices NanoString/ExpressionSet ya normalizadas.
+  if (transform == "log2") {
+    if (any(expr_mat < 0, na.rm = TRUE)) {
+      stop("No se puede aplicar log2(x+1): la matriz contiene valores negativos.")
+    }
+    expr_mat <- log2(expr_mat + 1)
+  }
 
   na_genes <- rowSums(is.na(expr_mat)) > 0
   zero_var_genes <- matrixStats::rowVars(expr_mat, na.rm = TRUE) == 0
@@ -205,7 +213,7 @@ score_discovery_signature <- function(expr_matrix, discovery_results, top_n = 20
 validation_results <- lapply(names(se_list), function(dataset_name) {
   se_obj <- se_list[[dataset_name]]
   cd <- as.data.frame(colData(se_obj))
-  expr <- prepare_expression(se_obj)
+  expr <- prepare_expression(se_obj, transform = "none")
 
   response <- derive_response(cd$response_raw, cd$response_binary)
   keep_response <- !is.na(response)
@@ -312,7 +320,7 @@ if (nrow(signature_plot_df) > 0) {
 } else {
   cat(
     "No se genera grafico de score porque la firma de discovery no tiene ",
-    "suficientes genes solapados con los paneles de validacion tras aplicar log2(x+1). ",
+    "suficientes genes solapados con los paneles de validacion. ",
     "Esto se interpreta como limitacion de validacion por panel NanoString.\n"
   )
 }
@@ -350,3 +358,9 @@ if (!all(checks$estado)) {
 # Conclusion metodologica
 
 Este informe separa la validacion tecnica/biologica (`GSE215868`, anti-PD-1 NanoString) de la generalizacion a otro checkpoint (`GSE211645`, anti-CTLA-4). De este modo, los resultados de `GSE78220` no se mezclan directamente con plataformas y tratamientos distintos en la fase de descubrimiento.
+
+# Informacion de sesion
+
+```{r session_info}
+sessionInfo()
+```

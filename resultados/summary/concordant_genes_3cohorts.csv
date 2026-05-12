@@ -1,5 +1,5 @@
 "Gen","Concordancia","logFC GSE78220","P GSE78220","logFC GSE215868","P GSE215868","logFC GSE211645","P GSE211645","En discovery"
-"VCAN","Down en todas",-1.789,0.00856,-0.363,0.123,-0.017,0.971,"-"
+"VCAN","Down en todas",-1.789,0.00856,-0.363,0.123,-0.017,0.971,"Top100"
 "VCAM1","Down en todas",-0.614,0.228,-0.037,0.876,-0.216,0.561,"-"
 "GNG4","Down en todas",-0.531,0.252,-0.06,0.76,-0.277,0.623,"-"
 "CXCL14","Down en todas",-0.529,0.565,-0.387,0.45,-0.349,0.69,"-"

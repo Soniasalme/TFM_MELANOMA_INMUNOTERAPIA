@@ -51,6 +51,13 @@ discovery_dea  <- read.csv(file.path(project_root, "resultados", "discovery_GSE7
                                       "GSE78220_DEA_limma_response.csv"))
 loocv_summary  <- read.csv(file.path(project_root, "resultados", "discovery_GSE78220",
                                       "GSE78220_LOOCV_signature_summary.csv"))
+qc_path <- file.path(project_root, "resultados", "discovery_GSE78220",
+                     "GSE78220_expression_QC_summary.csv")
+ora_path <- file.path(project_root, "resultados", "discovery_GSE78220",
+                      "GSE78220_ORA_GO_BP_nominal_combined.csv")
+
+discovery_qc <- if (file.exists(qc_path)) read.csv(qc_path) else tibble()
+discovery_ora <- if (file.exists(ora_path)) read.csv(ora_path) else tibble()
 
 # Validation
 val_summary    <- read.csv(file.path(project_root, "resultados", "validation_tumor",
@@ -130,6 +137,52 @@ cat(sprintf(
   n_nominal, n_fdr
 ))
 cat("Nota: con n=25 no se alcanzan genes significativos por FDR; los resultados de descubrimiento son hipotesis nominales.")
+```
+
+## Preprocesado y control de calidad
+
+```{r tabla_qc_discovery}
+if (nrow(discovery_qc) > 0) {
+  discovery_qc %>%
+    kable(
+      caption = "Tabla 2b. Control de calidad y filtrado aplicado a GSE78220",
+      align = "lr"
+    ) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+} else {
+  cat("La tabla de QC de GSE78220 aun no esta disponible. Recompila primero el informe 01.\n")
+}
+```
+
+## Enriquecimiento funcional exploratorio
+
+```{r tabla_enrichment_discovery}
+if (nrow(discovery_ora) > 0) {
+  discovery_ora %>%
+    group_by(direction) %>%
+    arrange(p.adjust, .by_group = TRUE) %>%
+    slice_head(n = 8) %>%
+    ungroup() %>%
+    mutate(
+      pvalue = signif(pvalue, 3),
+      p.adjust = signif(p.adjust, 3)
+    ) %>%
+    select(
+      Direccion = direction,
+      Termino_GO = Description,
+      GeneRatio,
+      Count,
+      pvalue,
+      FDR = p.adjust
+    ) %>%
+    kable(
+      caption = "Tabla 2c. Top terminos GO BP del enriquecimiento exploratorio en genes nominales",
+      align = "lllrrr"
+    ) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE, font_size = 12)
+} else {
+  cat("No hay terminos GO BP enriquecidos disponibles o el informe 01 aun no se ha recompilado.\n")
+}
 ```
 
 ## Modelo exploratorio LOOCV
@@ -257,13 +310,14 @@ blood_summary <- blood_sensitivity %>%
     Respondedores = n_responders,
     No_respondedores = n_non_responders,
     `Top N firma` = signature_top_n,
+    `Genes firma solapados` = n_signature_genes,
     `AUC firma discovery` = signature_auc,
     Interpretacion
   )
 
 kable(blood_summary,
       caption = "Tabla 6. Sensibilidad de la firma tumoral evaluada en sangre periferica",
-      align   = "llllrrrrrrl") %>%
+      align   = "llllrrrrrrrl") %>%
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 ```
 
@@ -464,11 +518,21 @@ resumen <- tribble(
   "Descubrimiento GSE78220 (n=25)",
     paste0(n_nominal, " genes nominalmente sig. (P<0.05, |logFC|>=0.5); 0 FDR (esperado con n=25); LOOCV AUC=",
            round(max(loocv_summary$auc), 3), " (top 5 genes)"),
+  "Enriquecimiento funcional GSE78220",
+    ifelse(nrow(discovery_ora) > 0,
+           paste0(nrow(discovery_ora), " terminos GO BP exploratorios asociados a genes nominales; interpretar como apoyo biologico, no como resultado confirmatorio"),
+           "Sin terminos GO BP enriquecidos disponibles o pendiente de recompilar informe 01"),
   "Validacion GSE215868 anti-PD-1 (n=105)",
-    paste0("4/50 genes discovery presentes en panel; 75% misma direccion; AUC firma=",
+    paste0(val_summary$n_top50_overlap[val_summary$dataset == "GSE215868"],
+           "/50 genes discovery presentes en panel; ",
+           round(val_summary$pct_same_direction[val_summary$dataset == "GSE215868"], 1),
+           "% misma direccion; AUC firma=",
            round(val_summary$signature_auc[val_summary$dataset == "GSE215868"], 3)),
   "Validacion GSE211645 anti-CTLA-4 (n=40)",
-    paste0("1/50 genes discovery en panel (AXL); 0% misma direccion (AXL discordante); AUC firma=",
+    paste0(val_summary$n_top50_overlap[val_summary$dataset == "GSE211645"],
+           "/50 genes discovery en panel; ",
+           round(val_summary$pct_same_direction[val_summary$dataset == "GSE211645"], 1),
+           "% misma direccion; AUC firma=",
            round(val_summary$signature_auc[val_summary$dataset == "GSE211645"], 3),
            "; limitacion: panel NanoString diferente"),
   "Sensibilidad sangre GSE91061/GSE94873",
@@ -503,3 +567,8 @@ write.csv(resumen,
 
 5. **Pendiente**: Integracion del bloque pronostico (TCGA-SKCM) y, si se considera necesario, un modelo predictivo formal con regularizacion.
 
+# Informacion de sesion
+
+```{r session_info}
+sessionInfo()
+```
