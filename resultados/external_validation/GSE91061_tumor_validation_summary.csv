@@ -1,2 +1,2 @@
 "dataset","tissue","platform","treatment","n_genes","n_samples","n_response_available","n_responders","n_non_responders","signature_top_n","n_signature_genes","signature_auc"
-"GSE94873","Blood","NanoString","Tremelimumab (anti-CTLA-4)",169,360,360,46,314,500,4,0.475076156189421
+"GSE91061","Tumor","RNA-seq","",22069,51,49,10,39,20,19,0.474358974358974

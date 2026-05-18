@@ -1,0 +1,2 @@
+"Dataset","Tejido","Plataforma","Tratamiento","Genes","Muestras","Muestras con respuesta","Respondedores","No_respondedores","Top N firma","Genes firma solapados","AUC firma discovery","Interpretacion"
+"GSE91061","Tumor","RNA-seq",NA,22069,51,49,10,39,20,19,0.474,"Validacion tumoral RNA-seq independiente; resultado exploratorio"

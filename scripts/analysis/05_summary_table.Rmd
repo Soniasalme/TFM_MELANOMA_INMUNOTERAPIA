@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Tabla resumen: Descubrimiento, Validacion y Consistencia"
 author: "TFM Melanoma Inmunoterapia"
 date: "`r Sys.Date()`"
@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width 
 
 # Objetivo
 
-Este informe consolida los resultados de los bloques de descubrimiento (01), validacion tumoral (02), sensibilidad en sangre (03) y consistencia integrada (04) en tablas y figuras resumidas para revision.
+Este informe consolida los resultados de los bloques de descubrimiento (01), validacion tumoral NanoString (02), validacion externa/sensibilidad periferica (03) y consistencia integrada (04) en tablas y figuras resumidas para revision.
 
 # Librerias
 
@@ -71,9 +71,11 @@ scores_215868  <- read.csv(file.path(project_root, "resultados", "validation_tum
 scores_211645  <- read.csv(file.path(project_root, "resultados", "validation_tumor",
                                       "GSE211645_signature_scores.csv"))
 
-# Blood
-blood_scores   <- read.csv(file.path(project_root, "resultados", "sensitivity_blood",
-                                      "GSE91061_blood_signature_scores.csv"))
+# Independent tumor RNA-seq validation and peripheral sensitivity
+gse91061_summary <- read.csv(file.path(project_root, "resultados", "external_validation",
+                                        "GSE91061_tumor_validation_summary.csv"))
+scores_91061 <- read.csv(file.path(project_root, "resultados", "external_validation",
+                                    "GSE91061_tumor_signature_scores.csv"))
 blood_sensitivity <- read.csv(file.path(project_root, "resultados", "sensitivity_blood",
                                         "blood_sensitivity_summary.csv"))
 
@@ -90,7 +92,7 @@ cohort_overview <- tribble(
   "Descubrimiento", "GSE78220",   "Tumor", "RNA-seq",    "anti-PD-1",    25,          14,               11,
   "Validacion 1",   "GSE215868",  "Tumor", "NanoString", "anti-PD-1",   105,          45,               59,
   "Validacion 2",   "GSE211645",  "Tumor", "NanoString", "anti-CTLA-4",  40,          12,               28,
-  "Sensibilidad",   "GSE91061",   "Sangre","RNA-seq",    "varios ICIs",  51,          10,               39,
+  "Validacion 3",   "GSE91061",   "Tumor", "RNA-seq",    "anti-PD-1",    51,          10,               39,
   "Sensibilidad",   "GSE94873",   "Sangre","NanoString", "anti-CTLA-4", 360,          46,              314
 )
 
@@ -285,20 +287,61 @@ ggplot(scores_all, aes(x = response, y = signature_score, color = response)) +
   theme(legend.position = "none")
 ```
 
-# Sensibilidad en sangre: GSE91061 y GSE94873
+# Validacion tumoral RNA-seq independiente: GSE91061
+
+```{r tabla_gse91061}
+gse91061_auc <- gse91061_summary$signature_auc[1]
+
+gse91061_table <- gse91061_summary %>%
+  mutate(
+    signature_auc = round(signature_auc, 3),
+    Interpretacion = "Validacion tumoral RNA-seq independiente; resultado exploratorio"
+  ) %>%
+  select(
+    Dataset = dataset,
+    Tejido = tissue,
+    Plataforma = platform,
+    Tratamiento = treatment,
+    Genes = n_genes,
+    Muestras = n_samples,
+    `Muestras con respuesta` = n_response_available,
+    Respondedores = n_responders,
+    No_respondedores = n_non_responders,
+    `Top N firma` = signature_top_n,
+    `Genes firma solapados` = n_signature_genes,
+    `AUC firma discovery` = signature_auc,
+    Interpretacion
+  )
+
+kable(gse91061_table,
+      caption = "Tabla 6. Validacion tumoral RNA-seq independiente en GSE91061",
+      align   = "llllrrrrrrrrl") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+```{r plot_gse91061}
+ggplot(scores_91061, aes(x = response_group, y = score, fill = response_group)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.12, alpha = 0.65, size = 1.4) +
+  labs(
+    title = "Firma GSE78220 evaluada en GSE91061",
+    subtitle = paste0("Cohorte tumoral RNA-seq anti-PD-1. AUC = ", round(gse91061_auc, 3)),
+    x = "Respuesta",
+    y = "Score de firma"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none")
+```
+
+# Sensibilidad en sangre: GSE94873
 
 ```{r tabla_blood}
-blood_auc <- blood_sensitivity$signature_auc[blood_sensitivity$dataset == "GSE91061"]
 blood_auc_94873 <- blood_sensitivity$signature_auc[blood_sensitivity$dataset == "GSE94873"]
 
 blood_summary <- blood_sensitivity %>%
   mutate(
     signature_auc = round(signature_auc, 3),
-    Interpretacion = case_when(
-      dataset == "GSE91061" ~ "Senal debil esperada: sangre RNA-seq, varios ICIs",
-      dataset == "GSE94873" ~ "Senal debil esperada: sangre NanoString, anti-CTLA-4",
-      TRUE ~ "Sensibilidad en sangre"
-    )
+    Interpretacion = "Sensibilidad periferica: sangre NanoString, anti-CTLA-4"
   ) %>%
   select(
     Dataset = dataset,
@@ -316,36 +359,36 @@ blood_summary <- blood_sensitivity %>%
   )
 
 kable(blood_summary,
-      caption = "Tabla 6. Sensibilidad de la firma tumoral evaluada en sangre periferica",
+      caption = "Tabla 7. Sensibilidad de la firma tumoral evaluada en sangre periferica",
       align   = "llllrrrrrrrl") %>%
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 ```
 
 ## Distancia metodologica respecto al discovery
 
-La señal baja en sangre es esperada y se puede interpretar directamente desde el diseño del estudio. La tabla siguiente cuantifica cuántas fuentes de variación separan cada cohorte de sangre de la cohorte de discovery:
+La senal baja en sangre es esperada y se interpreta desde el diseno del estudio. `GSE94873` acumula tres fuentes de distancia respecto a la cohorte de discovery:
 
 ```{r tabla_distancias}
 distancias <- tribble(
-  ~`Factor de distancia`,                          ~GSE91061, ~GSE94873,
-  "Tejido (tumor → sangre periférica)",            "Si",       "Si",
-  "Checkpoint distinto (anti-PD-1 → anti-CTLA-4)","No",       "Si",
-  "Plataforma distinta (RNA-seq → NanoString)",    "No",       "Si",
-  "N factores de distancia acumulados",            "1",        "3"
+  ~`Factor de distancia`,                          ~GSE94873,
+  "Tejido (tumor -> sangre periferica)",           "Si",
+  "Checkpoint distinto (anti-PD-1 -> anti-CTLA-4)","Si",
+  "Plataforma distinta (RNA-seq -> NanoString)",   "Si",
+  "N factores de distancia acumulados",            "3"
 )
 
 kable(distancias,
-      caption = "Tabla 7b. Distancia metodologica entre cada cohorte de sangre y el discovery (GSE78220)",
-      align   = "lcc") %>%
+      caption = "Tabla 7b. Distancia metodologica entre GSE94873 y el discovery (GSE78220)",
+      align   = "lc") %>%
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE) %>%
-  column_spec(1, width = "55%") %>%
-  column_spec(2:3, width = "15%", bold = FALSE) %>%
+  column_spec(1, width = "65%") %>%
+  column_spec(2, width = "20%") %>%
   row_spec(4, bold = TRUE, background = "#f5f5f5")
 ```
 
-La señal debil en GSE91061 (1 factor de distancia) y practicamente nula en GSE94873 (3 factores acumulados) es coherente con este gradiente: a mayor distancia metodologica respecto al contexto de discovery, menor transferibilidad esperada de la firma. Esto no es un resultado negativo, sino una confirmacion de que la firma es especifica del compartimento tumoral y del mecanismo anti-PD-1.
+La ausencia de senal clara en `GSE94873` no se interpreta como fallo de la firma, sino como evidencia de que su transferibilidad a sangre periferica y a otro checkpoint es limitada. `GSE91061` queda fuera de esta tabla porque no es sangre, sino una validacion tumoral RNA-seq independiente.
 
-# Consistencia multi-cohorte (200 genes comunes)
+# Consistencia multi-cohorte
 
 ## Concordancia global
 
@@ -499,6 +542,9 @@ write.csv(val_summary,
 write.csv(cohort_overview,
           file.path(output_dir, "cohort_overview.csv"),
           row.names = FALSE)
+write.csv(gse91061_table,
+          file.path(output_dir, "external_validation_gse91061_summary.csv"),
+          row.names = FALSE)
 write.csv(blood_summary,
           file.path(output_dir, "blood_sensitivity_summary.csv"),
           row.names = FALSE)
@@ -535,10 +581,12 @@ resumen <- tribble(
            "% misma direccion; AUC firma=",
            round(val_summary$signature_auc[val_summary$dataset == "GSE211645"], 3),
            "; limitacion: panel NanoString diferente"),
-  "Sensibilidad sangre GSE91061/GSE94873",
-    paste0("AUC firma tumoral en sangre: GSE91061=", round(blood_auc, 3),
-           "; GSE94873=", round(blood_auc_94873, 3),
-           ". Senal debil esperada dado que la firma es tumoral"),
+    "Validacion tumoral RNA-seq GSE91061",
+    paste0("AUC firma tumoral en GSE91061=", round(gse91061_auc, 3),
+           "; interpretacion exploratoria como cohorte tumoral RNA-seq independiente"),
+  "Sensibilidad sangre GSE94873",
+    paste0("AUC firma tumoral en sangre=", round(blood_auc_94873, 3),
+           ". Senal debil esperada por cambio de tejido, checkpoint y plataforma"),
   "Consistencia multi-cohorte (200 genes)",
     "69/200 genes concordantes en las 3 cohortes (61 Up, 8 Down); firma IFN-gamma/MHC-I (HLA-A/B/C/E/F, PSMB8, IFNGR1) consistentemente Up en respondedores en las 3 cohortes"
 )
@@ -557,13 +605,13 @@ write.csv(resumen,
 
 # Conclusiones metodologicas
 
-1. **Descubrimiento**: GSE78220 permite explorar el transcriptoma completo (>22.000 genes testados), pero con n=25 la potencia estadistica es insuficiente para alcanzar significacion FDR. Los genes nominales sirven como hipotesis para validacion.
+1. **Descubrimiento**: GSE78220 permite explorar el transcriptoma completo tras filtrado de baja expresion (14.549 genes testados), pero con n=25 la potencia estadistica es insuficiente para alcanzar significacion FDR. Los genes nominales sirven como hipotesis para validacion.
 
 2. **Validacion directa limitada por panel**: El solapamiento reducido entre genes de discovery y los paneles NanoString de validacion (~718 genes GSE215868, ~418 genes GSE211645) es una limitacion tecnica esperada, no un fallo biologico.
 
 3. **Consistencia multi-cohorte**: El analisis de 200 genes comunes entre las 3 cohortes tumorales revela una firma de activacion IFN-gamma / presentacion de antigeno (HLA-A/B/C/E/F, PSMB8, IFNGR1) consistentemente asociada con respuesta en las 3 cohortes y dos checkpoints distintos. Esta es la principal aportacion biologica del analisis.
 
-4. **Sensibilidad en sangre**: La señal debil en GSE91061 (AUC ~0.5) y GSE94873 (AUC ~0.48) es coherente con que la firma deriva de tumor, donde los mecanismos de escape inmune son distintos. GSE94873 además corresponde a sangre NanoString y anti-CTLA-4, por lo que se interpreta como sensibilidad periférica, no como validación directa anti-PD-1.
+4. **Sensibilidad en sangre**: GSE94873 corresponde a sangre NanoString y anti-CTLA-4; por tanto, su senal debil se interpreta como sensibilidad periferica exploratoria, no como validacion directa anti-PD-1. GSE91061 se reclasifica como validacion tumoral RNA-seq independiente.
 
 5. **Pendiente**: Integracion del bloque pronostico (TCGA-SKCM) y, si se considera necesario, un modelo predictivo formal con regularizacion.
 
