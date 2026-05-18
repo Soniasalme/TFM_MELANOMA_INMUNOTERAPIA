@@ -1,3 +1,2 @@
 "Dataset","Tejido","Plataforma","Tratamiento","Genes","Muestras","Respondedores","No_respondedores","Top N firma","Genes firma solapados","AUC firma discovery","Interpretacion"
-"GSE91061","Blood","RNA-seq","varios ICIs",22069,51,10,39,20,19,0.474,"Senal debil esperada: sangre RNA-seq, varios ICIs"
-"GSE94873","Blood","NanoString","Tremelimumab (anti-CTLA-4)",162,360,46,314,500,4,0.475,"Senal debil esperada: sangre NanoString, anti-CTLA-4"
+"GSE94873","Blood","NanoString","Tremelimumab (anti-CTLA-4)",169,360,46,314,500,4,0.475,"Sensibilidad periferica: sangre NanoString, anti-CTLA-4"

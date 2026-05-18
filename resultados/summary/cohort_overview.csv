@@ -2,5 +2,5 @@
 "Descubrimiento","GSE78220","Tumor","RNA-seq","anti-PD-1",25,14,11
 "Validacion 1","GSE215868","Tumor","NanoString","anti-PD-1",105,45,59
 "Validacion 2","GSE211645","Tumor","NanoString","anti-CTLA-4",40,12,28
-"Sensibilidad","GSE91061","Sangre","RNA-seq","varios ICIs",51,10,39
+"Validacion 3","GSE91061","Tumor","RNA-seq","anti-PD-1",51,10,39
 "Sensibilidad","GSE94873","Sangre","NanoString","anti-CTLA-4",360,46,314

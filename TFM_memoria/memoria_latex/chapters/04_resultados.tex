@@ -91,7 +91,7 @@ GSE211645 & 40 & 28/12 & 1 gen & --- & 0{,}390 \\
 
 \subsection{Validación tumoral RNA-seq independiente (GSE91061)}
 
-GSE91061 \cite{GSE91061,Riaz2017} (Riaz et al., 2017) es una cohorte tumoral RNA-seq de melanoma metastásico tratado con nivolumab (anti-PD-1). Contiene biopsias pre- y on-treatment de 109 muestras en total; el análisis se restringió a las 51 biopsias pretratamiento para comparabilidad con GSE78220. La firma de descubrimiento alcanzó AUC $= 0{,}474$ con 19 genes disponibles en el solapamiento entre cohortes. La ausencia de señal predictiva clara es coherente con las diferencias entre cohortes: distinto agente anti-PD-1 (nivolumab vs.\ pembrolizumab), heterogeneidad de líneas de tratamiento previas, y posibles diferencias en la definición de respuesta clínica. Este resultado se interpreta como validación exploratoria negativa, no como refutación de la firma.
+GSE91061 \cite{GSE91061,Riaz2017} (Riaz et al., 2017) es una cohorte tumoral RNA-seq de melanoma metastásico tratado con nivolumab (anti-PD-1). Contiene biopsias pre- y on-treatment de 109 muestras en total; el análisis se restringió a las 51 biopsias pretratamiento para comparabilidad con GSE78220. De estas, 49 muestras disponían de respuesta evaluable (39 no respondedores y 10 respondedores). La firma de descubrimiento alcanzó AUC $= 0{,}474$ con 19 genes disponibles en el solapamiento entre cohortes. La ausencia de señal predictiva clara es coherente con las diferencias entre cohortes: distinto agente anti-PD-1 (nivolumab vs.\ pembrolizumab), heterogeneidad de líneas de tratamiento previas, y posibles diferencias en la definición de respuesta clínica. Este resultado se interpreta como validación exploratoria negativa, no como refutación de la firma.
 
 \begin{table}[H]
 \centering
@@ -99,9 +99,9 @@ GSE91061 \cite{GSE91061,Riaz2017} (Riaz et al., 2017) es una cohorte tumoral RNA
 \label{tab:validacion_rnaseq}
 \begin{tabularx}{\textwidth}{l r r r r X}
 \toprule
-Cohorte & $n$ & NR/R & Genes firma & AUC & Consideraciones \\
+Cohorte & $n$ pre-tx & NR/R evaluables & Genes firma & AUC & Consideraciones \\
 \midrule
-GSE91061 & 51 & 39/10 & 19 & 0{,}474 & RNA-seq tumoral; nivolumab; pre-tx \\
+GSE91061 & 51 (49 evaluables) & 39/10 & 19 & 0{,}474 & RNA-seq tumoral; nivolumab; pre-tx \\
 \bottomrule
 \end{tabularx}
 \end{table}
