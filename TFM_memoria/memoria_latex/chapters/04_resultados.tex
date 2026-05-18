@@ -71,11 +71,13 @@ Los genes más altos en no respondedores están fuertemente enriquecidos en remo
 
 \section{Validación tumoral}
 
+\subsection{Validación tumoral NanoString (GSE215868, GSE211645)}
+
 La validación de los genes candidatos en las cohortes tumorales NanoString mostró solapamiento limitado, esperable por las diferencias de plataforma. En GSE215868 (105 muestras, NanoString, anti-PD-1), \textbf{6 de los top 50 genes} de descubrimiento estaban presentes en el panel y el 66{,}7\,\% mantuvo la misma dirección de efecto; la AUC de la firma fue de 0{,}547. En GSE211645 (40 muestras, NanoString, anti-CTLA-4), únicamente 1 gen solapó, por lo que se interpreta como generalización exploratoria a otro checkpoint y no como validación directa.
 
 \begin{table}[H]
 \centering
-\caption{Resumen de la validación tumoral. La firma se calculó con los top 100 genes de GSE78220 presentes en cada panel.}
+\caption{Resumen de la validación tumoral NanoString. La firma se calculó con los top 50 genes de GSE78220 presentes en cada panel.}
 \label{tab:validacion_tumoral}
 \begin{tabularx}{\textwidth}{l r r r r X}
 \toprule
@@ -87,20 +89,36 @@ GSE211645 & 40 & 28/12 & 1 gen & --- & 0{,}390 \\
 \end{tabularx}
 \end{table}
 
-\section{Sensibilidad en sangre}
+\subsection{Validación tumoral RNA-seq independiente (GSE91061)}
 
-La firma tumoral anti-PD-1 no mostró señal predictiva en sangre periférica. GSE91061 (51 muestras, RNA-seq, varios ICI) alcanzó AUC $= 0{,}474$ con 19 genes de la firma disponibles. GSE94873 (360 muestras, NanoString, anti-CTLA-4) alcanzó AUC $= 0{,}475$ con \textbf{solo 4 genes de firma con solapamiento} en el panel de 162 sondas; este resultado debe interpretarse con extrema prudencia: con únicamente 4 genes, el score de firma no puede considerarse una evaluación representativa de la firma original y el análisis tiene valor exclusivamente como sensibilidad exploratoria, no como validación formal. Ambos resultados son coherentes con la distancia biológica (tumor vs.\ sangre) y técnica (plataforma, checkpoint) entre las cohortes.
+GSE91061 \cite{GSE91061,Riaz2017} (Riaz et al., 2017) es una cohorte tumoral RNA-seq de melanoma metastásico tratado con nivolumab (anti-PD-1). Contiene biopsias pre- y on-treatment de 109 muestras en total; el análisis se restringió a las 51 biopsias pretratamiento para comparabilidad con GSE78220. La firma de descubrimiento alcanzó AUC $= 0{,}474$ con 19 genes disponibles en el solapamiento entre cohortes. La ausencia de señal predictiva clara es coherente con las diferencias entre cohortes: distinto agente anti-PD-1 (nivolumab vs.\ pembrolizumab), heterogeneidad de líneas de tratamiento previas, y posibles diferencias en la definición de respuesta clínica. Este resultado se interpreta como validación exploratoria negativa, no como refutación de la firma.
 
 \begin{table}[H]
 \centering
-\caption{Análisis de sensibilidad en sangre. NR: no respondedores; R: respondedores.}
+\caption{Validación tumoral RNA-seq en GSE91061. NR: no respondedores; R: respondedores.}
+\label{tab:validacion_rnaseq}
+\begin{tabularx}{\textwidth}{l r r r r X}
+\toprule
+Cohorte & $n$ & NR/R & Genes firma & AUC & Consideraciones \\
+\midrule
+GSE91061 & 51 & 39/10 & 19 & 0{,}474 & RNA-seq tumoral; nivolumab; pre-tx \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Sensibilidad en sangre periférica}
+
+La firma tumoral anti-PD-1 no mostró señal predictiva en sangre periférica. GSE94873 (360 muestras, NanoString, anti-CTLA-4, sangre total pretratamiento) alcanzó AUC $= 0{,}475$ con \textbf{solo 4 genes de firma con solapamiento} en el panel de 162 sondas; este resultado debe interpretarse con extrema prudencia: con únicamente 4 genes, el score de firma no puede considerarse una evaluación representativa de la firma original y el análisis tiene valor exclusivamente como sensibilidad exploratoria, no como validación formal. La ausencia de señal es coherente con la distancia biológica (firma tumoral vs.\ sangre periférica) y técnica (plataforma RNA-seq vs.\ NanoString, anti-PD-1 vs.\ anti-CTLA-4) entre las cohortes.
+
+\begin{table}[H]
+\centering
+\caption{Análisis de sensibilidad en sangre periférica. NR: no respondedores; R: respondedores.}
 \label{tab:sensibilidad_sangre}
 \begin{tabularx}{\textwidth}{l r r r r X}
 \toprule
 Cohorte & $n$ & NR/R & Genes firma & AUC & Distancia \\
 \midrule
-GSE91061 & 51 & 39/10 & 19 & 0{,}474 & Tumor→sangre; multi-ICI \\
-GSE94873 & 360 & 314/46 & 4 & 0{,}475 & Tumor→sangre; anti-CTLA-4; NanoString \\
+GSE94873 & 360 & 314/46 & 4 & 0{,}475 & Firma tumoral→sangre; anti-CTLA-4; NanoString \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -132,7 +150,7 @@ El bloque pronóstico se basa en TCGA-SKCM \cite{TCGA}, cohorte de referencia en
 
 \subsection{Descripción de la cohorte}
 
-La descarga mediante TCGAbiolinks proporcionó datos clínicos de 470 pacientes con 90 variables. Las variables de supervivencia se construyeron del siguiente modo: \texttt{OS\_event} = 1 si \texttt{vital\_status = Dead}, 0 si \texttt{vital\_status = Alive}; \texttt{OS\_time} se obtuvo de \texttt{days\_to\_death} en pacientes fallecidos y de \texttt{days\_to\_last\_follow\_up} en los censurados. Tras excluir casos con tiempo negativo o variables ausentes, el conjunto de datos válido para el análisis de supervivencia quedó integrado por 470 pacientes.
+La descarga mediante el paquete TCGAbiolinks \cite{Colaprico2016} proporcionó datos clínicos de 470 pacientes con 90 variables. Las variables de supervivencia se construyeron del siguiente modo: \texttt{OS\_event} = 1 si \texttt{vital\_status = Dead}, 0 si \texttt{vital\_status = Alive}; \texttt{OS\_time} se obtuvo de \texttt{days\_to\_death} en pacientes fallecidos y de \texttt{days\_to\_last\_follow\_up} en los censurados. Tras excluir casos con tiempo negativo o variables ausentes, el conjunto de datos válido para el análisis de supervivencia quedó integrado por 470 pacientes.
 
 \subsection{Curvas de Kaplan-Meier}
 
@@ -164,7 +182,7 @@ El análisis por sexo no mostró diferencias estadísticamente significativas me
 
 \subsection{Factores pronósticos clínicos: modelo Cox univariante}
 
-Se ajustaron modelos de Cox univariantes para edad, sexo y estadio AJCC (simplificado en cuatro grupos: I, II, III y IV). Los resultados se resumen en la Tabla~\ref{tab:cox_univariante_tcga}.
+Se ajustaron modelos de Cox univariantes para edad, sexo y estadio AJCC (simplificado en cuatro grupos: I, II, III y IV) utilizando el paquete \texttt{survival} \cite{Therneau2023}. Los resultados se resumen en la Tabla~\ref{tab:cox_univariante_tcga}.
 
 \begin{table}[H]
 \centering

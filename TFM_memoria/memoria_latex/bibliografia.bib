@@ -4,6 +4,63 @@
 
 % ── Paquetes y herramientas bioinformáticas ──────────────────
 
+@article{Colaprico2016,
+  author  = {Colaprico, Antonio and Silva, Tiago C. and Olsen, Catharina and Garofano, Ludmila and Cava, Claudia and Garolini, Davide and Sabedot, Thais S. and Malta, Tathiane M. and Pagnotta, Stefano M. and Castiglioni, Isabella and Ceccarelli, Michele and Bontempi, Gianluca and Noushmehr, Houtan},
+  title   = {{TCGAbiolinks}: an {R}/{Bioconductor} package for integrative analysis of {TCGA} data},
+  journal = {Nucleic Acids Research},
+  year    = {2016},
+  volume  = {44},
+  number  = {8},
+  pages   = {e71},
+  doi     = {10.1093/nar/gkv1507}
+}
+
+@article{Davis2007,
+  author  = {Davis, Sean and Meltzer, Paul S.},
+  title   = {{GEOquery}: a bridge between the {Gene Expression Omnibus} ({GEO}) and {BioConductor}},
+  journal = {Bioinformatics},
+  year    = {2007},
+  volume  = {23},
+  number  = {14},
+  pages   = {1846--1847},
+  doi     = {10.1093/bioinformatics/btm254}
+}
+
+@article{Robinson2010,
+  author  = {Robinson, Mark D. and McCarthy, Davis J. and Smyth, Gordon K.},
+  title   = {edgeR: a {Bioconductor} package for differential expression analysis of digital gene expression data},
+  journal = {Bioinformatics},
+  year    = {2010},
+  volume  = {26},
+  number  = {1},
+  pages   = {139--140},
+  doi     = {10.1093/bioinformatics/btp616}
+}
+
+@manual{OrgHsEgDb,
+  author  = {Carlson, Marc},
+  title   = {org.Hs.eg.db: Genome wide annotation for Human},
+  year    = {2023},
+  note    = {R package version 3.18.0. Bioconductor. \url{https://bioconductor.org/packages/org.Hs.eg.db}}
+}
+
+@manual{Therneau2023,
+  author  = {Therneau, Terry M.},
+  title   = {A Package for Survival Analysis in {R}},
+  year    = {2023},
+  note    = {R package version 3.5-7. \url{https://CRAN.R-project.org/package=survival}}
+}
+
+@article{Conesa2016,
+  author  = {Conesa, Ana and Madrigal, Pedro and Tarazona, Sonia and Gomez-Cabrero, David and Cervera, Alejandra and McPherson, Andrew and Szcześniak, Michał Wojciech and Gaffney, Daniel J. and Elo, Laura L. and Zhang, Xuegong and Mortazavi, Ali},
+  title   = {A survey of best practices for {RNA-seq} data analysis},
+  journal = {Genome Biology},
+  year    = {2016},
+  volume  = {17},
+  pages   = {13},
+  doi     = {10.1186/s13059-016-0881-8}
+}
+
 @article{clusterProfiler2012,
   author  = {Yu, Guangchuang and Wang, Li-Gen and Han, Yanyan and He, Qing-Yu},
   title   = {clusterProfiler: an {R} package for comparing biological themes among gene clusters},
@@ -73,11 +130,35 @@
   doi     = {10.3389/fgene.2020.578345}
 }
 
+% ── Publicaciones originales de cohortes ─────────────────────
+
+@article{Hugo2016,
+  author  = {Hugo, Willy and Zaretsky, Jesse M. and Sun, Lu and Song, Chunying and Moreno, Blanca Homet and Hu-Lieskovan, Siwen and Berent-Maoz, Beata and Pang, Jia and Chmielowski, Bartosz and Cherry, Grace and Seja, Elizabeth and Lomeli, Shirley and Kong, Xiangju and Kelley, Melissa C. and Sosman, Jeffrey A. and Johnson, Douglas B. and Ribas, Antoni and Lo, Roger S.},
+  title   = {Genomic and transcriptomic features of response to anti-{PD-1} therapy in metastatic melanoma},
+  journal = {Cell},
+  year    = {2016},
+  volume  = {165},
+  number  = {1},
+  pages   = {35--44},
+  doi     = {10.1016/j.cell.2016.02.065}
+}
+
+@article{Riaz2017,
+  author  = {Riaz, Nadeem and Havel, Jedd J. and Makarov, Vladimir and Desrichard, Alexis and Urba, Walter J. and Sims, Jennifer S. and Hodi, F. Stephen and Martín-Algarra, Salvador and Mandal, Rajarsi and Sharfman, William H. and Bhardwaj, Nina and Jure-Kunkel, Maria and Gnjatic, Sacha and Bhatt, Darshan and Chalouni, Celine and Raber, Petra L. and Gettinger, Scott N. and Puzanov, Igor and Ott, Patrick A. and Chan, Timothy A. and others},
+  title   = {Tumor and microenvironment evolution during immunotherapy with nivolumab},
+  journal = {Cell},
+  year    = {2017},
+  volume  = {171},
+  number  = {4},
+  pages   = {934--949},
+  doi     = {10.1016/j.cell.2017.09.028}
+}
+
 % ── Cohortes GEO (accesiones) ────────────────────────────────
 
 @misc{GSE78220,
   author       = {{Gene Expression Omnibus}},
-  title        = {{GSE78220} -- Genomic and transcriptomic features of response to anti-{PD-1} therapy in metastatic melanoma},
+  title        = {{GSE78220} -- Genomic and transcriptomic features of response to anti-{PD-1} therapy in metastatic melanoma ({Hugo} et al., 2016)},
   howpublished = {\url{https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE78220}},
   note         = {Accedido: mayo de 2026}
 }
@@ -98,7 +179,7 @@
 
 @misc{GSE91061,
   author       = {{Gene Expression Omnibus}},
-  title        = {{GSE91061} -- Blood transcriptomics in melanoma patients treated with immune checkpoint inhibitors},
+  title        = {{GSE91061} -- Tumor and microenvironment evolution during immunotherapy with nivolumab in metastatic melanoma ({Riaz} et al., 2017)},
   howpublished = {\url{https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE91061}},
   note         = {Accedido: mayo de 2026}
 }

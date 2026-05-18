@@ -16,11 +16,15 @@ Los genes con mayor expresión en \textbf{respondedores}, aunque con menor magni
 
 Esta dicotomía estromal--inmune es biológicamente coherente y complementa la señal de activación inmune (MHC-I, IFN-$\gamma$) identificada en el análisis de consistencia multi-cohorte. Juntas sugieren que la respuesta a inmunoterapia en melanoma está modulada por la interacción entre el infiltrado inmune y el compartimento estromal.
 
-\subsection{Validación en NanoString y sangre}
+\subsection{Validación en NanoString, RNA-seq independiente y sangre periférica}
 
 La ausencia de genes significativos tras FDR en GSE78220 debe interpretarse con cautela y no como ausencia de señal biológica. El tamaño muestral reducido ($n=25$) limita la potencia estadística al testar 14.549 genes. Por ello, los genes nominales se utilizan como candidatos exploratorios.
 
-La validación en NanoString está condicionada por el diseño de panel. En GSE215868, 6 de los top 50 genes solapan (AUC firma $= 0{,}547$), con 66{,}7\,\% de concordancia de dirección, una señal débil pero coherente con la hipótesis de descubrimiento. GSE211645 (anti-CTLA-4) solo aportó 1 gen solapado, lo que lo convierte en una generalización exploratoria a otro checkpoint y no en una validación directa. La falta de transferencia de la firma a sangre periférica (AUC $\approx 0{,}47$--$0{,}48$ en GSE91061 y GSE94873) es coherente con la distancia biológica y técnica entre las cohortes, y con el limitado solapamiento génico impuesto por los paneles NanoString de sangre (solo 4 genes de firma disponibles en GSE94873).
+La validación en NanoString está condicionada por el diseño de panel. En GSE215868, 6 de los top 50 genes solapan (AUC firma $= 0{,}547$), con 66{,}7\,\% de concordancia de dirección, una señal débil pero coherente con la hipótesis de descubrimiento. GSE211645 (anti-CTLA-4) solo aportó 1 gen solapado, lo que lo convierte en una generalización exploratoria a otro checkpoint y no en una validación directa.
+
+GSE91061 \cite{Riaz2017} es una cohorte tumoral RNA-seq de nivolumab (Riaz et al., 2017), no una cohorte de sangre como se clasificó erróneamente en una versión anterior del análisis. El GEO y la publicación original describen explícitamente biopsias tumorales pre- y on-treatment. Reclasificada correctamente como validación tumoral RNA-seq independiente, el AUC $= 0{,}474$ con 19 genes solapados refleja principalmente la distancia entre cohortes (agente anti-PD-1 diferente, múltiples líneas previas, mezcla de tiempos de biopsia) más que una ausencia de señal biológica real. Este resultado es informativo como control de transferibilidad entre cohortes RNA-seq anti-PD-1.
+
+La falta de transferencia de la firma a sangre periférica (AUC $= 0{,}475$ en GSE94873 con solo 4 genes solapados) es coherente con la distancia biológica (firma tumoral aplicada a sangre total) y técnica (anti-CTLA-4, plataforma NanoString de 162 genes). Este análisis tiene valor exclusivamente como exploración de sensibilidad periférica, y el script \texttt{03\_blood\_sensitivity.Rmd} deberá actualizarse para reflejar la reclasificación de GSE91061 como cohorte tumoral en el análisis definitivo de la PEC4.
 
 \section{Bloque pronóstico TCGA-SKCM}
 

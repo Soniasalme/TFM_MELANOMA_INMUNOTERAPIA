@@ -8,32 +8,32 @@ El proyecto se organiza en dos bloques. El primero es un bloque pronóstico basa
 
 \begin{table}[H]
 \centering
-\caption{Cohortes GEO utilizadas en el bloque predictivo. Los tratamientos anti-PD-1 incluyen pembrolizumab y nivolumab \cite{Hamid2013,Robert2014}; el tratamiento anti-CTLA-4 es tremelimumab (análogo a ipilimumab) \cite{Schadendorf2015,Lebbe2014}.}
+\caption{Cohortes GEO utilizadas en el bloque predictivo. Los tratamientos anti-PD-1 incluyen pembrolizumab \cite{Hamid2013,Robert2014} (GSE78220, GSE215868) y nivolumab \cite{Riaz2017} (GSE91061); el tratamiento anti-CTLA-4 es tremelimumab (análogo a ipilimumab) \cite{Schadendorf2015,Lebbe2014}.}
 \label{tab:cohortes_geo}
 \begin{tabularx}{\textwidth}{l l l l l}
 \toprule
 Cohorte & Tejido & Plataforma & Tratamiento & Rol \\
 \midrule
-GSE78220 \cite{GSE78220}   & Tumor       & RNA-seq    & anti-PD-1                & Descubrimiento \\
-GSE215868 \cite{GSE215868} & Tumor       & NanoString & anti-PD-1                & Validación tumoral \\
-GSE211645 \cite{GSE211645} & Tumor       & NanoString & anti-CTLA-4              & Validación exploratoria \\
-GSE91061 \cite{GSE91061}   & Sangre/PBMC & RNA-seq    & varios ICI               & Sensibilidad \\
-GSE94873 \cite{GSE94873}   & Sangre      & NanoString & tremelimumab (anti-CTLA-4) & Sensibilidad \\
+GSE78220 \cite{GSE78220,Hugo2016}   & Tumor  & RNA-seq    & anti-PD-1 (pembrolizumab) & Descubrimiento \\
+GSE215868 \cite{GSE215868}          & Tumor  & NanoString & anti-PD-1                 & Validación tumoral NanoString \\
+GSE211645 \cite{GSE211645}          & Tumor  & NanoString & anti-CTLA-4               & Validación exploratoria \\
+GSE91061 \cite{GSE91061,Riaz2017}   & Tumor  & RNA-seq    & anti-PD-1 (nivolumab)     & Validación tumoral RNA-seq \\
+GSE94873 \cite{GSE94873}            & Sangre & NanoString & anti-CTLA-4 (tremelimumab) & Sensibilidad periférica \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 \section{Preprocesamiento y objetos de análisis}
 
-Para cada cohorte se construyó un objeto SummarizedExperiment con matriz de expresión, metadatos clínicos y anotación génica. Se verificó la coherencia entre columnas de la matriz y filas del colData, se recodificó la variable de respuesta binaria y se documentaron las muestras pretratamiento. En GSE78220 se aplicó transformación log2(expr + 1) antes del análisis diferencial.
+Los datos de cada cohorte GEO se obtuvieron mediante el paquete GEOquery \cite{Davis2007} y se estructuraron en objetos SummarizedExperiment con matriz de expresión, metadatos clínicos y anotación génica. Se verificó la coherencia entre columnas de la matriz y filas del colData, se recodificó la variable de respuesta binaria y se documentaron las muestras pretratamiento. En GSE78220 se aplicó transformación log2(expr + 1) antes del análisis diferencial.
 
 \section{Verificación de escala y preprocesamiento por cohorte}
 
-Antes del análisis diferencial se verificó explícitamente la escala de cada cohorte para evitar dobles transformaciones. GSE78220 contiene valores FPKM en escala lineal (rango 0--8\,M), por lo que se aplica $\log_2(\text{FPKM}+1)$ antes del modelo \textit{limma}. Las cohortes de validación (GSE215868, GSE211645) y de sensibilidad (GSE91061 en escala RLD, GSE94873 en NanoString normalizado) ya están en escala razonablemente normalizada y pueden contener valores negativos, por lo que \textbf{no} se les aplica ninguna transformación logarítmica adicional. En GSE78220 se realizó además un filtrado de baja expresión: se retienen únicamente los genes con FPKM $\geq 1$ en al menos el 20\,\% de las muestras (mínimo 5), lo que reduce el espacio de genes de 25.268 a 14.549. Este criterio está inspirado en el uso de \texttt{filterByExpr} de edgeR en datos de recuentos crudos, adaptado aquí a la escala FPKM al no disponer de recuentos originales.
+Antes del análisis diferencial se verificó explícitamente la escala de cada cohorte para evitar dobles transformaciones. GSE78220 contiene valores FPKM en escala lineal (rango 0--8\,M), por lo que se aplica $\log_2(\text{FPKM}+1)$ antes del modelo \textit{limma}. Las cohortes de validación tumoral NanoString (GSE215868, GSE211645), la cohorte de validación tumoral RNA-seq (GSE91061, en escala RLD normalizada por DESeq2) y la cohorte de sensibilidad periférica (GSE94873, en NanoString normalizado) ya están en escala razonablemente normalizada y pueden contener valores negativos, por lo que \textbf{no} se les aplica ninguna transformación logarítmica adicional. En GSE78220 se realizó además un filtrado de baja expresión: se retienen únicamente los genes con FPKM $\geq 1$ en al menos el 20\,\% de las muestras (mínimo 5), lo que reduce el espacio de genes de 25.268 a 14.549. Este criterio está inspirado en el uso de \texttt{filterByExpr} de edgeR \cite{Robinson2010} en datos de recuentos crudos, adaptado aquí a la escala FPKM al no disponer de recuentos originales.
 
 \section{Control de calidad previo al análisis diferencial}
 
-Para cada cohorte se generaron gráficos de control de calidad: boxplot de la distribución de expresión por muestra y análisis de componentes principales (PCA) coloreado por respuesta, siguiendo el estándar de las prácticas de análisis de datos ómicos \cite{Lawrence2013}. La homogeneidad de las distribuciones y la ausencia de muestras atípicas se verificaron antes de proceder al análisis diferencial. Los resultados del PCA y las puntuaciones por muestra se exportaron como ficheros CSV para trazabilidad. Al final de cada informe se incluye \texttt{sessionInfo()} para garantizar la reproducibilidad computacional.
+Para cada cohorte se generaron gráficos de control de calidad: boxplot de la distribución de expresión por muestra y análisis de componentes principales (PCA) coloreado por respuesta, siguiendo las recomendaciones de buenas prácticas en el análisis de datos RNA-seq \cite{Conesa2016}. La homogeneidad de las distribuciones y la ausencia de muestras atípicas se verificaron antes de proceder al análisis diferencial. Los resultados del PCA y las puntuaciones por muestra se exportaron como ficheros CSV para trazabilidad. Al final de cada informe se incluye \texttt{sessionInfo()} para garantizar la reproducibilidad computacional.
 
 \section{Análisis diferencial}
 
@@ -45,11 +45,11 @@ Se construyó un score de firma basado en genes seleccionados dentro de cada ite
 
 \section{Validación, sensibilidad y consistencia}
 
-GSE215868 \cite{GSE215868} se utilizó como validación tumoral anti-PD-1 en plataforma NanoString. GSE211645 \cite{GSE211645} se trató como validación exploratoria en otro checkpoint, no como validación directa de anti-PD-1. GSE91061 \cite{GSE91061} y GSE94873 \cite{GSE94873} se analizaron como sensibilidad en sangre. Finalmente, el dataset integrado tumoral de 200 genes comunes se conservó para evaluar consistencia de dirección de efecto entre cohortes.
+GSE215868 \cite{GSE215868} se utilizó como validación tumoral anti-PD-1 en plataforma NanoString. GSE211645 \cite{GSE211645} se trató como validación exploratoria ante otro checkpoint (anti-CTLA-4), no como validación directa de anti-PD-1. GSE91061 \cite{GSE91061,Riaz2017}, cohorte tumoral RNA-seq de nivolumab (Riaz et al., 2017), se analizó como validación tumoral RNA-seq independiente; dado que contiene biopsias pre- y on-treatment de múltiples líneas, los resultados se interpretan con cautela respecto a la cohorte de descubrimiento (pembrolizumab pretratamiento). GSE94873 \cite{GSE94873} se analizó como sensibilidad en sangre periférica. Finalmente, el dataset integrado tumoral de 200 genes comunes se conservó para evaluar consistencia de dirección de efecto entre cohortes.
 
 \section{Anotación funcional y análisis de sobrerrepresentación}
 
-Una vez identificados los genes asociados a la supervivencia mediante el screening Cox, se realiza su anotación funcional en dos pasos. Primero, los identificadores Ensembl (formato de salida de TCGA-RNA-seq) se convierten a símbolo génico y Entrez ID mediante el paquete de Bioconductor \texttt{org.Hs.eg.db} \cite{Lawrence2013}, eliminando previamente el número de versión del identificador (e.g., \texttt{ENSG00000162645.13} $\to$ \texttt{ENSG00000162645}). Segundo, se aplica un análisis de sobrerrepresentación (ORA, \textit{Over-Representation Analysis}) sobre los genes con FDR $< 0{,}05$, separando genes protectores (HR $< 1$) y genes de riesgo (HR $> 1$). El ORA se ejecuta sobre la ontología GO-BP (\textit{Gene Ontology, Biological Process}) mediante la función \texttt{enrichGO} de \texttt{clusterProfiler} \cite{clusterProfiler2012}, con el universo de genes testados como referencia y corrección de Benjamini-Hochberg. Este paso proporciona la base funcional para la interpretación biológica de la firma transcriptómica pronóstica.
+Una vez identificados los genes asociados a la supervivencia mediante el screening Cox, se realiza su anotación funcional en dos pasos. Primero, los identificadores Ensembl (formato de salida de TCGA-RNA-seq) se convierten a símbolo génico y Entrez ID mediante el paquete de Bioconductor \texttt{org.Hs.eg.db} \cite{OrgHsEgDb}, eliminando previamente el número de versión del identificador (e.g., \texttt{ENSG00000162645.13} $\to$ \texttt{ENSG00000162645}). Segundo, se aplica un análisis de sobrerrepresentación (ORA, \textit{Over-Representation Analysis}) sobre los genes con FDR $< 0{,}05$, separando genes protectores (HR $< 1$) y genes de riesgo (HR $> 1$). El ORA se ejecuta sobre la ontología GO-BP (\textit{Gene Ontology, Biological Process}) mediante la función \texttt{enrichGO} de \texttt{clusterProfiler} \cite{clusterProfiler2012}, con el universo de genes testados como referencia y corrección de Benjamini-Hochberg. Este paso proporciona la base funcional para la interpretación biológica de la firma transcriptómica pronóstica.
 
 \section{Reproducibilidad}
 
