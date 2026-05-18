@@ -25,7 +25,8 @@ Tras la ultima recomendacion de la tutora, el enfoque se esta refinando hacia un
 - Analisis principal: `GSE78220`, tumor, RNA-seq, anti-PD-1.
 - Validacion 1: `GSE215868`, tumor, NanoString, anti-PD-1.
 - Validacion 2: `GSE211645`, tumor, NanoString, anti-CTLA-4.
-- Sensibilidad en sangre: `GSE91061` y `GSE94873`.
+- Validación tumoral RNA-seq independiente: `GSE91061`.
+- Sensibilidad en sangre: `GSE94873`.
 - Integracion multi-cohorte: analisis exploratorio/de consistencia limitado a genes comunes.
 
 La nota completa esta en:
@@ -47,10 +48,9 @@ Implementacion actual:
 - `GSE78220`: tumor, RNA-seq, anti-PD-1.
 - `GSE215868`: tumor, NanoString, anti-PD-1.
 - `GSE211645`: tumor, NanoString, anti-CTLA-4.
+- `GSE91061`: tumor, RNA-seq, nivolumab anti-PD-1.
 
 ### Sangre
-
-- `GSE91061`: sangre/PBMC, RNA-seq, inmunoterapia.
 
 - `GSE94873`: sangre, NanoString, tremelimumab anti-CTLA-4.
 
@@ -116,7 +116,7 @@ Esa separacion ya queda iniciada en `scripts/analysis/`:
 - `GSE78220`: descubrimiento principal RNA-seq anti-PD-1.
 - `GSE215868`: validacion NanoString anti-PD-1.
 - `GSE211645`: generalizacion a anti-CTLA-4.
-- `GSE91061`: sensibilidad en sangre.
+- `GSE91061`: validación tumoral RNA-seq independiente.
 - `GSE94873`: sensibilidad en sangre NanoString anti-CTLA-4.
 - `Dataset integrado tumoral`: consistencia exploratoria en 200 genes comunes.
 
