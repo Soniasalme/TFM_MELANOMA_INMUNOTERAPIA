@@ -2,18 +2,44 @@
 
 \section{Conclusiones}
 
-El trabajo ha permitido construir un flujo reproducible para analizar biomarcadores transcriptómicos en melanoma a partir de cohortes públicas. La principal decisión metodológica ha sido separar el análisis predictivo en descubrimiento, validación y sensibilidad, evitando mezclar tejidos, plataformas y checkpoints en un único análisis principal.
+\subsection{Diseño metodológico}
 
-Los resultados iniciales identifican una señal biológicamente coherente relacionada con presentación antigénica MHC-I y respuesta a IFN-gamma. Sin embargo, el tamaño muestral y la heterogeneidad de plataformas obligan a interpretar los hallazgos como exploratorios.
+El trabajo ha construido un flujo de análisis bioinformático reproducible y auditado para identificar biomarcadores transcriptómicos en melanoma a partir de datos públicos. La decisión central de separar el bloque predictivo GEO en roles diferenciados ---descubrimiento (GSE78220), validación tumoral NanoString (GSE215868, GSE211645), validación tumoral RNA-seq independiente (GSE91061) y sensibilidad periférica (GSE94873)--- ha demostrado ser la opción metodológicamente más rigurosa. Al mantener una sola cohorte de descubrimiento y evaluar las cohortes de validación únicamente mediante solapamiento génico y concordancia de dirección ---sin reutilizar sus datos para reentrenar el modelo--- se evita la sobrestimación del rendimiento predictivo que introduciría la mezcla de cohortes.
 
-\section{Líneas de futuro}
+\subsection{Bloque pronóstico TCGA-SKCM (OG1)}
 
-Las siguientes líneas de trabajo consisten en consolidar el bloque pronóstico TCGA-SKCM, completar la discusión con bibliografía específica, generar figuras finales para la memoria y evaluar si procede incorporar modelos predictivos regularizados, como lasso o elastic net, manteniendo una validación interna estricta.
+El análisis de supervivencia en TCGA-SKCM ($n = 470$) confirma que la \textbf{edad al diagnóstico} y el \textbf{estadio AJCC} son los principales determinantes clínicos independientes del pronóstico en melanoma cutáneo. El efecto de la edad es continuo (HR $= 1{,}020$ por año; $p < 0{,}001$) y el estadio IV triplica el riesgo de muerte respecto al estadio I en el modelo multivariante (HR $= 2{,}993$; $p = 0{,}002$). El estadio II pierde significación estadística en el ajuste multivariante (HR $= 1{,}265$; $p = 0{,}257$), posiblemente por confusión con la distribución de edad entre estadios. El sexo no resultó un factor pronóstico independiente en esta cohorte.
+
+El screening transcriptómico gen a gen sobre 5.002 genes identificó \textbf{1.439 genes con FDR $< 0{,}05$} y \textbf{944 con FDR $< 0{,}01$}. El patrón es predominantemente protector (alta expresión asociada a mayor supervivencia). Los genes con menor FDR ---\textit{GBP2}, \textit{GBP4}, \textit{IL15}, \textit{KLRD1}, \textit{DDX60}, \textit{CCL8}--- forman una firma coherente del eje IFN-$\gamma$ y la inmunidad citotóxica. El análisis de sobrerrepresentación funcional (ORA GO-BP) confirma que los genes protectores están enriquecidos en respuesta a interferón, presentación antigénica mediada por MHC-I y activación de células NK y linfocitos T CD8$^+$. Este patrón es consistente con la hipótesis de que los melanomas con mayor infiltración inmune y señalización por IFN-$\gamma$ tienen mejor pronóstico global.
+
+\subsection{Bloque predictivo GEO (OG2)}
+
+En la cohorte de descubrimiento GSE78220 ($n = 25$, tumor, RNA-seq, anti-PD-1) no se identificaron genes con significación estadística tras corrección FDR, resultado esperable dada la potencia estadística limitada. Los \textbf{539 genes nominales} ($p < 0{,}05$) muestran un patrón funcional biológicamente coherente: los no respondedores presentan sobreexpresión de genes de remodelación de la matriz extracelular y angiogénesis (ECM organization, FDR $= 1{,}2\times10^{-22}$; 44 genes), mientras que los respondedores presentan mayor expresión en vías metabólicas mitocondriales. Este patrón reproduce la ``innate anti-PD-1 resistance signature'' (IPRES) descrita por Hugo et al.\ (2016) \cite{Hugo2016} en la misma cohorte, lo que refuerza la validez interna de los hallazgos pese a la ausencia de genes FDR-significativos.
+
+La firma exploratoria LOOCV alcanza su mejor rendimiento con 5 genes (AUC $= 0{,}853$), resultado que debe interpretarse exclusivamente como señal exploratoria con $n = 25$, sin trasladarse a estimaciones de rendimiento clínico. La validación en NanoString (GSE215868, $n = 105$) mostró solapamiento limitado por el diseño de panel (6/50 genes, 66{,}7\,\% de concordancia de dirección; AUC $= 0{,}547$), coherente con la hipótesis de descubrimiento pero insuficiente para validación formal. La firma no se transfirió a sangre periférica (GSE94873; AUC $= 0{,}475$ con solo 4 genes solapados), resultado esperable por la distancia biológica y técnica entre tejidos.
+
+\subsection{Convergencia entre bloques e implicación traslacional}
+
+La confluencia entre los hallazgos del bloque pronóstico y del bloque predictivo es el resultado más relevante del trabajo. En TCGA-SKCM, la alta expresión de genes del eje IFN-$\gamma$ (GBP2, GBP4, IL15, KLRD1) se asocia a mejor supervivencia con independencia del tratamiento. En el análisis de consistencia multi-cohorte GEO, los genes concordantemente sobreexpresados en respondedores en las tres cohortes tumorales incluyen HLA-A, HLA-B, HLA-C, HLA-E, HLA-F, PSMB8, IFNGR1 y STAT2 ---componentes directos de la maquinaria de presentación antigénica dependiente de IFN-$\gamma$. Esta convergencia sugiere que el perfil inmune tumoral (activación por IFN-$\gamma$, infiltración T/NK, MHC-I funcional) es un determinante transversal del comportamiento clínico del melanoma, tanto en términos de pronóstico basal como de respuesta a inhibidores de checkpoint.
+
+\subsection{Limitaciones}
+
+Las limitaciones principales del trabajo son: (1) el tamaño muestral de GSE78220 ($n = 25$) impide alcanzar significación estadística tras corrección por múltiples comparaciones y obliga a interpretar todos los resultados del bloque predictivo como exploratorios; (2) la heterogeneidad de plataformas entre cohortes (RNA-seq vs.\ NanoString, tumor vs.\ sangre) limita la transferibilidad de la firma; (3) TCGA-SKCM incluye pacientes con y sin tratamiento sistémico, lo que introduce heterogeneidad en los tiempos de seguimiento y en la interpretación causal de la firma pronóstica; (4) el análisis se basa íntegramente en datos públicos previamente procesados, sin acceso a los datos crudos originales en todos los casos.
+
+\section{Líneas de trabajo futuro}
+
+\begin{itemize}
+  \item \textbf{Aumentar el poder estadístico del bloque predictivo} mediante meta-análisis de cohortes RNA-seq anti-PD-1 disponibles en GEO (GSE78220, GSE91061 y otras), o mediante modelos de efectos mixtos que integren la heterogeneidad inter-cohorte.
+  \item \textbf{Deconvolución celular del microambiente tumoral} en TCGA-SKCM mediante herramientas como CIBERSORT o xCell, para cuantificar la contribución de cada tipo celular (células T, NK, fibroblastos asociados al cáncer, células endoteliales) al perfil pronóstico identificado.
+  \item \textbf{Modelos predictivos regularizados} (LASSO, elastic net) sobre la cohorte de descubrimiento con validación cruzada estricta, para identificar un subconjunto de genes con mayor estabilidad predictiva que el modelo LOOCV exploratorio actual.
+  \item \textbf{Validación prospectiva} de la firma IFN-$\gamma$/MHC-I en cohortes con datos de respuesta a anti-PD-1 y seguimiento clínico completo, idealmente en melanoma en primera línea con acceso a biopsias basales.
+  \item \textbf{Integración multi-ómica}: combinar la firma transcriptómica con datos de carga mutacional tumoral (TMB) y perfil de neoantígenos para evaluar si la combinación mejora la predicción de respuesta respecto a cada marcador de forma aislada.
+\end{itemize}
 
 \section{Seguimiento de la planificación}
 
-La planificación inicial se ha modificado para responder a limitaciones metodológicas detectadas durante el desarrollo. El cambio principal ha sido reinterpretar el dataset integrado GEO como análisis exploratorio y priorizar el descubrimiento en GSE78220. Este cambio se considera necesario y adecuado, ya que mejora la coherencia biológica del diseño y responde a las recomendaciones de la tutora.
+La planificación inicial se ha ajustado para responder a limitaciones metodológicas detectadas durante el desarrollo. El cambio principal fue reinterpretar el dataset integrado GEO como análisis exploratorio de consistencia y priorizar el descubrimiento en GSE78220. Adicionalmente, GSE91061 fue reclasificado de cohorte de sangre periférica a cohorte tumoral RNA-seq independiente al verificar que Riaz et al.\ (2017) \cite{Riaz2017} describen biopsias tumorales. Ambos cambios mejoran la coherencia biológica del diseño y están debidamente documentados en el repositorio de control de versiones.
 
 \section{Evaluación de impactos ético-sociales, sostenibilidad y diversidad}
 
-Los impactos previstos en la sección \ref{s:etic} se han abordado mediante uso de datos públicos anonimizados, documentación reproducible, control de versiones y declaración explícita de limitaciones. La perspectiva de género se considera en TCGA mediante disponibilidad de sexo como covariable potencial, y se documenta la limitación de las cohortes GEO al no disponer de sexo armonizado.
+Los impactos previstos en la sección \ref{s:etic} se han abordado mediante el uso de datos públicos anonimizados, documentación reproducible en R Markdown, control de versiones en GitHub y declaración explícita de limitaciones metodológicas en cada análisis. La perspectiva de género se considera en el bloque TCGA mediante la disponibilidad de sexo como covariable en los modelos de supervivencia, y se documenta la limitación de las cohortes GEO al no disponer de información de sexo armonizada entre plataformas.
