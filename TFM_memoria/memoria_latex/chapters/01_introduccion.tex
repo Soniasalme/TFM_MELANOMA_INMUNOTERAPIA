@@ -42,7 +42,38 @@ La estrategia final separa el descubrimiento principal, realizado en GSE78220 po
 
 \section{Planificación del trabajo}
 
-La planificación se ha adaptado a la evolución metodológica del proyecto. El bloque GEO se ha priorizado por su mayor complejidad técnica y biológica, mientras que el bloque TCGA se mantiene como análisis pronóstico paralelo. La memoria integra ambos bloques de forma diferenciada: pronóstico en TCGA-SKCM y predicción de respuesta en GEO.
+La planificación se ha adaptado a la evolución metodológica del proyecto. El bloque GEO se ha priorizado por su mayor complejidad técnica y biológica, mientras que el bloque TCGA se mantiene como análisis pronóstico paralelo. La memoria integra ambos bloques de forma diferenciada: pronóstico en TCGA-SKCM y predicción de respuesta en GEO. La Tabla~\ref{tab:planificacion} muestra las fases del proyecto con sus tareas principales y el período de ejecución.
+
+\begin{table}[H]
+\centering
+\caption{Planificación del trabajo por fases.}
+\label{tab:planificacion}
+\begin{tabularx}{\textwidth}{l X l}
+\toprule
+\textbf{Fase} & \textbf{Tareas principales} & \textbf{Período} \\
+\midrule
+1. Revisión bibliográfica y diseño
+  & Estado del arte biológico y computacional. Definición de objetivos y selección de cohortes GEO y TCGA-SKCM.
+  & Sep.--Oct.\ 2025 \\
+\addlinespace
+2. Preprocesamiento y control de calidad
+  & Descarga de datos mediante GEOquery y TCGAbiolinks. Construcción de objetos SummarizedExperiment. Control de calidad (boxplot, PCA). Verificación de escalas y filtrado de baja expresión.
+  & Oct.--Nov.\ 2025 \\
+\addlinespace
+3. Bloque predictivo GEO
+  & Análisis de expresión diferencial (limma) en GSE78220. Validación en GSE215868 y GSE211645. Validación tumoral RNA-seq en GSE91061. Sensibilidad en sangre periférica (GSE94873). Consistencia multi-cohorte. Modelos LOOCV. Enriquecimiento funcional ORA GO-BP.
+  & Nov.\ 2025--Feb.\ 2026 \\
+\addlinespace
+4. Bloque pronóstico TCGA-SKCM
+  & Modelos de Cox univariantes y multivariante sobre variables clínicas. Screening transcriptómico gen a gen. Anotación funcional y ORA GO-BP con clusterProfiler.
+  & Ene.--Mar.\ 2026 \\
+\addlinespace
+5. Redacción e integración
+  & Elaboración de la memoria en \LaTeX. Discusión integrativa de ambos bloques. Revisión con tutora e incorporación de feedback. Control de versiones en GitHub.
+  & Mar.--May.\ 2026 \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 \section{Breve sumario de productos obtenidos}
 
