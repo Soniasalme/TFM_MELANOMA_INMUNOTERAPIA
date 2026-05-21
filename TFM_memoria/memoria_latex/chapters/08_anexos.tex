@@ -18,10 +18,33 @@ El código, informes HTML y resultados derivados se mantienen en el repositorio:
     \item \texttt{05\_summary\_table.html}: resumen de resultados.
 \end{itemize}
 
-\section{Aspectos pendientes de revisión final}
+\section{Estructura del repositorio}
 
-\begin{itemize}
-    \item Confirmar el campo \texttt{\textbackslash nomPRA\{\}} de la portada según las indicaciones de la asignatura.
-    \item Revisar con la tutora la interpretación final de GSE211645, GSE91061 y GSE94873.
-    \item Ajustar o exportar figuras finales en alta resolución si se requiere para la entrega definitiva.
-\end{itemize}
+El repositorio GitHub contiene el código, los resultados y la memoria organizados en las carpetas descritas en la Tabla~\ref{tab:repo}.
+
+\begin{table}[H]
+\centering
+\caption{Estructura principal del repositorio del proyecto.}
+\label{tab:repo}
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Carpeta} & \textbf{Contenido} \\
+\midrule
+\texttt{scripts/analysis/} & Scripts principales del bloque predictivo GEO (\texttt{01} a \texttt{05}): descubrimiento GSE78220, validaciones tumorales, sensibilidad periférica, consistencia multi-cohorte y tabla resumen. Incluye informes HTML. \\
+\addlinespace
+\texttt{scripts/GEO/} & Scripts de exploración y construcción de objetos SummarizedExperiment por cohorte: GSE78220, GSE215868, GSE211645, GSE91061 y GSE94873. \\
+\addlinespace
+\texttt{scripts/TCGA/} & Scripts del bloque pronóstico TCGA-SKCM (\texttt{01} a \texttt{12}): descarga de datos, análisis de supervivencia, modelos de Cox clínicos y transcriptómicos, Kaplan-Meier y enriquecimiento funcional. \\
+\addlinespace
+\texttt{scripts/integration/} & Scripts del análisis de integración multi-cohorte inicial (referencia histórica). \\
+\addlinespace
+\texttt{integrated\_dataset/} & Objetos y documentación del dataset integrado GEO construido durante la fase exploratoria inicial. \\
+\addlinespace
+\texttt{resultados/} & Tablas CSV de resultados organizadas por bloque: \texttt{discovery\_GSE78220/}, \texttt{validation\_tumor/}, \texttt{external\_validation/} (GSE91061), \texttt{sensitivity\_blood/} (GSE94873), \texttt{consistency\_integrated/} y \texttt{summary/}. \\
+\addlinespace
+\texttt{TFM\_memoria/memoria\_latex/figures/} & Figuras exportadas en alta resolución para la memoria. \\
+\addlinespace
+\texttt{TFM\_memoria/} & Memoria en \LaTeX{}: fichero principal \texttt{main.tex}, capítulos, bibliografía y PDF compilado. \\
+\bottomrule
+\end{tabularx}
+\end{table}
