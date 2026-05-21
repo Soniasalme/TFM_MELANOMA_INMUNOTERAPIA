@@ -392,9 +392,9 @@ All rights reserved. Reproduction in whole or in part of this work by any means 
 \begin{tabular}[t]{p{6.25cm}p{0.25cm}p{10.5cm}}
 \multicolumn{3}{c}{
 \cellcolor{lightblueUOC}{
-\begin{minipage}[t][7cm][t]{\textwidth}
+\begin{minipage}[t][7cm][c]{\textwidth}
 \vspace*{\fill}
-\Huge{\textbf{\@title}}
+{\raggedright\Huge\bfseries\hyphenpenalty=10000\exhyphenpenalty=10000\emergencystretch=2em\@title\par}
 \vspace*{\fill}
 \end{minipage}}}\\
 &&\\
@@ -411,7 +411,8 @@ All rights reserved. Reproduction in whole or in part of this work by any means 
 %  
 &&
 \cellcolor{greyUOC}{
-\begin{minipage}{\textwidth}
+\begin{minipage}{\linewidth}
+\raggedright
 \Large{\textcolor{darkblueUOC}{\textbf{\@author}}}
 
 \vspace*{1cm}
