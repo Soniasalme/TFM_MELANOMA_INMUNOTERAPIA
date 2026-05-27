@@ -1,127 +1,136 @@
-# TFM Melanoma e Inmunoterapia
+# Identificación de biomarcadores transcriptómicos pronósticos y predictivos de respuesta a inmunoterapia en melanoma
 
-Repositorio del Trabajo de Fin de Master de Sonia Salmeron sobre analisis transcriptomico en melanoma avanzado tratado con inmunoterapia.
+**Sonia Salmerón Fructuoso**  
+Máster Universitario en Bioinformática y Bioestadística · Universitat Oberta de Catalunya  
+Tutora: Dra. Teresa Torres Moral · Mayo de 2026
 
-El objetivo general es estudiar biomarcadores transcriptomicos asociados a respuesta a inmunoterapia, combinando exploracion de cohortes publicas GEO, construccion de objetos `SummarizedExperiment`, analisis de batch effect, analisis diferencial y modelos predictivos.
+---
 
-## Estado actual
+## Resumen
 
-El repositorio contiene:
+Este repositorio contiene el código, los resultados y la memoria del Trabajo de Fin de Máster. El proyecto desarrolla un análisis bioinformático integrativo para identificar biomarcadores transcriptómicos asociados al pronóstico y a la respuesta a inmunoterapia en melanoma avanzado, mediante datos públicos de GEO y TCGA.
 
-- Exploracion inicial de cohortes GEO.
-- Construccion de objetos `SummarizedExperiment` por cohorte.
-- Integracion inicial multi-cohorte.
-- Reconstruccion por bloques de tejido: tumor y sangre.
-- PCA pre-batch del bloque tumoral.
-- Correccion exploratoria de batch effect.
-- DEA respondedor vs no respondedor en el bloque tumoral integrado.
-- Informes HTML generados desde R Markdown.
-- Nueva reestructuracion descubrimiento/validacion implementada en `scripts/analysis/`.
+El trabajo se organiza en dos bloques independientes:
 
-## Ultima revision metodologica
+- **Bloque predictivo GEO** — arquitectura discovery · validación · sensibilidad sobre 5 cohortes de respuesta a inhibidores de checkpoint (anti-PD-1 / anti-CTLA-4)
+- **Bloque pronóstico TCGA-SKCM** — screening transcriptómico gen a gen (Cox) sobre 470 pacientes con supervivencia global como variable resultado
 
-Tras la ultima recomendacion de la tutora, el enfoque se esta refinando hacia un esquema de descubrimiento y validacion:
+Ambos bloques convergen en el **eje IFN-γ / MHC-I** como determinante transversal del comportamiento clínico del melanoma.
 
-- Analisis principal: `GSE78220`, tumor, RNA-seq, anti-PD-1.
-- Validacion 1: `GSE215868`, tumor, NanoString, anti-PD-1.
-- Validacion 2: `GSE211645`, tumor, NanoString, anti-CTLA-4.
-- Validación tumoral RNA-seq independiente: `GSE91061`.
-- Sensibilidad en sangre: `GSE94873`.
-- Integracion multi-cohorte: analisis exploratorio/de consistencia limitado a genes comunes.
+---
 
-La nota completa esta en:
+## Resultados principales
 
-`REVISION_TUTORA_2026-05-05.md`
+### Bloque predictivo GEO
 
-Implementacion actual:
+| Cohorte | n | Tejido | Plataforma | Tratamiento | AUC LOOCV | Rol |
+|---|---|---|---|---|---|---|
+| GSE78220 | 25 | Tumor | RNA-seq | Pembrolizumab | 0,853 (top 5 genes)* | Descubrimiento |
+| GSE215868 | 105 | Tumor | NanoString | Anti-PD-1 | 0,547 | Validación tumoral |
+| GSE211645 | 40 | Tumor | NanoString | Anti-CTLA-4 | 0,390 | Exploratoria |
+| GSE91061 | 49 | Tumor | RNA-seq | Nivolumab | 0,474 | Validación RNA-seq independiente |
+| GSE94873 | 360 | Sangre | NanoString | Tremelimumab | 0,475 | Sensibilidad periférica |
 
-1. `scripts/analysis/01_GSE78220_discovery.html`
-2. `scripts/analysis/02_tumor_validation.html`
-3. `scripts/analysis/03_blood_sensitivity.html`
-4. `scripts/analysis/04_consistency_integrated.html`
-5. `scripts/analysis/05_summary_table.html`
+\* Señal exploratoria; n = 25 impide alcanzar significación FDR. No trasladar a estimaciones de rendimiento clínico.
 
-## Cohortes incluidas en el trabajo actual
+**Análisis de consistencia multi-cohorte** (200 genes comunes entre 3 cohortes tumorales):
+- 61 genes sobreexpresados concordantemente en respondedores en las 3 cohortes
+- Genes destacados: **HLA-A/B/C/E/F · PSMB8 · IFNGR1 · STAT2 · SLAMF7 · ICAM1**
+- Señal convergente en presentación antigénica MHC-I y señalización IFN-γ
 
-### Tumor
+**ORA exploratorio en no respondedores (GSE78220):** Extracellular matrix organization (FDR = 1,2×10⁻²², 44 genes), Angiogenesis (FDR = 9,1×10⁻¹²) — reproduce el fenotipo IPRES (Hugo et al. 2016).
 
-- `GSE78220`: tumor, RNA-seq, anti-PD-1.
-- `GSE215868`: tumor, NanoString, anti-PD-1.
-- `GSE211645`: tumor, NanoString, anti-CTLA-4.
-- `GSE91061`: tumor, RNA-seq, nivolumab anti-PD-1.
+### Bloque pronóstico TCGA-SKCM (n = 470)
 
-### Sangre
+- Screening Cox gen a gen sobre **5.002 genes** (escala log-CPM)
+- **1.439 genes con FDR < 0,05** · 944 genes con FDR < 0,01
+- Patrón predominantemente **protector** (HR < 1): alta expresión asociada a mayor supervivencia
+- Top genes: **GBP2** (HR = 0,776, FDR = 2,1×10⁻⁷) · GBP4 · IL15 · GIMAP2 · DDX60 · KLRD1 · CCL8
+- ORA GO-BP (genes protectores): respuesta a IFN-γ, presentación antigénica MHC-I, activación NK/CD8⁺
 
-- `GSE94873`: sangre, NanoString, tremelimumab anti-CTLA-4.
+**Cox multivariante** (edad, sexo, estadio AJCC):  
+Edad: HR = 1,020 por año (p < 0,001) · Estadio III: HR = 1,819 (p = 0,002) · Estadio IV: HR = 2,993 (p = 0,002)
+
+---
 
 ## Estructura del repositorio
 
-```text
-2_TFM_MELANOMA/
-  integrated_dataset/
-  resultados/
-  scripts/
-    GEO/
-    integration/
-  figuras/
-  TFM_memoria/
+```
+TFM_MELANOMA_INMUNOTERAPIA/
+│
+├── scripts/
+│   ├── GEO/                  # Construcción de objetos SummarizedExperiment por cohorte
+│   ├── analysis/             # Análisis bloque GEO (scripts 01–05)
+│   │   ├── 01_GSE78220_discovery.Rmd        # Descubrimiento RNA-seq anti-PD-1
+│   │   ├── 02_tumor_validation.Rmd          # Validación tumoral NanoString
+│   │   ├── 03_blood_sensitivity.Rmd         # Sensibilidad sangre periférica
+│   │   ├── 04_consistency_integrated.Rmd    # Consistencia multi-cohorte
+│   │   └── 05_summary_table.Rmd             # Tabla resumen de resultados
+│   ├── TCGA/                 # Análisis bloque pronóstico (scripts 01–13)
+│   │   ├── 08_tcga_skcm_transcriptomics_corregido.Rmd  # Screening Cox transcriptómico
+│   │   └── 13_tcga_anotacion_ora.Rmd                   # ORA GO-BP
+│   └── integration/          # Integración multi-cohorte inicial (referencia histórica)
+│
+├── resultados/
+│   ├── discovery_GSE78220/   # DEA, LOOCV, ORA GSE78220
+│   ├── validation_tumor/     # Validación NanoString (GSE215868, GSE211645)
+│   ├── external_validation/  # Validación RNA-seq independiente (GSE91061)
+│   ├── sensitivity_blood/    # Sensibilidad sangre (GSE94873)
+│   ├── consistency_integrated/  # Análisis de consistencia 200 genes comunes
+│   └── summary/              # Tablas resumen globales
+│
+├── integrated_dataset/       # Dataset integrado GEO (fase exploratoria inicial)
+│
+└── TFM_memoria/
+    └── memoria_latex/        # Memoria en LaTeX (main.tex) + figuras
 ```
 
-## Informes centrales
+---
 
-Los informes mas importantes para revisar el estado actual son:
+## Reproducibilidad
 
-### Reestructuracion descubrimiento/validacion
+Todos los análisis están documentados en **R Markdown** compilados a HTML. Cada informe incluye `sessionInfo()` para trazabilidad de versiones de paquetes.
 
-1. `scripts/analysis/01_GSE78220_discovery.html`
-2. `scripts/analysis/02_tumor_validation.html`
-3. `scripts/analysis/03_blood_sensitivity.html`
-4. `scripts/analysis/04_consistency_integrated.html`
-5. `scripts/analysis/05_summary_table.html`
+Los datos se descargan directamente desde repositorios públicos:
+- GEO: paquete [`GEOquery`](https://bioconductor.org/packages/GEOquery/) (acceso mayo 2026)
+- TCGA: paquete [`TCGAbiolinks`](https://bioconductor.org/packages/TCGAbiolinks/) (acceso mayo 2026)
 
-### Integracion multi-cohorte previa
+Los resultados derivados (tablas CSV) se guardan en `resultados/` para permitir la revisión del análisis sin necesidad de reejecutar la descarga de datos.
 
-1. `scripts/integration/reconstruccion_GEO_tumor_blood_SummarizedExperiment_v4.html`
-2. `scripts/integration/exploracion_se_integrated_geo_por_bloques.html`
-3. `scripts/integration/pca_prebatch_GEO_tumor_v3.html`
-4. `scripts/integration/batch_correction_pca_postbatch_GEO_tumor.html`
-5. `scripts/integration/DEA_limma_GEO_tumor_response.html`
+### Paquetes principales
 
-Los `.Rmd` correspondientes estan en la misma carpeta.
+| Paquete | Versión | Uso |
+|---|---|---|
+| limma | ≥ 3.54 | Análisis diferencial (voom + lmFit + eBayes) |
+| survival | ≥ 3.5 | Modelos de Cox y curvas de Kaplan-Meier |
+| clusterProfiler | ≥ 4.6 | ORA sobre Gene Ontology (GO-BP) |
+| org.Hs.eg.db | ≥ 3.16 | Conversión Ensembl → Entrez ID |
+| SummarizedExperiment | ≥ 1.28 | Contenedor de datos ómicos |
+| GEOquery | ≥ 2.66 | Descarga de datos GEO |
+| TCGAbiolinks | ≥ 2.26 | Descarga de datos TCGA |
 
-## Datos y reproducibilidad
+---
 
-Los datos crudos de GEO y TCGA/GDC no se incluyen en GitHub porque son descargables, ocupan mucho espacio y son regenerables desde los R Markdown. Tampoco se versionan por defecto las matrices procesadas muy pesadas ni los objetos intermedios por cohorte, salvo algunos objetos clave seleccionados para facilitar la revision.
+## Referencia del diseño
 
-Se incluyen algunos objetos clave para facilitar la revision:
+El diseño discovery-validación-sensibilidad adoptado separa explícitamente las cohortes por tejido, plataforma y tipo de tratamiento para evitar la sobrestimación del rendimiento predictivo. Esta arquitectura es coherente con las recomendaciones metodológicas de la literatura para análisis multi-cohorte en oncología.
 
-- `integrated_dataset/se_integrated_geo_tumor.rds`
-- `integrated_dataset/se_integrated_geo_blood_sensitivity.rds`
-- `integrated_dataset/se_integrated_initial_geo.rds`
-- `resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds`
+**Referencias clave:**
+- Hugo et al. (2016) *Cell* 165:35–44 — GSE78220; descripción del fenotipo IPRES
+- Zaretsky et al. (2016) *NEJM* 375:819–829 — Mutaciones JAK1/JAK2 y resistencia a pembrolizumab
+- Riaz et al. (2017) *Cell* 171:934–949 — GSE91061; biopsias pre/on-treatment con nivolumab
 
-## Resultados actuales
+---
 
-El DEA integrado tumoral previo no identifica genes significativos tras correccion FDR, lo que es coherente con:
+## Cita
 
-- tamano muestral limitado,
-- heterogeneidad entre cohortes,
-- mezcla de plataformas,
-- restriccion a genes comunes con paneles NanoString.
+```
+Salmerón Fructuoso, S. (2026). Identificación de biomarcadores transcriptómicos pronósticos 
+y predictivos de respuesta a inmunoterapia en melanoma mediante análisis bioinformático 
+integrativo. TFM, Máster en Bioinformática y Bioestadística, UOC.
+https://github.com/Soniasalme/TFM_MELANOMA_INMUNOTERAPIA
+```
 
-Por este motivo, el siguiente paso metodologico sera separar descubrimiento y validacion por cohorte/plataforma/tratamiento.
+---
 
-Esa separacion ya queda iniciada en `scripts/analysis/`:
-
-- `GSE78220`: descubrimiento principal RNA-seq anti-PD-1.
-- `GSE215868`: validacion NanoString anti-PD-1.
-- `GSE211645`: generalizacion a anti-CTLA-4.
-- `GSE91061`: validación tumoral RNA-seq independiente.
-- `GSE94873`: sensibilidad en sangre NanoString anti-CTLA-4.
-- `Dataset integrado tumoral`: consistencia exploratoria en 200 genes comunes.
-
-Los analisis de `scripts/analysis/` verifican la escala de entrada antes de aplicar `limma`. Solo `GSE78220` se transforma con `log2(FPKM + 1)` porque la matriz esta en escala FPKM lineal. Las cohortes NanoString y la matriz RLD de `GSE91061` ya llegan normalizadas y no se vuelven a transformar. En `GSE78220` no aparecen genes significativos tras FDR, aunque si candidatos nominales para exploracion y validacion.
-
-El informe `04_consistency_integrated.html` usa el objeto integrado tumoral como analisis de apoyo: compara la direccion del logFC en los 200 genes comunes entre `GSE78220`, `GSE215868` y `GSE211645`. Este bloque no se interpreta como descubrimiento principal, sino como comprobacion de consistencia limitada por los paneles NanoString.
-
-El informe `05_summary_table.html` resume los resultados principales de los bloques 01-04 en tablas compactas para revision semanal y para trasladar a la memoria, incluyendo ya `GSE94873` como sensibilidad adicional en sangre.
+*Licencia: CC BY-NC-ND 3.0 ES — [creativecommons.org/licenses/by-nc/3.0/es](https://creativecommons.org/licenses/by-nc/3.0/es)*
