@@ -77,9 +77,9 @@ TFM_MELANOMA_INMUNOTERAPIA/
 │   ├── external_validation/  # Validación RNA-seq independiente (GSE91061)
 │   ├── sensitivity_blood/    # Sensibilidad sangre (GSE94873)
 │   ├── consistency_integrated/  # Análisis de consistencia 200 genes comunes
-│   └── summary/              # Tablas resumen globales
-│
-├── integrated_dataset/       # Dataset integrado GEO (fase exploratoria inicial)
+│   ├── summary/              # Tablas resumen globales
+│   └── _archivo/
+│       └── geo_integrado_inicial/  # Fase exploratoria inicial (trazabilidad)
 │
 └── TFM_memoria/
     └── memoria_latex/        # Memoria en LaTeX (main.tex) + figuras
