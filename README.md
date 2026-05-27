@@ -23,7 +23,7 @@ Ambos bloques convergen en el **eje IFN-γ / MHC-I** como determinante transvers
 
 ### Bloque predictivo GEO
 
-| Cohorte | n | Tejido | Plataforma | Tratamiento | AUC LOOCV | Rol |
+| Cohorte | n | Tejido | Plataforma | Tratamiento | AUC | Rol |
 |---|---|---|---|---|---|---|
 | GSE78220 | 25 | Tumor | RNA-seq | Pembrolizumab | 0,853 (top 5 genes)* | Descubrimiento |
 | GSE215868 | 105 | Tumor | NanoString | Anti-PD-1 | 0,547 | Validación tumoral |
@@ -101,7 +101,7 @@ Los resultados derivados (tablas CSV) se guardan en `resultados/` para permitir 
 
 | Paquete | Versión | Uso |
 |---|---|---|
-| limma | ≥ 3.54 | Análisis diferencial (voom + lmFit + eBayes) |
+| limma | ≥ 3.54 | Análisis diferencial (lmFit + eBayes; voom cuando aplica) |
 | survival | ≥ 3.5 | Modelos de Cox y curvas de Kaplan-Meier |
 | clusterProfiler | ≥ 4.6 | ORA sobre Gene Ontology (GO-BP) |
 | org.Hs.eg.db | ≥ 3.16 | Conversión Ensembl → Entrez ID |
