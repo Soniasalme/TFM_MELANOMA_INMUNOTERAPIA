@@ -63,7 +63,7 @@ TFM_MELANOMA_INMUNOTERAPIA/
 │   ├── analysis/             # Análisis bloque GEO (scripts 01–05)
 │   │   ├── 01_GSE78220_discovery.Rmd        # Descubrimiento RNA-seq anti-PD-1
 │   │   ├── 02_tumor_validation.Rmd          # Validación tumoral NanoString
-│   │   ├── 03_blood_sensitivity.Rmd         # Sensibilidad sangre periférica
+│   │   ├── 03_blood_sensitivity.Rmd         # Validación tumoral RNA-seq (GSE91061) + sensibilidad periférica (GSE94873)
 │   │   ├── 04_consistency_integrated.Rmd    # Consistencia multi-cohorte
 │   │   └── 05_summary_table.Rmd             # Tabla resumen de resultados
 │   ├── TCGA/                 # Análisis bloque pronóstico (scripts 01–13)
