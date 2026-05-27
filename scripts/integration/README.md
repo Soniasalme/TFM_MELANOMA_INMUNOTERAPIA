@@ -27,6 +27,7 @@
 | `DEA_limma_GEO_tumor_response.Rmd` | DEA sobre el dataset integrado (descartado) |
 | `exploracion_se_integrated_geo_por_bloques.Rmd` | Exploración del SE integrado |
 | `exploracion_se_integrated_initial_geo_corregido.Rmd` | Exploración con correcciones |
+| `PLANTILLA_informe_central.Rmd` | Plantilla genérica de R Markdown usada durante la fase exploratoria (sin análisis real) |
 | `deprecated/` | Versiones anteriores de los scripts de integración |
 
 ## Pipeline final

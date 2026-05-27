@@ -66,9 +66,8 @@ TFM_MELANOMA_INMUNOTERAPIA/
 │   │   ├── 03_blood_sensitivity.Rmd         # Validación tumoral RNA-seq (GSE91061) + sensibilidad periférica (GSE94873)
 │   │   ├── 04_consistency_integrated.Rmd    # Consistencia multi-cohorte
 │   │   └── 05_summary_table.Rmd             # Tabla resumen de resultados
-│   ├── TCGA/                 # Análisis bloque pronóstico (scripts 01–13)
-│   │   ├── 08_tcga_skcm_transcriptomics_corregido.Rmd  # Screening Cox transcriptómico
-│   │   └── 13_tcga_anotacion_ora.Rmd                   # ORA GO-BP
+│   ├── TCGA/                 # Análisis bloque pronóstico (scripts 01–12)
+│   │   └── 08_tcga_skcm_transcriptomics_corregido.Rmd  # Screening Cox transcriptómico
 │   └── integration/          # Integración multi-cohorte inicial (referencia histórica)
 │
 ├── resultados/
