@@ -86,15 +86,34 @@ TFM_MELANOMA_INMUNOTERAPIA/
 
 ---
 
+## Memoria del TFM
+
+📄 **[TFM_memoria/memoria_latex/main.pdf](TFM_memoria/memoria_latex/main.pdf)** — Memoria completa en PDF (LaTeX)
+
+El código fuente LaTeX está en `TFM_memoria/memoria_latex/main.tex`.
+
+---
+
 ## Reproducibilidad
 
 Todos los análisis están documentados en **R Markdown** compilados a HTML. Cada informe incluye `sessionInfo()` para trazabilidad de versiones de paquetes.
 
-Los datos se descargan directamente desde repositorios públicos:
+### Descarga de datos
+
+Los datos se obtienen directamente desde repositorios públicos mediante el script:
+
+```
+data/00_download_data.R   # getGEO() para las 5 cohortes GEO + TCGAbiolinks para TCGA-SKCM
+```
+
 - GEO: paquete [`GEOquery`](https://bioconductor.org/packages/GEOquery/) (acceso mayo 2026)
 - TCGA: paquete [`TCGAbiolinks`](https://bioconductor.org/packages/TCGAbiolinks/) (acceso mayo 2026)
 
 Los resultados derivados (tablas CSV) se guardan en `resultados/` para permitir la revisión del análisis sin necesidad de reejecutar la descarga de datos.
+
+### Entorno R
+
+Ejecutar `environment.R` (raíz del repositorio) para verificar e instalar los paquetes necesarios y guardar el `sessionInfo()` completo.
 
 ### Paquetes principales
 
