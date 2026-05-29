@@ -51,6 +51,20 @@ GSE215868 \cite{GSE215868} se utilizó como validación tumoral anti-PD-1 en pla
 
 Una vez identificados los genes asociados a la supervivencia mediante el screening Cox, se realiza su anotación funcional en dos pasos. Primero, los identificadores Ensembl (formato de salida de TCGA-RNA-seq) se convierten a símbolo génico y Entrez ID mediante el paquete de Bioconductor \texttt{org.Hs.eg.db} \cite{OrgHsEgDb}, eliminando previamente el número de versión del identificador (e.g., \texttt{ENSG00000162645.13} $\to$ \texttt{ENSG00000162645}). Segundo, se aplica un análisis de sobrerrepresentación (ORA, \textit{Over-Representation Analysis}) sobre los genes con FDR $< 0{,}05$, separando genes protectores (HR $< 1$) y genes de riesgo (HR $> 1$). El ORA se ejecuta sobre la ontología GO-BP (\textit{Gene Ontology, Biological Process}) mediante la función \texttt{enrichGO} de \texttt{clusterProfiler} \cite{clusterProfiler2012}, con el universo de genes testados como referencia y corrección de Benjamini-Hochberg. Este paso proporciona la base funcional para la interpretación biológica de la firma transcriptómica pronóstica.
 
+\section{Análisis de riesgos del diseño}
+
+El análisis bioinformático con datos públicos implica riesgos metodológicos específicos. Los principales riesgos identificados y las medidas de mitigación adoptadas son los siguientes:
+
+\begin{itemize}
+  \item \textbf{Riesgo de baja potencia estadística en la cohorte de descubrimiento.} GSE78220 ($n = 25$) carece de potencia suficiente para identificar genes con significación FDR con 14.549 pruebas simultáneas. \textit{Mitigación}: se utiliza un umbral nominal ($p < 0{,}05$, $|\text{logFC}| \geq 0{,}5$) como criterio exploratorio y se limita la firma al número de genes con mejor AUC LOOCV; todos los resultados del bloque predictivo se interpretan explícitamente como señal exploratoria, sin extrapolación a rendimiento clínico.
+
+  \item \textbf{Riesgo de heterogeneidad técnica entre plataformas.} La combinación de cohortes RNA-seq y NanoString introduce efectos de plataforma que pueden enmascarar la señal biológica. \textit{Mitigación}: cada cohorte se analiza de forma independiente, sin corrección por batch; el análisis de consistencia multi-cohorte evalúa únicamente la concordancia de dirección del efecto en los genes comunes, no la magnitud de los coeficientes.
+
+  \item \textbf{Riesgo de confusión en el bloque pronóstico.} TCGA-SKCM incluye pacientes con y sin tratamiento sistémico, lo que introduce heterogeneidad en los tiempos de seguimiento. \textit{Mitigación}: el análisis transcriptómico se interpreta como pronóstico global, no como predicción de respuesta a inmunoterapia; los modelos de Cox ajustan por estadio AJCC y edad como principales factores de confusión.
+
+  \item \textbf{Riesgo de dependencia de repositorios externos.} La descarga de datos desde GEO y TCGA/GDC está sujeta a cambios en los metadatos o la disponibilidad de la API. \textit{Mitigación}: los accesos están fechados (mayo de 2026), los resultados derivados se guardan en ficheros CSV en el repositorio GitHub y cada script incluye \texttt{sessionInfo()} para garantizar la trazabilidad de versiones.
+\end{itemize}
+
 \section{Reproducibilidad}
 
 Todos los análisis se documentaron mediante R Markdown y se guardaron tablas CSV de resultados. El repositorio GitHub del proyecto se utiliza como mecanismo de control de versiones y trazabilidad:
