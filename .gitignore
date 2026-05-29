@@ -66,3 +66,12 @@ scripts/GEO/GSE91061/scripts_old/
 scripts/integration/*--1-.html
 scripts/integration/*\ \(1\).Rmd
 References/
+
+# =========================
+# Documentos internos de defensa (no públicos)
+# =========================
+PRESENTACION/Defensa_preguntas_cheatsheet.docx
+PRESENTACION/Guion_presentacion_oral.docx
+PRESENTACION/verify_slides/
+PRESENTACION/pptx final/slide-*.jpg
+PRESENTACION/pptx final/*.pdf
