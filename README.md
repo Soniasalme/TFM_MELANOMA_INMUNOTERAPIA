@@ -88,7 +88,7 @@ TFM_MELANOMA_INMUNOTERAPIA/
 
 ## Memoria del TFM
 
-📄 **[TFM_memoria/memoria_latex/main.pdf](TFM_memoria/memoria_latex/main.pdf)** — Memoria completa en PDF (LaTeX)
+📄 **[memoria/TFM_Salmeron_Fructuoso_Sonia_2026.pdf](memoria/TFM_Salmeron_Fructuoso_Sonia_2026.pdf)** — Memoria completa en PDF
 
 El código fuente LaTeX está en `TFM_memoria/memoria_latex/main.tex`.
 
