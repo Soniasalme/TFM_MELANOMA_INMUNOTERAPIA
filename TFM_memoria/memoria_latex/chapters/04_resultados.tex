@@ -2,11 +2,11 @@
 
 \section{Descubrimiento en GSE78220}
 
-El análisis principal se realizó en GSE78220 (25 muestras, tumor, RNA-seq, anti-PD-1). Tras verificar que los datos están en escala FPKM lineal, se aplicó la transformación $\log_2(\text{FPKM}+1)$ y se realizó un filtrado explícito de baja expresión: se retuvieron los genes con FPKM $\geq 1$ en al menos 5 muestras (20\,\% del total), lo que redujo el transcriptoma de 25.268 genes originales a \textbf{14.549 genes testados} (Tabla~\ref{tab:qc_gse78220}). No se detectaron genes significativos tras corrección FDR, resultado esperable por el tamaño muestral. Se identificaron \textbf{539 genes nominales} ($p < 0{,}05$, $|logFC| \geq 0{,}5$) como candidatos exploratorios.
+El análisis principal se realizó en GSE78220 (25 muestras, tumor, RNA-seq, anti-PD-1). Tras verificar que los datos están en escala FPKM lineal, se aplicó la transformación $\log_2(\text{FPKM}+1)$ y se realizó un filtrado explícito de baja expresión: se retuvieron los genes con FPKM $\geq 1$ en al menos 5 muestras (20\,\% del total), lo que redujo el transcriptoma de 25.268 genes originales a \textbf{14.549 genes testados} (Tabla~\ref{tab:qc_gse78220}). Ambos criterios de filtrado ---varianza cero y baja expresión--- se aplicaron conjuntamente; los genes con varianza cero constituyen un subconjunto de los eliminados por baja expresión, de modo que el total efectivamente eliminado es 10.719. No se detectaron genes significativos tras corrección FDR, resultado esperable por el tamaño muestral. Se identificaron \textbf{539 genes nominales} ($p < 0{,}05$, $|logFC| \geq 0{,}5$) como candidatos exploratorios.
 
 \begin{table}[H]
 \centering
-\caption{Control de calidad y filtrado en GSE78220. Los filtros de varianza cero y baja expresión se aplican conjuntamente (AND lógico); los genes con varianza cero son un subconjunto de los eliminados por baja expresión, por lo que el total efectivamente eliminado es 10.719.}
+\caption{Control de calidad y filtrado en GSE78220.}
 \label{tab:qc_gse78220}
 \begin{tabularx}{\textwidth}{l r}
 \toprule
