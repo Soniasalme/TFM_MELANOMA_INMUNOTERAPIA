@@ -2,7 +2,7 @@
 
 \section{Diseño general del estudio}
 
-El proyecto se organiza en dos bloques. El primero es un bloque pronóstico basado en TCGA-SKCM \cite{TCGA}. El segundo es un bloque predictivo basado en cohortes GEO \cite{GEO} con datos de expresión y respuesta a inmunoterapia. Este capítulo describe principalmente el bloque GEO, que constituye el desarrollo metodológico más avanzado hasta el momento.
+El proyecto se organiza en dos bloques. El primero es un bloque pronóstico basado en TCGA-SKCM \cite{TCGA}. El segundo es un bloque predictivo basado en cohortes GEO \cite{GEO} con datos de expresión y respuesta a inmunoterapia. Este capítulo describe en primer lugar el bloque predictivo GEO y, a continuación, el bloque pronóstico TCGA-SKCM.
 
 \section{Cohortes utilizadas}
 
@@ -47,6 +47,12 @@ Se construyó un score de firma basado en genes seleccionados dentro de cada ite
 
 GSE215868 \cite{GSE215868} se utilizó como validación tumoral anti-PD-1 en plataforma NanoString. GSE211645 \cite{GSE211645} se trató como validación exploratoria ante otro checkpoint (anti-CTLA-4), no como validación directa de anti-PD-1. GSE91061 \cite{GSE91061,Riaz2017}, cohorte tumoral RNA-seq de nivolumab (Riaz et al., 2017), se analizó como validación tumoral RNA-seq independiente; dado que contiene biopsias pre- y on-treatment de múltiples líneas, los resultados se interpretan con cautela respecto a la cohorte de descubrimiento (pembrolizumab pretratamiento). GSE94873 \cite{GSE94873,Friedlander2017} se analizó como sensibilidad en sangre periférica. Finalmente, el dataset integrado tumoral de 200 genes comunes se conservó para evaluar consistencia de dirección de efecto entre cohortes.
 
+\section{Bloque pronóstico TCGA-SKCM}
+
+Los datos clínicos y de expresión de TCGA-SKCM se descargaron mediante TCGAbiolinks \cite{Colaprico2016}. La supervivencia global se definió con \texttt{OS\_event} (1 si \texttt{vital\_status = Dead}) y \texttt{OS\_time} (\texttt{days\_to\_death} en fallecidos y \texttt{days\_to\_last\_follow\_up} en censurados), excluyendo los casos con tiempo ausente o negativo (460 pacientes). Se estimaron curvas de Kaplan-Meier globales y por sexo y estadio (test log-rank), y modelos de Cox univariantes y multivariante con edad, sexo y estadio AJCC agrupado en cuatro categorías (I--IV) mediante el paquete \texttt{survival} \cite{Therneau2023}; el supuesto de riesgos proporcionales se comprobó con \texttt{cox.zph}.
+
+Para el screening transcriptómico se trabajó con la expresión en escala log-CPM de los 5.000 genes más variables, unida a las variables clínicas de los 459 pacientes que disponen de ambos tipos de datos. Se ajustó un modelo de Cox univariante por gen (expresión continua) y se corrigió por comparaciones múltiples con el método de Benjamini-Hochberg. Los genes con menor FDR se representaron con curvas de Kaplan-Meier dividiendo la cohorte en expresión alta y baja según la mediana. Puesto que el screening es univariante, los genes candidatos se reajustaron después con edad, sexo y estadio AJCC sobre los 413 pacientes con estadio conocido.
+
 \section{Anotación funcional y análisis de sobrerrepresentación}
 
 Una vez identificados los genes asociados a la supervivencia mediante el screening Cox, se realiza su anotación funcional en dos pasos. Primero, los identificadores Ensembl (formato de salida de TCGA-RNA-seq) se convierten a símbolo génico y Entrez ID mediante el paquete de Bioconductor \texttt{org.Hs.eg.db} \cite{OrgHsEgDb}, eliminando previamente el número de versión del identificador (e.g., \texttt{ENSG00000162645.13} $\to$ \texttt{ENSG00000162645}). Segundo, se aplica un análisis de sobrerrepresentación (ORA, \textit{Over-Representation Analysis}) sobre los genes con FDR $< 0{,}05$, separando genes protectores (HR $< 1$) y genes de riesgo (HR $> 1$). El ORA se ejecuta sobre la ontología GO-BP (\textit{Gene Ontology, Biological Process}) mediante la función \texttt{enrichGO} de \texttt{clusterProfiler} \cite{clusterProfiler2012}, con el universo de genes testados como referencia y corrección de Benjamini-Hochberg. Este paso proporciona la base funcional para la interpretación biológica de la firma transcriptómica pronóstica.
@@ -60,7 +66,7 @@ El análisis bioinformático con datos públicos implica riesgos metodológicos 
 
   \item \textbf{Riesgo de heterogeneidad técnica entre plataformas.} La combinación de cohortes RNA-seq y NanoString introduce efectos de plataforma que pueden enmascarar la señal biológica. \textit{Mitigación}: cada cohorte se analiza de forma independiente, sin corrección por batch; el análisis de consistencia multi-cohorte evalúa únicamente la concordancia de dirección del efecto en los genes comunes, no la magnitud de los coeficientes.
 
-  \item \textbf{Riesgo de confusión en el bloque pronóstico.} TCGA-SKCM incluye pacientes con y sin tratamiento sistémico, lo que introduce heterogeneidad en los tiempos de seguimiento. \textit{Mitigación}: el análisis transcriptómico se interpreta como pronóstico global, no como predicción de respuesta a inmunoterapia; los modelos de Cox ajustan por estadio AJCC y edad como principales factores de confusión.
+  \item \textbf{Riesgo de confusión en el bloque pronóstico.} TCGA-SKCM incluye pacientes con y sin tratamiento sistémico, lo que introduce heterogeneidad en los tiempos de seguimiento. \textit{Mitigación}: el análisis transcriptómico se interpreta como pronóstico global, no como predicción de respuesta a inmunoterapia; los modelos de Cox clínicos multivariantes ajustan por edad, sexo y estadio AJCC, y los genes candidatos del screening se reajustan por esas mismas covariables.
 
   \item \textbf{Riesgo de dependencia de repositorios externos.} La descarga de datos desde GEO y TCGA/GDC está sujeta a cambios en los metadatos o la disponibilidad de la API. \textit{Mitigación}: los accesos están fechados (mayo de 2026), los resultados derivados se guardan en ficheros CSV en el repositorio GitHub y cada script incluye \texttt{sessionInfo()} para garantizar la trazabilidad de versiones.
 \end{itemize}

@@ -13,7 +13,7 @@ Este repositorio contiene el código, los resultados y la memoria del Trabajo de
 El trabajo se organiza en dos bloques independientes:
 
 - **Bloque predictivo GEO** — arquitectura discovery · validación · sensibilidad sobre 5 cohortes de respuesta a inhibidores de checkpoint (anti-PD-1 / anti-CTLA-4)
-- **Bloque pronóstico TCGA-SKCM** — screening transcriptómico gen a gen (Cox) sobre 470 pacientes con supervivencia global como variable resultado
+- **Bloque pronóstico TCGA-SKCM** — screening transcriptómico gen a gen (Cox) sobre 460 pacientes con supervivencia global como variable resultado
 
 Ambos bloques convergen en el **eje IFN-γ / MHC-I** como determinante transversal del comportamiento clínico del melanoma.
 
@@ -40,12 +40,13 @@ Ambos bloques convergen en el **eje IFN-γ / MHC-I** como determinante transvers
 
 **ORA exploratorio en no respondedores (GSE78220):** Extracellular matrix organization (FDR = 1,2×10⁻²², 44 genes), Angiogenesis (FDR = 9,1×10⁻¹²) — reproduce el fenotipo IPRES (Hugo et al. 2016).
 
-### Bloque pronóstico TCGA-SKCM (n = 470)
+### Bloque pronóstico TCGA-SKCM (n = 460 con supervivencia válida; 459 con expresión en el screening)
 
-- Screening Cox gen a gen sobre **5.002 genes** (escala log-CPM)
+- Screening Cox gen a gen (univariante, sin covariables) sobre **5.000 genes** (escala log-CPM)
 - **1.439 genes con FDR < 0,05** · 944 genes con FDR < 0,01
 - Patrón predominantemente **protector** (HR < 1): alta expresión asociada a mayor supervivencia
-- Top genes: **GBP2** (HR = 0,776, FDR = 2,1×10⁻⁷) · GBP4 · IL15 · GIMAP2 · DDX60 · KLRD1 · CCL8
+- Top genes: **GBP2** (HR = 0,775, FDR = 2,1×10⁻⁷) · GBP4 · IL15 · GIMAP2 · DDX60 · KLRD1 · CCL8
+- Reajuste de los diez genes candidatos por edad, sexo y estadio (n = 413, 196 eventos): asociación y dirección de efecto mantenidas (FDR ajustado ≤ 5,5×10⁻⁷). Es una comprobación de robustez sobre genes seleccionados en la misma cohorte, no una validación independiente
 - ORA GO-BP (genes protectores): respuesta a IFN-γ, presentación antigénica MHC-I, activación NK/CD8⁺
 
 **Cox multivariante** (edad, sexo, estadio AJCC):  
@@ -66,7 +67,7 @@ TFM_MELANOMA_INMUNOTERAPIA/
 │   │   ├── 03_blood_sensitivity.Rmd         # Validación tumoral RNA-seq (GSE91061) + sensibilidad periférica (GSE94873)
 │   │   ├── 04_consistency_integrated.Rmd    # Consistencia multi-cohorte
 │   │   └── 05_summary_table.Rmd             # Tabla resumen de resultados
-│   ├── TCGA/                 # Análisis bloque pronóstico (scripts 01–13)
+│   ├── TCGA/                 # Análisis bloque pronóstico (scripts 01–14)
 │   │   └── 08_tcga_skcm_transcriptomics_corregido.Rmd  # Screening Cox transcriptómico
 │   └── integration/          # Integración multi-cohorte inicial (referencia histórica)
 │

@@ -150,16 +150,16 @@ El bloque pronóstico se basa en TCGA-SKCM \cite{TCGA}, cohorte de referencia en
 
 \subsection{Descripción de la cohorte}
 
-La descarga mediante el paquete TCGAbiolinks \cite{Colaprico2016} proporcionó datos clínicos de 470 pacientes con 90 variables. Las variables de supervivencia se construyeron del siguiente modo: \texttt{OS\_event} = 1 si \texttt{vital\_status = Dead}, 0 si \texttt{vital\_status = Alive}; \texttt{OS\_time} se obtuvo de \texttt{days\_to\_death} en pacientes fallecidos y de \texttt{days\_to\_last\_follow\_up} en los censurados. Tras excluir casos con tiempo negativo o variables ausentes, el conjunto de datos válido para el análisis de supervivencia quedó integrado por 470 pacientes.
+La descarga mediante el paquete TCGAbiolinks \cite{Colaprico2016} proporcionó datos clínicos de 470 pacientes con 90 variables. Las variables de supervivencia se construyeron del siguiente modo: \texttt{OS\_event} = 1 si \texttt{vital\_status = Dead}, 0 si \texttt{vital\_status = Alive}; \texttt{OS\_time} se obtuvo de \texttt{days\_to\_death} en pacientes fallecidos y de \texttt{days\_to\_last\_follow\_up} en los censurados. Tras excluir casos con tiempo negativo o variables ausentes, el conjunto de datos válido para el análisis de supervivencia quedó integrado por 460 pacientes. De ellos, 459 disponen además de perfil de expresión y constituyen la base del screening transcriptómico; los modelos de Cox clínicos se ajustaron sobre los 414 pacientes con estadio AJCC conocido (197 eventos).
 
 \subsection{Curvas de Kaplan-Meier}
 
-Se generaron curvas de Kaplan-Meier globales y por subgrupos. La curva de supervivencia global muestra un descenso progresivo a lo largo del seguimiento, con una mediana de supervivencia estimada en torno a los 2--3 años (Figura~\ref{fig:km_global}).
+Se generaron curvas de Kaplan-Meier globales y por subgrupos. La curva de supervivencia global muestra un descenso progresivo a lo largo del seguimiento, con una mediana de supervivencia de 2.273 días (aproximadamente 6,2 años; IC~95\,\%: 1.960--3.139 días) (Figura~\ref{fig:km_global}).
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.85\textwidth]{figures/km_global_plot}
-\caption{Curva de Kaplan-Meier de supervivencia global en TCGA-SKCM (N\,=\,470).}
+\caption{Curva de Kaplan-Meier de supervivencia global en TCGA-SKCM (N\,=\,460).}
 \label{fig:km_global}
 \end{figure}
 
@@ -235,36 +235,36 @@ El ajuste multivariante revela que la edad y los estadios III--IV mantienen su a
 
 \subsection{Screening transcriptómico: Cox gen a gen}
 
-Tras la normalización de los datos de expresión RNA-seq (log-CPM) y la selección de los genes más variables (script \texttt{08\_tcga\_skcm\_transcriptomics\_corregido.Rmd}), se construyó un \textit{master dataset} que integra las variables clínicas de supervivencia con la matriz de expresión. El screening transcriptómico consistió en ajustar un modelo de Cox univariante por gen sobre los 5.002 genes más variables de la cohorte, empleando como variable independiente la expresión de cada gen (escala log-CPM).
+Tras la normalización de los datos de expresión RNA-seq (log-CPM) y la selección de los genes más variables (script \texttt{08\_tcga\_skcm\_transcriptomics\_corregido.Rmd}), se construyó un \textit{master dataset} que integra las variables clínicas de supervivencia con la matriz de expresión. El screening transcriptómico consistió en ajustar un modelo de Cox univariante por gen sobre los 5.000 genes más variables de los 459 pacientes con perfil de expresión, empleando como variable independiente la expresión de cada gen (escala log-CPM). Este screening no incluye covariables clínicas; el efecto de la edad, el sexo y el estadio se evalúa después sobre los genes candidatos en el apartado de ajuste por covariables clínicas.
 
 Los resultados del screening se resumen a continuación:
 
 \begin{itemize}
-  \item Genes testados: 5.002
+  \item Genes testados: 5.000
   \item Genes con $p < 0{,}05$ (nominal): 1.951 (39,0\,\%)
   \item Genes con FDR $< 0{,}05$: 1.439 (28,8\,\%)
   \item Genes con FDR $< 0{,}01$: 944 (18,9\,\%)
 \end{itemize}
 
-El gen con menor FDR es \textit{GBP2} (HR = 0{,}776; $p = 4{,}15\times10^{-11}$; FDR = $2{,}08\times10^{-7}$). El patrón direccional de los 15 genes con menor FDR es predominantemente protector (12 de 15 con HR $< 1$), lo que indica que su alta expresión se asocia a mejor supervivencia. Este patrón es biológicamente coherente con un papel favorecedor del sistema inmune: la mayoría de los genes candidatos pertenecen a vías de señalización por interferón, activación de células NK y reclutamiento de linfocitos T citotóxicos.
+El gen con menor FDR es \textit{GBP2} (HR = 0{,}775; $p = 4{,}15\times10^{-11}$; FDR = $2{,}07\times10^{-7}$). El patrón direccional de los 15 genes con menor FDR es predominantemente protector (14 de 15 con HR $< 1$), lo que indica que su alta expresión se asocia a mejor supervivencia. Este patrón es biológicamente coherente con un papel favorecedor del sistema inmune: la mayoría de los genes candidatos pertenecen a vías de señalización por interferón, activación de células NK y reclutamiento de linfocitos T citotóxicos.
 
-Los diez genes con menor FDR, anotados a partir del identificador Ensembl mediante la API REST de Ensembl, se presentan en la Tabla~\ref{tab:top_genes_tcga}.
+La Tabla~\ref{tab:top_genes_tcga} presenta diez de los genes con menor FDR, anotados a partir del identificador Ensembl mediante \texttt{org.Hs.eg.db}. Se omiten del listado los pseudogenes y transcritos sin función caracterizada (p.\,ej., TAF5LP1) y \textit{NCCRP1}, el único gen de riesgo (HR = 1{,}144) entre los 15 de menor FDR.
 
 \begin{table}[H]
 \centering
-\caption{Diez genes con menor FDR en el screening Cox transcriptómico (TCGA-SKCM). HR calculado por modelo Cox univariante; FDR obtenido mediante ajuste Benjamini-Hochberg sobre 5.002 genes. HR $< 1$ indica efecto protector (alta expresión asociada a mayor supervivencia).}
+\caption{Diez genes destacados entre los de menor FDR en el screening Cox transcriptómico (TCGA-SKCM). HR calculado por modelo Cox univariante; FDR obtenido mediante ajuste Benjamini-Hochberg sobre 5.000 genes. HR $< 1$ indica efecto protector (alta expresión asociada a mayor supervivencia).}
 \label{tab:top_genes_tcga}
 \begin{tabularx}{\textwidth}{l r r X}
 \toprule
 Gen & HR & FDR & Función biológica \\
 \midrule
-\textit{GBP2}     & 0,776 & $2{,}1\times10^{-7}$ & Proteína de unión a guanilato inducida por IFN-$\gamma$ \\
+\textit{GBP2}     & 0,775 & $2{,}1\times10^{-7}$ & Proteína de unión a guanilato inducida por IFN-$\gamma$ \\
 \textit{GBP4}     & 0,834 & $1{,}1\times10^{-6}$ & Proteína de unión a guanilato inducida por IFN-$\gamma$ \\
 \textit{IL15}     & 0,793 & $1{,}1\times10^{-6}$ & Interleucina 15; activación de células NK y CD8$^+$ \\
 \textit{GIMAP2}   & 0,763 & $1{,}1\times10^{-6}$ & GTPasa IMAP; supervivencia de linfocitos \\
 \textit{DDX60}    & 0,750 & $1{,}1\times10^{-6}$ & Helicasa innata; señalización por interferón antiviral \\
-\textit{KLRD1}    & 0,823 & $1{,}4\times10^{-6}$ & CD94; receptor activador/inhibidor de células NK \\
-\textit{CCL8}     & 0,827 & $1{,}4\times10^{-6}$ & Quimiocina MCP-2; reclutamiento de linfocitos T \\
+\textit{KLRD1}    & 0,823 & $1{,}3\times10^{-6}$ & CD94; receptor activador/inhibidor de células NK \\
+\textit{CCL8}     & 0,827 & $1{,}3\times10^{-6}$ & Quimiocina MCP-2; reclutamiento de linfocitos T \\
 \textit{GCNT1}    & 0,775 & $1{,}7\times10^{-6}$ & Glucosaminil-transferasa; glicosilación de glucolípidos \\
 \textit{APOBEC3G} & 0,789 & $1{,}8\times10^{-6}$ & Editasa RNA/DNA; defensa antiviral innata \\
 \textit{UBA7}     & 0,775 & $1{,}8\times10^{-6}$ & Enzima E1 de activación de ubiquitina; vía ISGilación \\
@@ -272,7 +272,37 @@ Gen & HR & FDR & Función biológica \\
 \end{tabularx}
 \end{table}
 
-Los resultados completos de los 5.002 genes, rankeados por FDR, se han exportado al fichero \texttt{results/cox\_transcriptome\_results.csv}.
+Los resultados completos de los 5.000 genes, rankeados por FDR, se han exportado al fichero \texttt{results/cox\_transcriptome\_results.csv}.
+
+\subsection{Ajuste por covariables clínicas en los genes candidatos}
+
+El screening gen a gen no incorpora covariables clínicas. Para comprobar la robustez de los candidatos, se reajustó el modelo de Cox de los diez genes de la Tabla~\ref{tab:top_genes_tcga} incluyendo la edad, el sexo y el estadio AJCC (I--IV) como covariables (script \texttt{14\_tcga\_cox\_ajustado\_top10.Rmd}). El ajuste se realizó sobre los 413 pacientes con estadio conocido (196 eventos), y el modelo univariante se recalculó sobre ese mismo subconjunto para que ambas estimaciones sean comparables. Los resultados se muestran en la Tabla~\ref{tab:cox_ajustado_top10}.
+
+\begin{table}[H]
+\centering
+\caption{Cox por gen, univariante y ajustado por edad, sexo y estadio AJCC, en los 413 pacientes de TCGA-SKCM con estadio conocido. HR por unidad de expresión (log-CPM); el FDR ajustado se calculó por Benjamini-Hochberg entre los diez genes evaluados.}
+\label{tab:cox_ajustado_top10}
+\begin{tabularx}{\textwidth}{l r r r r}
+\toprule
+Gen & HR univariante & HR ajustado (IC~95\,\%) & $p$ ajustado & FDR ajustado \\
+\midrule
+\textit{GBP2} & 0,754 & 0,740 (0,679--0,807) & $8{,}3\times10^{-12}$ & $8{,}3\times10^{-11}$ \\
+\textit{KLRD1} & 0,798 & 0,782 (0,727--0,842) & $5{,}0\times10^{-11}$ & $2{,}5\times10^{-10}$ \\
+\textit{GBP4} & 0,816 & 0,807 (0,756--0,863) & $2{,}7\times10^{-10}$ & $8{,}9\times10^{-10}$ \\
+\textit{CCL8} & 0,799 & 0,797 (0,741--0,856) & $4{,}8\times10^{-10}$ & $1{,}2\times10^{-9}$ \\
+\textit{IL15} & 0,788 & 0,778 (0,717--0,844) & $1{,}9\times10^{-9}$ & $3{,}5\times10^{-9}$ \\
+\textit{DDX60} & 0,742 & 0,739 (0,670--0,816) & $2{,}1\times10^{-9}$ & $3{,}5\times10^{-9}$ \\
+\textit{GIMAP2} & 0,750 & 0,754 (0,686--0,829) & $4{,}3\times10^{-9}$ & $6{,}2\times10^{-9}$ \\
+\textit{UBA7} & 0,745 & 0,751 (0,680--0,830) & $1{,}8\times10^{-8}$ & $2{,}2\times10^{-8}$ \\
+\textit{APOBEC3G} & 0,791 & 0,785 (0,721--0,855) & $3{,}1\times10^{-8}$ & $3{,}4\times10^{-8}$ \\
+\textit{GCNT1} & 0,781 & 0,792 (0,723--0,868) & $5{,}5\times10^{-7}$ & $5{,}5\times10^{-7}$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Los diez genes mantienen la dirección del efecto y la significación tras el ajuste (FDR ajustado $\leq 5{,}5\times10^{-7}$), con HR ajustados entre 0,739 y 0,807 frente a 0,742--0,816 en el modelo univariante del mismo subconjunto. Este análisis es una comprobación de robustez frente a la edad, el sexo y el estadio: los genes se seleccionaron por su asociación con la supervivencia en esta misma cohorte, por lo que los valores de $p$ ajustados son orientativos y no equivalen a una validación independiente.
+
+
 
 \subsection{Curvas de Kaplan-Meier para genes candidatos}
 
@@ -287,13 +317,13 @@ La Figura~\ref{fig:volcano_cox} presenta el volcano plot del screening Cox, dond
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.90\textwidth]{figures/volcano_cox_transcriptomico}
-\caption{Volcano plot del screening Cox gen a gen en TCGA-SKCM (5.002 genes). Eje X: log(HR); eje Y: $-\log_{10}$(FDR). Línea horizontal discontinua: FDR\,=\,0{,}05. Línea vertical discontinua: HR\,=\,1. Azul oscuro: genes protectores con FDR $< 0{,}01$; rojo: genes de riesgo con FDR $< 0{,}01$; naranja: FDR $< 0{,}05$; gris: no significativos. Etiquetados los 15 genes con menor FDR.}
+\caption{Volcano plot del screening Cox gen a gen en TCGA-SKCM (5.000 genes). Eje X: log(HR); eje Y: $-\log_{10}$(FDR). Línea horizontal discontinua: FDR\,=\,0{,}05. Línea vertical discontinua: HR\,=\,1. Azul oscuro: genes protectores con FDR $< 0{,}01$; rojo: genes de riesgo con FDR $< 0{,}01$; naranja: FDR $< 0{,}05$; gris: no significativos. Etiquetados los 15 genes con menor FDR.}
 \label{fig:volcano_cox}
 \end{figure}
 
 \subsection{Análisis de sobrerrepresentación funcional (ORA)}
 
-Para interpretar biológicamente los genes asociados a la supervivencia, se realizó un análisis de sobrerrepresentación (ORA) sobre GO-BP mediante \texttt{clusterProfiler}, previa conversión de los identificadores Ensembl a Entrez ID con \texttt{org.Hs.eg.db}. Se analizaron por separado los genes protectores (FDR $< 0{,}05$, HR $< 1$) y los genes de riesgo (FDR $< 0{,}05$, HR $> 1$). El análisis de sobrerrepresentación se implementa en el script \texttt{13\_tcga\_anotacion\_ora.Rmd}, siguiendo la misma cadena metodológica aplicada en el análisis de RNA-seq de cáncer colorrectal (objetos SummarizedExperiment, normalización log-CPM, conversión de identificadores Ensembl a Entrez ID con \texttt{org.Hs.eg.db}, y ORA GO-BP con \texttt{clusterProfiler}). Los resultados se presentan a continuación.
+Para interpretar biológicamente los genes asociados a la supervivencia, se realizó un análisis de sobrerrepresentación (ORA) sobre GO-BP mediante \texttt{clusterProfiler}, previa conversión de los identificadores Ensembl a Entrez ID con \texttt{org.Hs.eg.db}. Se analizaron por separado los genes protectores (FDR $< 0{,}05$, HR $< 1$) y los genes de riesgo (FDR $< 0{,}05$, HR $> 1$). El análisis de sobrerrepresentación se implementa en el script \texttt{13\_tcga\_anotacion\_ora.Rmd}. Los resultados se presentan a continuación.
 
 Los resultados del ORA confirman la interpretación biológica anticipada. Los genes protectores (HR $< 1$, FDR $< 0{,}05$) están fuertemente enriquecidos en procesos de respuesta inmune adaptativa e innata: respuesta a IFN-$\gamma$, presentación antigénica, activación de células NK y señalización de linfocitos T citotóxicos (Figura~\ref{fig:ora_prot}). Los genes de riesgo (HR $> 1$, FDR $< 0{,}05$) muestran enriquecimiento en procesos de queratinización y diferenciación epitelial, coherentes con un perfil de menor infiltración inmune (Figura~\ref{fig:ora_risk}).
 
