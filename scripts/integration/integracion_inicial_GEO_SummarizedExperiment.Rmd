@@ -1,6 +1,6 @@
 ---
 title: "Integración inicial de cohortes GEO en SummarizedExperiment"
-author: "TFM Melanoma Inmunoterapia"
+author: "Sonia Salmerón Fructuoso"
 output: html_document
 ---
 

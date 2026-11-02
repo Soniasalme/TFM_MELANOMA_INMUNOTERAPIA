@@ -1,6 +1,6 @@
 ---
 title: "Validacion tumoral RNA-seq y sensibilidad periferica: GSE91061 y GSE94873"
-author: "Sonia Salmeron Fructuoso"
+author: "Sonia Salmerón Fructuoso"
 date: "`r Sys.Date()`"
 output:
   html_document:

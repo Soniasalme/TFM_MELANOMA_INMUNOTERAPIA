@@ -1,6 +1,6 @@
 ---
 title: "Construcción de SummarizedExperiment – GSE91061 (gene symbol)"
-author: "TFM Melanoma Inmunoterapia"
+author: "Sonia Salmerón Fructuoso"
 output: html_document
 ---
 

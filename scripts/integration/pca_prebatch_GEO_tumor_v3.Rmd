@@ -1,6 +1,6 @@
 ---
 title: "PCA pre-batch del bloque tumoral GEO"
-author: "TFM Melanoma Inmunoterapia"
+author: "Sonia Salmerón Fructuoso"
 date: "`r Sys.Date()`"
 output:
   html_document:

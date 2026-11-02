@@ -1,6 +1,6 @@
 ---
 title: "Reconstrucción de cohortes GEO por tejido: tumor y sangre"
-author: "TFM Melanoma Inmunoterapia"
+author: "Sonia Salmerón Fructuoso"
 output:
   html_document:
     toc: true

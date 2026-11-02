@@ -246,9 +246,9 @@ Los resultados del screening se resumen a continuación:
   \item Genes con FDR $< 0{,}01$: 944 (18,9\,\%)
 \end{itemize}
 
-El gen con menor FDR es \textit{GBP2} (HR = 0{,}775; $p = 4{,}15\times10^{-11}$; FDR = $2{,}07\times10^{-7}$). El patrón direccional de los 15 genes con menor FDR es predominantemente protector (14 de 15 con HR $< 1$), lo que indica que su alta expresión se asocia a mejor supervivencia. Este patrón es biológicamente coherente con un papel favorecedor del sistema inmune: la mayoría de los genes candidatos pertenecen a vías de señalización por interferón, activación de células NK y reclutamiento de linfocitos T citotóxicos.
+El gen con menor FDR es \textit{GBP2} (HR = 0{,}775; $p = 4{,}15\times10^{-11}$; FDR = $2{,}07\times10^{-7}$). El patrón direccional de los 15 genes con menor FDR del ranking global (que incluye un pseudogén y transcritos sin símbolo génico) es predominantemente protector (14 de 15 con HR $< 1$), lo que indica que su alta expresión se asocia a mejor supervivencia. Este patrón es biológicamente coherente con un papel favorecedor del sistema inmune: la mayoría de los genes candidatos pertenecen a vías de señalización por interferón, activación de células NK y reclutamiento de linfocitos T citotóxicos.
 
-La Tabla~\ref{tab:top_genes_tcga} presenta diez de los genes con menor FDR, anotados a partir del identificador Ensembl mediante \texttt{org.Hs.eg.db}. Se omiten del listado los pseudogenes y transcritos sin función caracterizada (p.\,ej., TAF5LP1) y \textit{NCCRP1}, el único gen de riesgo (HR = 1{,}144) entre los 15 de menor FDR.
+La Tabla~\ref{tab:top_genes_tcga} \textbf{no} es el top 10 literal del ranking por FDR. Recoge los genes codificantes con símbolo génico y efecto protector entre los 15 de menor FDR, anotados a partir del identificador Ensembl mediante \texttt{org.Hs.eg.db}. De esos 15 genes quedan fuera cinco: el pseudogén \textit{TAF5LP1}, tres transcritos sin símbolo génico (ENSG00000259834, ENSG00000225492 y ENSG00000197536) y \textit{NCCRP1}, el único gen de riesgo (HR = 1{,}144), empatado en FDR con \textit{APOBEC3G} y \textit{UBA7}. En consecuencia, ocho de los diez genes de la tabla coinciden con los diez primeros del ranking, y \textit{APOBEC3G} y \textit{UBA7} (empatados en FDR con 	extit{NCCRP1} en las posiciones 11--15 del ranking global) los sustituyen.
 
 \begin{table}[H]
 \centering
@@ -306,7 +306,7 @@ Los diez genes mantienen la dirección del efecto y la significación tras el aj
 
 \subsection{Curvas de Kaplan-Meier para genes candidatos}
 
-Para los 10 genes con menor FDR se generaron curvas de Kaplan-Meier estratificando las muestras en alta expresión (por encima de la mediana de la cohorte) vs.\ baja expresión (por debajo). En todos los casos la separación de curvas fue consistente con la dirección del efecto estimada por el modelo Cox: los pacientes con alta expresión de los genes protectores ($HR < 1$) presentaron mayor supervivencia. Esta coherencia interna entre el modelo paramétrico y las curvas no paramétricas refuerza la validez de los candidatos identificados.
+Se generaron curvas de Kaplan-Meier (script \texttt{12\_tcga\_kaplan\_genes.Rmd}) para los 10 primeros genes del ranking global por FDR, \textbf{sin filtrar} por tipo de transcrito. Esta lista es la del top 10 literal y, por tanto, difiere de la Tabla~\ref{tab:top_genes_tcga}: incluye el pseudogén \textit{TAF5LP1} y el transcrito ENSG00000259834 (sin símbolo génico), y no incluye \textit{APOBEC3G} ni \textit{UBA7}. Las curvas se obtuvieron estratificando las muestras en alta expresión (por encima de la mediana de la cohorte) vs.\ baja expresión (por debajo). En los diez casos la separación de curvas fue consistente con la dirección del efecto estimada por el modelo Cox (test log-rank con $p$ entre $2{,}4\times10^{-9}$ y $3{,}3\times10^{-5}$): los pacientes con alta expresión de los genes protectores ($HR < 1$) presentaron mayor supervivencia. Esta coherencia interna entre el modelo paramétrico y las curvas no paramétricas refuerza la validez de los candidatos identificados.
 
 Como ejemplo representativo, para \textit{GBP2} (el gen con menor FDR), la separación de curvas es marcada y el p-valor del test log-rank es altamente significativo, con el grupo de alta expresión presentando mejor pronóstico a todos los tiempos de seguimiento evaluados.
 
@@ -317,7 +317,7 @@ La Figura~\ref{fig:volcano_cox} presenta el volcano plot del screening Cox, dond
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.90\textwidth]{figures/volcano_cox_transcriptomico}
-\caption{Volcano plot del screening Cox gen a gen en TCGA-SKCM (5.000 genes). Eje X: log(HR); eje Y: $-\log_{10}$(FDR). Línea horizontal discontinua: FDR\,=\,0{,}05. Línea vertical discontinua: HR\,=\,1. Azul oscuro: genes protectores con FDR $< 0{,}01$; rojo: genes de riesgo con FDR $< 0{,}01$; naranja: FDR $< 0{,}05$; gris: no significativos. Etiquetados los 15 genes con menor FDR.}
+\caption{Volcano plot del screening Cox gen a gen en TCGA-SKCM (5.000 genes). Eje X: log(HR); eje Y: $-\log_{10}$(FDR). Línea horizontal discontinua: FDR\,=\,0{,}05. Línea vertical discontinua: HR\,=\,1. Azul oscuro: genes protectores con FDR $< 0{,}01$; rojo: genes de riesgo con FDR $< 0{,}01$; naranja: FDR $< 0{,}05$; gris: no significativos. Etiquetados los 15 genes con menor FDR entre los que tienen símbolo génico (incluye el pseudogén \textit{TAF5LP1}); por ello la lista difiere de la Tabla~\ref{tab:top_genes_tcga}.}
 \label{fig:volcano_cox}
 \end{figure}
 

@@ -1,6 +1,6 @@
 ---
 title: "13 - Anotación génica y análisis de sobrerrepresentación (ORA) en TCGA-SKCM"
-author: "TFM Melanoma"
+author: "Sonia Salmerón Fructuoso"
 date: "`r Sys.Date()`"
 output:
   html_document:
@@ -153,7 +153,8 @@ vol_df <- cox_genes %>%
     )
   )
 
-# Etiquetar top 15 genes por FDR
+# Etiquetar los 15 genes con menor FDR entre los que tienen símbolo génico (vol_df excluye los NA);
+# incluye pseudogenes (p. ej. TAF5LP1), por lo que no coincide con el top 15 literal del ranking.
 top_label <- vol_df %>%
   filter(FDR < 0.001) %>%
   arrange(FDR) %>%

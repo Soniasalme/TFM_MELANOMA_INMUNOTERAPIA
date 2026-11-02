@@ -4,6 +4,8 @@
 **Estudiante:** Sonia Salmeron  
 **Fecha:** 8 de mayo de 2026  
 
+> **Nota:** este informe refleja el estado del trabajo a la fecha indicada y se conserva como entregable de seguimiento (igual que las versiones `.docx` de esta carpeta). Algunas decisiones y cifras se actualizaron después: GSE91061 se reclasificó como cohorte tumoral RNA-seq de nivolumab (no de sangre) y el bloque TCGA se completó con el screening transcriptómico. Los resultados definitivos son los de la memoria final (`memoria/TFM_Salmeron_Fructuoso_Sonia_2026.pdf`).
+
 ## 1. Introduccion y objetivo del informe
 
 El presente informe de seguimiento recoge el estado de desarrollo del Trabajo de Fin de Master hasta la fecha. El proyecto se centra en el analisis de datos transcriptomicos publicos de melanoma avanzado tratado con inmunoterapia, con el objetivo de identificar patrones moleculares asociados a respuesta terapeutica y explorar su posible utilidad como biomarcadores.

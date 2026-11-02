@@ -45,6 +45,8 @@ dim(master_dataset)
 
 Genes de la tabla de resultados del screening, identificados por símbolo y mapeados a su identificador Ensembl mediante la tabla anotada.
 
+Estos diez genes **no** son el top 10 literal del ranking por FDR (el que usa el script 12). Son los genes con símbolo, no pseudogenes y con efecto protector entre los 15 de menor FDR: se excluyen el pseudogén TAF5LP1, tres transcritos sin símbolo (ENSG00000259834, ENSG00000225492, ENSG00000197536) y NCCRP1 (único gen de riesgo). Por eso el nombre del fichero (`top10`) se refiere a la tabla de diez genes de la memoria y no al top 10 literal.
+
 ```{r}
 candidatos <- c("GBP2", "GBP4", "IL15", "GIMAP2", "DDX60",
                 "KLRD1", "CCL8", "GCNT1", "APOBEC3G", "UBA7")

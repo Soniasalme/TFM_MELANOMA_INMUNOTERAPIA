@@ -1520,6 +1520,14 @@ dim(master_dataset)</code></pre>
 <p>Genes de la tabla de resultados del screening, identificados por
 símbolo y mapeados a su identificador Ensembl mediante la tabla
 anotada.</p>
+<p>Estos diez genes <strong>no</strong> son el top 10 literal del
+ranking por FDR (el que usa el script 12). Son los genes con símbolo, no
+pseudogenes y con efecto protector entre los 15 de menor FDR: se
+excluyen el pseudogén TAF5LP1, tres transcritos sin símbolo
+(ENSG00000259834, ENSG00000225492, ENSG00000197536) y NCCRP1 (único gen
+de riesgo). Por eso el nombre del fichero (<code>top10</code>) se
+refiere a la tabla de diez genes de la memoria y no al top 10
+literal.</p>
 <pre class="r"><code>candidatos &lt;- c(&quot;GBP2&quot;, &quot;GBP4&quot;, &quot;IL15&quot;, &quot;GIMAP2&quot;, &quot;DDX60&quot;,
                 &quot;KLRD1&quot;, &quot;CCL8&quot;, &quot;GCNT1&quot;, &quot;APOBEC3G&quot;, &quot;UBA7&quot;)
 
@@ -1534,7 +1542,7 @@ genes</code></pre>
 <pre><code>## # A tibble: 10 × 4
 ##    gene               SYMBOL   HR_screening FDR_screening
 ##    &lt;chr&gt;              &lt;chr&gt;           &lt;dbl&gt;         &lt;dbl&gt;
-##  1 ENSG00000162645.13 GBP2            0.775   0.000000208
+##  1 ENSG00000162645.13 GBP2            0.775   0.000000207
 ##  2 ENSG00000162654.9  GBP4            0.834   0.00000112 
 ##  3 ENSG00000164136.17 IL15            0.793   0.00000112 
 ##  4 ENSG00000106560.11 GIMAP2          0.763   0.00000112 

@@ -1,6 +1,6 @@
 ---
 title: "Exploracion de objetos GEO integrados por bloque"
-author: "TFM Melanoma Inmunoterapia"
+author: "Sonia Salmerón Fructuoso"
 date: "`r Sys.Date()`"
 output:
   html_document:

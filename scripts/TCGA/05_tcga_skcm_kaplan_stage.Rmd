@@ -1,6 +1,6 @@
 ---
 title: "TFM melanoma - Kaplan-Meier por estadio en TCGA-SKCM"
-author: "Sonia"
+author: "Sonia Salmerón Fructuoso"
 date: "`r Sys.Date()`"
 output:
   html_document:

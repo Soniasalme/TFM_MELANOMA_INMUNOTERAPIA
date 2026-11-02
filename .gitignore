@@ -16,6 +16,8 @@ Thumbs.db
 # =========================
 # Temporary render files
 # =========================
+__pycache__/
+*.pyc
 *.knit.md
 *.log
 *.tmp
@@ -50,12 +52,10 @@ tmp/
 *.RData
 
 # =========================
-# Exceptions: key objects for review
+# Exceptions: archived integrated objects kept for review
 # =========================
-!integrated_dataset/se_integrated_geo_tumor.rds
-!integrated_dataset/se_integrated_geo_blood_sensitivity.rds
-!integrated_dataset/se_integrated_initial_geo.rds
-!resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds
+!resultados/_archivo/geo_integrado_inicial/integrated_dataset/*.rds
+!resultados/_archivo/geo_integrado_inicial/batch_correction_geo_tumor/*.rds
 
 # =========================
 # Duplicated/old generated outputs

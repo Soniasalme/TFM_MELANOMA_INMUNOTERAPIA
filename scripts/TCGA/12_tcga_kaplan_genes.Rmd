@@ -1,6 +1,6 @@
 ---
 title: "12 - Kaplan-Meier para genes candidatos"
-author: "TFM Melanoma"
+author: "Sonia Salmerón Fructuoso"
 output:
   html_document:
     toc: true
@@ -20,6 +20,8 @@ Para los genes con menor FDR:
 - se divide la expresión en **alta vs baja** (mediana)
 - se generan **curvas Kaplan-Meier**
 - se evalúa si las diferencias de supervivencia son consistentes.
+
+**Selección literal del top 10.** Los diez genes se toman directamente del ranking por FDR del screening (script 11), sin filtrar por tipo de transcrito ni por anotación. Por eso la lista incluye el pseudogén TAF5LP1 y un transcrito sin símbolo génico (ENSG00000259834), y no incluye APOBEC3G ni UBA7, que quedan empatados en FDR en las posiciones 11-15 del ranking. Esta lista no coincide, por tanto, con la tabla de diez genes destacados de la memoria (que omite pseudogenes y transcritos sin anotación funcional). Véase la sección 2.
 
 ---
 
@@ -46,20 +48,44 @@ head(cox_results)
 
 # 2. Seleccionar top genes candidatos
 
-Elegimos los **10 genes con menor FDR**.
+Elegimos los **10 genes con menor FDR** del ranking global, sin filtros adicionales. Se añade el símbolo génico de la tabla anotada (script 13) para identificarlos; `NA` indica que el transcrito no tiene símbolo en `org.Hs.eg.db`.
 
 ```{r}
+annot <- read_csv("results/cox_transcriptome_results_annotated.csv", show_col_types = FALSE) %>%
+  select(gene, SYMBOL)
+
 top_genes <- cox_results %>%
   arrange(FDR) %>%
-  slice(1:10)
+  slice(1:10) %>%
+  left_join(annot, by = "gene")
 
 top_genes
+```
+
+Comprobación de que el corte en 10 no separa genes con el mismo FDR (en cuyo caso el top 10 dependería del orden de empate):
+
+```{r}
+sort(cox_results$FDR)[10:11]
+```
+
+Genes de la tabla de la memoria que **no** están en este top 10 literal, con su posición en el ranking:
+
+```{r}
+tabla_memoria <- c("GBP2", "GBP4", "IL15", "GIMAP2", "DDX60",
+                   "KLRD1", "CCL8", "GCNT1", "APOBEC3G", "UBA7")
+
+cox_results %>%
+  arrange(FDR) %>%
+  mutate(posicion = row_number()) %>%
+  left_join(annot, by = "gene") %>%
+  filter(SYMBOL %in% tabla_memoria, !gene %in% top_genes$gene) %>%
+  select(posicion, SYMBOL, HR, FDR)
 ```
 
 Guardamos los nombres:
 
 ```{r}
-gene_list <- top_genes$gene
+gene_list <- setNames(top_genes$gene, ifelse(is.na(top_genes$SYMBOL), top_genes$gene, top_genes$SYMBOL))
 gene_list
 ```
 
@@ -83,7 +109,7 @@ Para cada gen:
 - generar curvas Kaplan-Meier
 
 ```{r}
-kaplan_gene <- function(gene){
+kaplan_gene <- function(gene, label = gene){
 
   df <- master_dataset
 
@@ -104,8 +130,8 @@ kaplan_gene <- function(gene){
     data = df,
     pval = TRUE,
     risk.table = TRUE,
-    title = paste("Kaplan-Meier:", gene),
-    legend.title = gene,
+    title = paste("Kaplan-Meier:", label),
+    legend.title = label,
     legend.labs = c("High", "Low")
   )
 
@@ -119,9 +145,9 @@ kaplan_gene <- function(gene){
 Esto generará **10 figuras**, una por gen.
 
 ```{r}
-for(g in gene_list){
+for(i in seq_along(gene_list)){
 
-  print(kaplan_gene(g))
+  print(kaplan_gene(gene_list[[i]], names(gene_list)[i]))
 
 }
 ```

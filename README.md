@@ -28,7 +28,7 @@ Ambos bloques convergen en el **eje IFN-γ / MHC-I** como determinante transvers
 | GSE78220 | 25 | Tumor | RNA-seq | Pembrolizumab | 0,853 (top 5 genes)* | Descubrimiento |
 | GSE215868 | 105 | Tumor | NanoString | Anti-PD-1 | 0,547 | Validación tumoral |
 | GSE211645 | 40 | Tumor | NanoString | Anti-CTLA-4 | 0,390 | Exploratoria |
-| GSE91061 | 49 | Tumor | RNA-seq | Nivolumab | 0,474 | Validación RNA-seq independiente |
+| GSE91061 | 51 (49 evaluables) | Tumor | RNA-seq | Nivolumab | 0,474 | Validación RNA-seq independiente |
 | GSE94873 | 360 | Sangre | NanoString | Tremelimumab | 0,475 | Sensibilidad periférica |
 
 \* Señal exploratoria; n = 25 impide alcanzar significación FDR. No trasladar a estimaciones de rendimiento clínico.
@@ -45,7 +45,7 @@ Ambos bloques convergen en el **eje IFN-γ / MHC-I** como determinante transvers
 - Screening Cox gen a gen (univariante, sin covariables) sobre **5.000 genes** (escala log-CPM)
 - **1.439 genes con FDR < 0,05** · 944 genes con FDR < 0,01
 - Patrón predominantemente **protector** (HR < 1): alta expresión asociada a mayor supervivencia
-- Top genes: **GBP2** (HR = 0,775, FDR = 2,1×10⁻⁷) · GBP4 · IL15 · GIMAP2 · DDX60 · KLRD1 · CCL8
+- Genes destacados (menor FDR): **GBP2** (HR = 0,775, FDR = 2,1×10⁻⁷) · GBP4 · IL15 · GIMAP2 · DDX60 · KLRD1 · CCL8
 - Reajuste de los diez genes candidatos por edad, sexo y estadio (n = 413, 196 eventos): asociación y dirección de efecto mantenidas (FDR ajustado ≤ 5,5×10⁻⁷). Es una comprobación de robustez sobre genes seleccionados en la misma cohorte, no una validación independiente
 - ORA GO-BP (genes protectores): respuesta a IFN-γ, presentación antigénica MHC-I, activación NK/CD8⁺
 
@@ -152,4 +152,4 @@ https://github.com/Soniasalme/TFM_MELANOMA_INMUNOTERAPIA
 
 ---
 
-*Licencia: CC BY-NC-ND 3.0 ES — [creativecommons.org/licenses/by-nc/3.0/es](https://creativecommons.org/licenses/by-nc/3.0/es)*
+*Licencia: CC BY-NC-ND 3.0 ES — [creativecommons.org/licenses/by-nc-nd/3.0/es](https://creativecommons.org/licenses/by-nc-nd/3.0/es)*

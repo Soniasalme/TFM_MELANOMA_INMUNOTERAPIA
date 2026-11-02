@@ -1,10 +1,10 @@
 # Memoria TFM en LaTeX - formato UOC
 
-Esta carpeta contiene la versión de trabajo de la memoria en LaTeX usando la plantilla UOC `TFUOC.cls`.
+Esta carpeta contiene el código fuente de la memoria en LaTeX usando la plantilla UOC `TFUOC.cls`.
 
 ## Cómo se ha compilado la memoria
 
-El PDF final se genera con **pdfLaTeX** (pdfTeX 1.40.28, TeX Live 2025, instalación TinyTeX en Windows), usando la clase oficial de la UOC `TFUOC.cls`. La bibliografía se gestiona con **BibTeX** (`ibliographystyle{unsrt}` y `bibliografia.bib`); `latexmk` ejecuta automáticamente las pasadas de pdfLaTeX y BibTeX necesarias. Las referencias cruzadas, el índice y las citas se resuelven tras varias pasadas, por lo que no basta con una única ejecución de `pdflatex`.
+El PDF final se genera con **pdfLaTeX** (pdfTeX 1.40.28, TeX Live 2025, instalación TinyTeX en Windows), usando la clase oficial de la UOC `TFUOC.cls`. La bibliografía se gestiona con **BibTeX** (`\bibliographystyle{unsrt}` y `bibliografia.bib`); `latexmk` ejecuta automáticamente las pasadas de pdfLaTeX y BibTeX necesarias. Las referencias cruzadas, el índice y las citas se resuelven tras varias pasadas, por lo que no basta con una única ejecución de `pdflatex`.
 
 Desde esta carpeta (`TFM_memoria/memoria_latex/`):
 
@@ -12,7 +12,7 @@ Desde esta carpeta (`TFM_memoria/memoria_latex/`):
 latexmk -pdf -interaction=nonstopmode main.tex
 ```
 
-Esto genera `main.pdf` (50 páginas). Para limpiar los archivos auxiliares:
+Esto genera `main.pdf` (52 páginas). Para limpiar los archivos auxiliares:
 
 ```powershell
 latexmk -c main.tex
@@ -26,20 +26,14 @@ Las figuras se incluyen desde `figures/` (PNG exportados de los análisis en R; 
 
 - `main.tex`: documento principal y metadatos.
 - `chapters/01_introduccion.tex`: introducción, objetivos, CCEG, planificación e IA generativa.
-- `chapters/02_estado_arte.tex`: estado del arte inicial.
+- `chapters/02_estado_arte.tex`: estado del arte.
 - `chapters/03_metodologia.tex`: diseño, cohortes, preprocesamiento y análisis.
 - `chapters/04_resultados.tex`: resultados GEO y TCGA-SKCM.
 - `chapters/05_discusion.tex`: discusión de resultados.
 - `chapters/06_conclusiones.tex`: conclusiones y líneas futuras.
 - `chapters/07_glosario.tex`: acrónimos.
-- `chapters/08_anexos.tex`: repositorio, entregables y revisión final.
-- `bibliografia.bib`: bibliografía inicial.
-
-## Pendientes importantes
-
-- Confirmar `\nomPRA{}` si la asignatura requiere el nombre del PRA.
-- Revisar el texto final con la tutora antes de la entrega.
-- Ajustar o exportar figuras finales en alta resolución si se requiere.
+- `chapters/08_anexos.tex`: repositorio, entregables y glosario de scripts.
+- `bibliografia.bib`: bibliografía (BibTeX).
 
 ## Nota técnica
 

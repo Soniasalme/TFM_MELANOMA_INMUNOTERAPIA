@@ -1,6 +1,6 @@
 ﻿---
 title: "Validacion tumoral: GSE215868 anti-PD-1 y GSE211645 anti-CTLA-4"
-author: "TFM Melanoma Inmunoterapia"
+author: "Sonia Salmerón Fructuoso"
 date: "`r Sys.Date()`"
 output:
   html_document:

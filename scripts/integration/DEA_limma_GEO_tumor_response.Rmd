@@ -1,6 +1,6 @@
 ---
 title: "Análisis diferencial de expresión: Respondedores vs No Respondedores en bloque tumoral GEO"
-author: "TFM Melanoma Inmunoterapia"
+author: "Sonia Salmerón Fructuoso"
 date: "`r Sys.Date()`"
 output:
   html_document:

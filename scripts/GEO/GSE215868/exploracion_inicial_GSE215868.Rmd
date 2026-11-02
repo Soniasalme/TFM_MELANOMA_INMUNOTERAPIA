@@ -1,6 +1,6 @@
 ---
 title: "Exploración inicial de GSE215868"
-author: "TFM Melanoma Inmunoterapia"
+author: "Sonia Salmerón Fructuoso"
 output: html_document
 ---
 

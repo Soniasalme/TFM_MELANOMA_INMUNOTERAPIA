@@ -1,6 +1,6 @@
 ---
 title: "Construcción de SummarizedExperiment – GSE215868"
-author: "TFM Melanoma Inmunoterapia"
+author: "Sonia Salmerón Fructuoso"
 output: html_document
 ---
 

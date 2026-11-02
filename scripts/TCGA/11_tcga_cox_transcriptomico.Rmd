@@ -1,6 +1,6 @@
 ---
 title: "11 - Cox transcriptómico por gen (screening de biomarcadores)"
-author: "TFM Melanoma"
+author: "Sonia Salmerón Fructuoso"
 output:
   html_document:
     toc: true
