@@ -2,21 +2,25 @@
 
 Esta carpeta contiene la versión de trabajo de la memoria en LaTeX usando la plantilla UOC `TFUOC.cls`.
 
-La compilación de prueba ya se ha ejecutado correctamente y genera `main.pdf`.
+## Cómo se ha compilado la memoria
 
-## Compilación
+El PDF final se genera con **pdfLaTeX** (pdfTeX 1.40.28, TeX Live 2025, instalación TinyTeX en Windows), usando la clase oficial de la UOC `TFUOC.cls`. La bibliografía se gestiona con **BibTeX** (`ibliographystyle{unsrt}` y `bibliografia.bib`); `latexmk` ejecuta automáticamente las pasadas de pdfLaTeX y BibTeX necesarias. Las referencias cruzadas, el índice y las citas se resuelven tras varias pasadas, por lo que no basta con una única ejecución de `pdflatex`.
 
-Desde esta carpeta:
+Desde esta carpeta (`TFM_memoria/memoria_latex/`):
 
 ```powershell
 latexmk -pdf -interaction=nonstopmode main.tex
 ```
 
-Para limpiar auxiliares:
+Esto genera `main.pdf` (50 páginas). Para limpiar los archivos auxiliares:
 
 ```powershell
 latexmk -c main.tex
 ```
+
+Tras compilar, el PDF se copia a `memoria/TFM_Salmeron_Fructuoso_Sonia_2026.pdf` (versión de entrega en la raíz del repositorio); ambos archivos deben ser idénticos.
+
+Las figuras se incluyen desde `figures/` (PNG exportados de los análisis en R; las de TCGA proceden de `scripts/TCGA/`). Las clases y logotipos de la UOC (`TFUOC.cls`, `UOCllarg.*`, `uoc*.png`) están incluidos en esta carpeta y no requieren instalación adicional.
 
 ## Estructura
 
