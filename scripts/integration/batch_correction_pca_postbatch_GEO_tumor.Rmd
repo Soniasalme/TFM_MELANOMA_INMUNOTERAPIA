@@ -81,7 +81,6 @@ library(matrixStats)
 
 ```{r localizar_objeto_tumor}
 candidate_paths <- c(
-  "C:/Users/sonia/Desktop/2_TFM_MELANOMA/integrated_dataset/se_integrated_geo_tumor.rds",
   "integrated_dataset/se_integrated_geo_tumor.rds",
   "../integrated_dataset/se_integrated_geo_tumor.rds",
   "../../integrated_dataset/se_integrated_geo_tumor.rds",

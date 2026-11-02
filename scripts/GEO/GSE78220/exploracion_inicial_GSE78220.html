@@ -464,11 +464,11 @@ dir.create(raw_base_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(raw_dataset_dir, recursive = TRUE, showWarnings = FALSE)
 
 project_root</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA&quot;</code></pre>
+<pre><code>## [1] &quot;.&quot;</code></pre>
 <pre class="r"><code>raw_base_dir</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw&quot;</code></pre>
+<pre><code>## [1] &quot;GEO_raw&quot;</code></pre>
 <pre class="r"><code>raw_dataset_dir</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE78220&quot;</code></pre>
+<pre><code>## [1] &quot;GEO_raw/GSE78220&quot;</code></pre>
 <hr />
 </div>
 <div id="descarga-del-dataset-desde-geo" class="section level1">
@@ -691,7 +691,7 @@ if (!file.exists(xlsx_file)) {
 list.files(raw_dataset_dir, recursive = TRUE)</code></pre>
 <pre><code>## [1] &quot;GSE78220_PatientFPKM.xlsx&quot;</code></pre>
 <pre class="r"><code>xlsx_file</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE78220/GSE78220_PatientFPKM.xlsx&quot;</code></pre>
+<pre><code>## [1] &quot;GEO_raw/GSE78220/GSE78220_PatientFPKM.xlsx&quot;</code></pre>
 <hr />
 </div>
 <div id="carga-exploratoria-de-la-matriz-suplementaria" class="section level1">
@@ -794,7 +794,7 @@ if (&quot;anti-pd-1 response:ch1&quot; %in% colnames(metadata_gse78220)) {
 write.table(metadata_gse78220, raw_metadata_file, sep = &quot;\t&quot;, quote = FALSE, row.names = TRUE)
 
 raw_metadata_file</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE78220/GSE78220_metadata_raw.tsv&quot;</code></pre>
+<pre><code>## [1] &quot;GEO_raw/GSE78220/GSE78220_metadata_raw.tsv&quot;</code></pre>
 <hr />
 </div>
 <div id="conclusiones-de-la-exploración-inicial" class="section level1">

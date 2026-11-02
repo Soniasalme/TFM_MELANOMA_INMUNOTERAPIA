@@ -89,8 +89,7 @@ possible_roots <- unique(normalizePath(c(
   getwd(),
   file.path(getwd(), ".."),
   file.path(getwd(), "..", ".."),
-  here::here(),
-  "C:/Users/sonia/Desktop/2_TFM_MELANOMA"
+  here::here()
 ), winslash = "/", mustWork = FALSE))
 
 candidate_paths <- unique(c(

@@ -1,8 +1,10 @@
 """Check shapes in slides 14 and 15 of the PPT."""
+from pathlib import Path
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-PPT_PATH = r"C:\Users\sonia\Desktop\2_TFM_MELANOMA\PRESENTACION\pptx final\TFM_Salmeron_Fructuoso_Sonia.pptx"
+ROOT = Path(__file__).resolve().parents[2]
+PPT_PATH = ROOT / "PRESENTACION" / "pptx final" / "TFM_Salmeron_Fructuoso_Sonia.pptx"
 
 prs = Presentation(PPT_PATH)
 

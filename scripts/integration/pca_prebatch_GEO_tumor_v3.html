@@ -1791,7 +1791,7 @@ possible_roots &lt;- unique(normalizePath(c(
   file.path(getwd(), &quot;..&quot;),
   file.path(getwd(), &quot;..&quot;, &quot;..&quot;),
   here::here(),
-  &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA&quot;
+  &quot;.&quot;
 ), winslash = &quot;/&quot;, mustWork = FALSE))
 
 candidate_paths &lt;- unique(c(
@@ -1837,9 +1837,9 @@ if (length(existing_paths) == 0) {
 tumor_rds_path &lt;- normalizePath(existing_paths[1], winslash = &quot;/&quot;, mustWork = TRUE)
 project_root &lt;- normalizePath(file.path(dirname(tumor_rds_path), &quot;..&quot;), winslash = &quot;/&quot;, mustWork = FALSE)
 tumor_rds_path</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/integrated_dataset/se_integrated_geo_tumor.rds&quot;</code></pre>
+<pre><code>## [1] &quot;integrated_dataset/se_integrated_geo_tumor.rds&quot;</code></pre>
 <pre class="r"><code>project_root</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA&quot;</code></pre>
+<pre><code>## [1] &quot;.&quot;</code></pre>
 </div>
 <div id="carga-del-objeto-tumoral" class="section level1" number="4">
 <h1><span class="header-section-number">4</span> Carga del objeto
@@ -2457,11 +2457,11 @@ write.csv(variance_table, variance_path, row.names = FALSE)
 saveRDS(pca, pca_object_path)
 
 cat(&quot;Scores PCA guardados en:&quot;, pca_scores_path, &quot;\n&quot;)</code></pre>
-<pre><code>## Scores PCA guardados en: C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/pca_prebatch/pca_prebatch_tumor_scores.csv</code></pre>
+<pre><code>## Scores PCA guardados en: resultados/pca_prebatch/pca_prebatch_tumor_scores.csv</code></pre>
 <pre class="r"><code>cat(&quot;Varianza explicada guardada en:&quot;, variance_path, &quot;\n&quot;)</code></pre>
-<pre><code>## Varianza explicada guardada en: C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/pca_prebatch/pca_prebatch_tumor_variance_explained.csv</code></pre>
+<pre><code>## Varianza explicada guardada en: resultados/pca_prebatch/pca_prebatch_tumor_variance_explained.csv</code></pre>
 <pre class="r"><code>cat(&quot;Objeto prcomp guardado en:&quot;, pca_object_path, &quot;\n&quot;)</code></pre>
-<pre><code>## Objeto prcomp guardado en: C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/pca_prebatch/pca_prebatch_tumor_prcomp.rds</code></pre>
+<pre><code>## Objeto prcomp guardado en: resultados/pca_prebatch/pca_prebatch_tumor_prcomp.rds</code></pre>
 </div>
 <div id="checklist-final" class="section level1" number="17">
 <h1><span class="header-section-number">17</span> Checklist final</h1>

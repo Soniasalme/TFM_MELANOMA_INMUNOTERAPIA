@@ -58,7 +58,7 @@ library(knitr)
 # Rutas y carga de datos
 
 ```{r rutas_carga}
-project_root <- "C:/Users/sonia/Desktop/2_TFM_MELANOMA"
+project_root <- here::here()
 ```
 
 # Validaciones iniciales

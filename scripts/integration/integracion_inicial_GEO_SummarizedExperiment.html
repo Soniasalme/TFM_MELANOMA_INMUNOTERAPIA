@@ -541,15 +541,15 @@ dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
 
 project_root</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA&quot;</code></pre>
+<pre><code>## [1] &quot;.&quot;</code></pre>
 <pre class="r"><code>se_dir</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/SummarizedExperiment_objects&quot;</code></pre>
+<pre><code>## [1] &quot;SummarizedExperiment_objects&quot;</code></pre>
 <pre class="r"><code>integrated_dir</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/integrated_dataset&quot;</code></pre>
+<pre><code>## [1] &quot;integrated_dataset&quot;</code></pre>
 <pre class="r"><code>results_dir</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados&quot;</code></pre>
+<pre><code>## [1] &quot;resultados&quot;</code></pre>
 <pre class="r"><code>figures_dir</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/figuras&quot;</code></pre>
+<pre><code>## [1] &quot;figuras&quot;</code></pre>
 <pre class="r"><code>list.files(se_dir)</code></pre>
 <pre><code>## [1] &quot;se_gse211645.rds&quot; &quot;se_gse215868.rds&quot; &quot;se_gse78220.rds&quot;  &quot;se_gse91061.rds&quot;</code></pre>
 <hr />
@@ -565,13 +565,13 @@ project_root</code></pre>
 
 se_files</code></pre>
 <pre><code>##                                                                              GSE78220 
-##  &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/SummarizedExperiment_objects/se_gse78220.rds&quot; 
+##  &quot;SummarizedExperiment_objects/se_gse78220.rds&quot; 
 ##                                                                              GSE91061 
-##  &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/SummarizedExperiment_objects/se_gse91061.rds&quot; 
+##  &quot;SummarizedExperiment_objects/se_gse91061.rds&quot; 
 ##                                                                             GSE215868 
-## &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/SummarizedExperiment_objects/se_gse215868.rds&quot; 
+## &quot;SummarizedExperiment_objects/se_gse215868.rds&quot; 
 ##                                                                             GSE211645 
-## &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/SummarizedExperiment_objects/se_gse211645.rds&quot;</code></pre>
+## &quot;SummarizedExperiment_objects/se_gse211645.rds&quot;</code></pre>
 <pre class="r"><code>file.exists(se_files)</code></pre>
 <pre><code>## [1] TRUE TRUE TRUE TRUE</code></pre>
 <pre class="r"><code>if (!all(file.exists(se_files))) {
@@ -825,11 +825,11 @@ diagnostic_file &lt;- file.path(results_dir, &quot;diagnostico_integracion_globa
 write.csv(integration_diagnostic, diagnostic_file, row.names = FALSE)
 
 cohort_summary_file</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/tabla_resumen_cohortes_geo.csv&quot;</code></pre>
+<pre><code>## [1] &quot;resultados/tabla_resumen_cohortes_geo.csv&quot;</code></pre>
 <pre class="r"><code>pairwise_overlap_file</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/tabla_solapamiento_genico_pares.csv&quot;</code></pre>
+<pre><code>## [1] &quot;resultados/tabla_solapamiento_genico_pares.csv&quot;</code></pre>
 <pre class="r"><code>diagnostic_file</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/diagnostico_integracion_global.csv&quot;</code></pre>
+<pre><code>## [1] &quot;resultados/diagnostico_integracion_global.csv&quot;</code></pre>
 <hr />
 </div>
 <div id="integración-solo-si-existe-intersección-global" class="section level1">

@@ -11,9 +11,11 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from lxml import etree
 import copy
 import os
+from pathlib import Path
 
-PPT_PATH = r"C:\Users\sonia\Desktop\2_TFM_MELANOMA\PRESENTACION\pptx final\TFM_Salmeron_Fructuoso_Sonia.pptx"
-FIG_DIR  = r"C:\Users\sonia\Desktop\2_TFM_MELANOMA\TFM_memoria\memoria_latex\figures"
+ROOT = Path(__file__).resolve().parents[2]
+PPT_PATH = str(ROOT / "PRESENTACION" / "pptx final" / "TFM_Salmeron_Fructuoso_Sonia.pptx")
+FIG_DIR  = str(ROOT / "TFM_memoria" / "memoria_latex" / "figures")
 
 # Slide indices (0-based) y sus nuevas figuras
 REPLACEMENTS = {

@@ -465,11 +465,11 @@ dir.create(raw_base_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(raw_dataset_dir, recursive = TRUE, showWarnings = FALSE)
 
 project_root</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA&quot;</code></pre>
+<pre><code>## [1] &quot;.&quot;</code></pre>
 <pre class="r"><code>raw_base_dir</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw&quot;</code></pre>
+<pre><code>## [1] &quot;GEO_raw&quot;</code></pre>
 <pre class="r"><code>raw_dataset_dir</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061&quot;</code></pre>
+<pre><code>## [1] &quot;GEO_raw/GSE91061&quot;</code></pre>
 <hr />
 </div>
 <div id="descarga-del-dataset-desde-geo" class="section level1">
@@ -639,58 +639,58 @@ archivos suplementarios.</p>
   GEOquery::getGEOSuppFiles(&quot;GSE91061&quot;, baseDir = raw_base_dir)
 }, silent = TRUE)</code></pre>
 <pre><code>## Using locally cached version of supplementary file(s) GSE91061 found here:
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz</code></pre>
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz</code></pre>
 <pre><code>## Using locally cached version of supplementary file(s) GSE91061 found here:
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz</code></pre>
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz</code></pre>
 <pre><code>## Using locally cached version of supplementary file(s) GSE91061 found here:
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz</code></pre>
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz</code></pre>
 <pre><code>## Using locally cached version of supplementary file(s) GSE91061 found here:
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz</code></pre>
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz</code></pre>
 <pre><code>##                                                                                                                     size
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       16354905
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz         3591833
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        19253751
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz     1825
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       16354905
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz         3591833
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        19253751
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz     1825
 ##                                                                                                                 isdir
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       FALSE
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz        FALSE
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        FALSE
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz FALSE
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       FALSE
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz        FALSE
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        FALSE
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz FALSE
 ##                                                                                                                 mode
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz        666
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz         666
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz         666
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz  666
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz        666
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz         666
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz         666
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz  666
 ##                                                                                                                               mtime
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       2026-04-01 19:14:15
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz        2026-04-01 19:14:17
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        2026-04-01 19:14:22
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz 2026-04-01 19:14:23
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       2026-04-01 19:14:15
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz        2026-04-01 19:14:17
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        2026-04-01 19:14:22
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz 2026-04-01 19:14:23
 ##                                                                                                                               ctime
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       2026-04-01 19:14:10
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz        2026-04-01 19:14:15
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        2026-04-01 19:14:17
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz 2026-04-01 19:14:22
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       2026-04-01 19:14:10
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz        2026-04-01 19:14:15
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        2026-04-01 19:14:17
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz 2026-04-01 19:14:22
 ##                                                                                                                               atime
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       2026-04-01 19:14:15
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz        2026-04-01 19:14:17
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        2026-04-01 19:14:23
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz 2026-04-01 19:14:23
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       2026-04-01 19:14:15
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz        2026-04-01 19:14:17
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        2026-04-01 19:14:23
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz 2026-04-01 19:14:23
 ##                                                                                                                 exe
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz        no
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz         no
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz         no
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz  no
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz        no
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz         no
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz         no
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz  no
 ##                                                                                                                 uname
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       sonia
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz        sonia
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        sonia
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz sonia
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       sonia
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz        sonia
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        sonia
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz sonia
 ##                                                                                                                 udomain
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       BURBUJA
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz        BURBUJA
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        BURBUJA
-## C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz BURBUJA</code></pre>
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz       BURBUJA
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz        BURBUJA
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz        BURBUJA
+## GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz BURBUJA</code></pre>
 <pre class="r"><code>list.files(raw_dataset_dir, recursive = TRUE)</code></pre>
 <pre><code>## [1] &quot;GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz&quot;      
 ## [2] &quot;GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz&quot;       
@@ -703,10 +703,10 @@ archivos suplementarios.</p>
 <pre class="r"><code>expr_files &lt;- list.files(raw_dataset_dir, recursive = TRUE, full.names = TRUE)
 
 expr_files</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz&quot;      
-## [2] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz&quot;       
-## [3] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz&quot;       
-## [4] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz&quot;</code></pre>
+<pre><code>## [1] &quot;GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.fpkm.csv.gz&quot;      
+## [2] &quot;GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.raw.csv.gz&quot;       
+## [3] &quot;GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz&quot;       
+## [4] &quot;GEO_raw/GSE91061/GSE91061_BMS038109Sample_Cytolytic_Score_20161026.txt.gz&quot;</code></pre>
 <hr />
 </div>
 <div id="selección-exploratoria-del-archivo-rld" class="section level1">
@@ -721,7 +721,7 @@ análisis exploratorios y para integración inicial.</p>
 )
 
 rld_file</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz&quot;</code></pre>
+<pre><code>## [1] &quot;GEO_raw/GSE91061/GSE91061_BMS038109Sample.hg19KnownGene.rld.csv.gz&quot;</code></pre>
 <hr />
 </div>
 <div id="carga-exploratoria-de-la-matriz-rld" class="section level1">
@@ -981,7 +981,7 @@ if (&quot;visit (pre or on treatment):ch1&quot; %in% colnames(metadata_gse91061)
 write.table(metadata_gse91061, raw_metadata_file, sep = &quot;\t&quot;, quote = FALSE, row.names = TRUE)
 
 raw_metadata_file</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/GEO_raw/GSE91061/GSE91061_metadata_raw.tsv&quot;</code></pre>
+<pre><code>## [1] &quot;GEO_raw/GSE91061/GSE91061_metadata_raw.tsv&quot;</code></pre>
 <hr />
 </div>
 <div id="conclusiones-de-la-exploración-inicial" class="section level1">

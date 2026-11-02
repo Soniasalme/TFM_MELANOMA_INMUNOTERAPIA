@@ -43,7 +43,7 @@ Este informe utiliza `SummarizedExperiment`, `dplyr`, `tibble` y `knitr` para ca
 # Localizacion de objetos
 
 ```{r localizar_objetos}
-project_root <- "C:/Users/sonia/Desktop/2_TFM_MELANOMA"
+project_root <- here::here()
 integrated_dir <- file.path(project_root, "integrated_dataset")
 
 object_paths <- c(

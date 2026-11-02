@@ -1764,7 +1764,7 @@ library(matrixStats)</code></pre>
 <h1><span class="header-section-number">3</span> Localización del objeto
 tumoral</h1>
 <pre class="r"><code>candidate_paths &lt;- c(
-  &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/integrated_dataset/se_integrated_geo_tumor.rds&quot;,
+  &quot;integrated_dataset/se_integrated_geo_tumor.rds&quot;,
   &quot;integrated_dataset/se_integrated_geo_tumor.rds&quot;,
   &quot;../integrated_dataset/se_integrated_geo_tumor.rds&quot;,
   &quot;../../integrated_dataset/se_integrated_geo_tumor.rds&quot;,
@@ -1787,10 +1787,10 @@ if (length(existing_paths) == 0) {
 
 tumor_path &lt;- existing_paths[1]
 tumor_path</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/integrated_dataset/se_integrated_geo_tumor.rds&quot;</code></pre>
+<pre><code>## [1] &quot;integrated_dataset/se_integrated_geo_tumor.rds&quot;</code></pre>
 <pre class="r"><code>project_root &lt;- normalizePath(file.path(dirname(tumor_path), &quot;..&quot;), winslash = &quot;/&quot;, mustWork = FALSE)
 project_root</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA&quot;</code></pre>
+<pre><code>## [1] &quot;.&quot;</code></pre>
 <pre class="r"><code>se_tumor &lt;- readRDS(tumor_path)
 
 stopifnot(inherits(se_tumor, &quot;SummarizedExperiment&quot;))
@@ -2386,12 +2386,12 @@ saveRDS(
 )
 
 list.files(output_dir, full.names = TRUE)</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/batch_correction_geo_tumor/expr_geo_tumor_batch_corrected_limma.rds&quot;         
-## [2] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/batch_correction_geo_tumor/pca_post_batch_geo_tumor_limma.rds&quot;               
-## [3] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/batch_correction_geo_tumor/pca_post_batch_geo_tumor_scores.rds&quot;              
-## [4] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/batch_correction_geo_tumor/pca_pre_batch_geo_tumor.rds&quot;                      
-## [5] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/batch_correction_geo_tumor/pca_pre_batch_geo_tumor_scores.rds&quot;               
-## [6] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds&quot;</code></pre>
+<pre><code>## [1] &quot;resultados/batch_correction_geo_tumor/expr_geo_tumor_batch_corrected_limma.rds&quot;         
+## [2] &quot;resultados/batch_correction_geo_tumor/pca_post_batch_geo_tumor_limma.rds&quot;               
+## [3] &quot;resultados/batch_correction_geo_tumor/pca_post_batch_geo_tumor_scores.rds&quot;              
+## [4] &quot;resultados/batch_correction_geo_tumor/pca_pre_batch_geo_tumor.rds&quot;                      
+## [5] &quot;resultados/batch_correction_geo_tumor/pca_pre_batch_geo_tumor_scores.rds&quot;               
+## [6] &quot;resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds&quot;</code></pre>
 </div>
 <div id="checklist-final" class="section level1" number="13">
 <h1><span class="header-section-number">13</span> Checklist final</h1>

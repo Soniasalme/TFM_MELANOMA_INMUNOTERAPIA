@@ -7,8 +7,8 @@ library(survminer)
 library(ggplot2)
 library(dplyr)
 
-figures_dir <- "C:/Users/sonia/Desktop/2_TFM_MELANOMA/TFM_memoria/memoria_latex/figures"
-data_dir    <- "C:/Users/sonia/Desktop/2_TFM_MELANOMA/scripts/TCGA/data_processed"
+figures_dir <- here::here("TFM_memoria", "memoria_latex", "figures")
+data_dir    <- here::here("scripts", "TCGA", "data_processed")
 
 # ─────────────────────────────────────────────────────────
 # 1. KAPLAN-MEIER por grupos de estadio (slide 14)

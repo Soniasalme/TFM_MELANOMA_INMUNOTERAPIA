@@ -1753,8 +1753,8 @@ library(tidyr)</code></pre>
 <h1><span class="header-section-number">3</span> Localización del objeto
 tumoral</h1>
 <pre class="r"><code>candidate_paths &lt;- c(
-  &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds&quot;,
-  &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/integrated_dataset/se_integrated_geo_tumor.rds&quot;,
+  &quot;resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds&quot;,
+  &quot;integrated_dataset/se_integrated_geo_tumor.rds&quot;,
   &quot;resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds&quot;,
   &quot;../resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds&quot;,
   &quot;../../resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds&quot;,
@@ -1778,10 +1778,10 @@ if (length(existing_paths) == 0) {
 
 se_path &lt;- normalizePath(existing_paths[1], winslash = &quot;/&quot;, mustWork = TRUE)
 se_path</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds&quot;</code></pre>
+<pre><code>## [1] &quot;resultados/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds&quot;</code></pre>
 <pre class="r"><code>project_root &lt;- sub(&quot;/(integrated_dataset|resultados|scripts)/.*$&quot;, &quot;&quot;, se_path)
 project_root</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA&quot;</code></pre>
+<pre><code>## [1] &quot;.&quot;</code></pre>
 <pre class="r"><code>se_tumor &lt;- readRDS(se_path)
 stopifnot(inherits(se_tumor, &quot;SummarizedExperiment&quot;))
 se_tumor</code></pre>
@@ -2667,11 +2667,11 @@ if (!is.null(res_raw)) {
 }
 
 list.files(output_dir, full.names = TRUE)</code></pre>
-<pre><code>## [1] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/dea_geo_tumor_response/DEA_limma_geo_tumor_main_vs_robustness_comparison.csv&quot;           
-## [2] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/dea_geo_tumor_response/DEA_limma_geo_tumor_response_main.csv&quot;                           
-## [3] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/dea_geo_tumor_response/DEA_limma_geo_tumor_response_main.rds&quot;                           
-## [4] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/dea_geo_tumor_response/DEA_limma_geo_tumor_response_robustness_raw_adjusted_dataset.csv&quot;
-## [5] &quot;C:/Users/sonia/Desktop/2_TFM_MELANOMA/resultados/dea_geo_tumor_response/DEA_limma_geo_tumor_response_robustness_raw_adjusted_dataset.rds&quot;</code></pre>
+<pre><code>## [1] &quot;resultados/dea_geo_tumor_response/DEA_limma_geo_tumor_main_vs_robustness_comparison.csv&quot;           
+## [2] &quot;resultados/dea_geo_tumor_response/DEA_limma_geo_tumor_response_main.csv&quot;                           
+## [3] &quot;resultados/dea_geo_tumor_response/DEA_limma_geo_tumor_response_main.rds&quot;                           
+## [4] &quot;resultados/dea_geo_tumor_response/DEA_limma_geo_tumor_response_robustness_raw_adjusted_dataset.csv&quot;
+## [5] &quot;resultados/dea_geo_tumor_response/DEA_limma_geo_tumor_response_robustness_raw_adjusted_dataset.rds&quot;</code></pre>
 </div>
 <div id="checklist-final" class="section level1" number="14">
 <h1><span class="header-section-number">14</span> Checklist final</h1>
