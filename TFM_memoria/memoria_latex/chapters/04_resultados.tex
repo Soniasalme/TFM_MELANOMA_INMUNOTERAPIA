@@ -286,14 +286,7 @@ La Figura~\ref{fig:volcano_cox} presenta el volcano plot del screening Cox, dond
 
 \begin{figure}[H]
 \centering
-\IfFileExists{figures/volcano_cox_transcriptomico.png}{%
-  \includegraphics[width=0.90\textwidth]{figures/volcano_cox_transcriptomico}%
-}{%
-  \fbox{\begin{minipage}{0.85\textwidth}\centering\vspace{1.5cm}
-  \textit{Figura pendiente: ejecutar \texttt{13\_tcga\_anotacion\_ora.Rmd} para generar\\
-  \texttt{figures/volcano\_cox\_transcriptomico.png}}
-  \vspace{1.5cm}\end{minipage}}%
-}
+\includegraphics[width=0.90\textwidth]{figures/volcano_cox_transcriptomico}
 \caption{Volcano plot del screening Cox gen a gen en TCGA-SKCM (5.002 genes). Eje X: log(HR); eje Y: $-\log_{10}$(FDR). Línea horizontal discontinua: FDR\,=\,0{,}05. Línea vertical discontinua: HR\,=\,1. Azul oscuro: genes protectores con FDR $< 0{,}01$; rojo: genes de riesgo con FDR $< 0{,}01$; naranja: FDR $< 0{,}05$; gris: no significativos. Etiquetados los 15 genes con menor FDR.}
 \label{fig:volcano_cox}
 \end{figure}

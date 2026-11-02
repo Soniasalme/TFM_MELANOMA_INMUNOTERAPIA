@@ -1,0 +1,330 @@
+---
+title: "13 - Anotación génica y análisis de sobrerrepresentación (ORA) en TCGA-SKCM"
+author: "TFM Melanoma"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 9, fig.height = 6, fig.align = "center")
+```
+
+# Objetivo
+
+En este script se completa la anotación de los genes identificados en el
+screening Cox transcriptómico (script 11) y se realiza un **análisis de
+sobrerrepresentación (ORA)** para interpretar funcionalmente los genes
+asociados a la supervivencia en melanoma cutáneo.
+
+Los pasos son:
+
+1. Cargar los resultados del screening Cox (`cox_transcriptome_results.csv`).
+2. Convertir identificadores Ensembl a símbolo génico y Entrez ID usando
+   `org.Hs.eg.db`.
+3. Generar un volcano plot (log HR vs -log10 FDR).
+4. Realizar ORA sobre los genes con FDR < 0,05 usando GO-BP y `clusterProfiler`.
+5. Exportar la tabla anotada y los resultados funcionales.
+
+---
+
+# 1. Paquetes
+
+```{r paquetes}
+cran_pkgs <- c("ggplot2", "dplyr", "tibble", "ggrepel", "readr")
+for (p in cran_pkgs)
+  if (!requireNamespace(p, quietly = TRUE)) install.packages(p)
+
+bioc_pkgs <- c("clusterProfiler", "org.Hs.eg.db", "enrichplot")
+for (p in bioc_pkgs) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    if (!requireNamespace("BiocManager", quietly = TRUE))
+      install.packages("BiocManager")
+    BiocManager::install(p, ask = FALSE, update = FALSE)
+  }
+}
+
+library(ggplot2)
+library(tibble)
+library(ggrepel)
+library(readr)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(enrichplot)
+# dplyr al final para que sus funciones tengan prioridad sobre AnnotationDbi::select/filter
+library(dplyr)
+```
+
+---
+
+# 2. Carga de resultados del screening Cox
+
+```{r carga}
+cox_res <- read_csv("results/cox_transcriptome_results.csv", show_col_types = FALSE)
+
+# Excluir las variables clínicas que se colaron en el CSV
+cox_genes <- cox_res %>%
+  filter(grepl("^ENSG", gene))
+
+dim(cox_genes)
+head(cox_genes)
+```
+
+---
+
+# 3. Anotación Ensembl → SYMBOL y ENTREZID
+
+Los identificadores del CSV incluyen el número de versión (e.g.,
+`ENSG00000162645.13`). Se elimina la versión antes de mapear con
+`org.Hs.eg.db`.
+
+```{r anotacion}
+# Eliminar versión del identificador Ensembl
+cox_genes <- cox_genes %>%
+  mutate(ensembl_clean = sub("\\..*", "", gene))
+
+# Mapeo Ensembl → SYMBOL
+map_symbol <- mapIds(
+  org.Hs.eg.db,
+  keys    = cox_genes$ensembl_clean,
+  column  = "SYMBOL",
+  keytype = "ENSEMBL",
+  multiVals = "first"
+)
+
+# Mapeo Ensembl → ENTREZID
+map_entrez <- mapIds(
+  org.Hs.eg.db,
+  keys    = cox_genes$ensembl_clean,
+  column  = "ENTREZID",
+  keytype = "ENSEMBL",
+  multiVals = "first"
+)
+
+cox_genes <- cox_genes %>%
+  mutate(
+    SYMBOL   = map_symbol[ensembl_clean],
+    ENTREZID = map_entrez[ensembl_clean]
+  )
+
+# Resumen de cobertura
+n_total    <- nrow(cox_genes)
+n_symbol   <- sum(!is.na(cox_genes$SYMBOL))
+n_entrez   <- sum(!is.na(cox_genes$ENTREZID))
+
+cat("Genes totales:", n_total, "\n")
+cat("Con símbolo génico:", n_symbol, "(", round(100*n_symbol/n_total), "%)\n")
+cat("Con Entrez ID:", n_entrez, "(", round(100*n_entrez/n_total), "%)\n")
+```
+
+## Top 20 genes anotados por FDR
+
+```{r top20}
+cox_genes %>%
+  arrange(FDR) %>%
+  dplyr::select(SYMBOL, HR, pvalue, FDR, ENTREZID) %>%
+  head(20)
+```
+
+---
+
+# 4. Volcano plot (log HR vs -log10 FDR)
+
+Adaptación del volcano plot estándar de expresión diferencial al contexto
+Cox: el eje X muestra el log(HR), que indica la dirección del efecto
+(protector si log HR < 0, de riesgo si log HR > 0); el eje Y muestra
+-log10(FDR).
+
+```{r volcano}
+vol_df <- cox_genes %>%
+  filter(!is.na(SYMBOL)) %>%
+  mutate(
+    logHR = log(HR),
+    neg_log_FDR = -log10(FDR),
+    categoria = case_when(
+      FDR < 0.01 & logHR < 0  ~ "Protector (FDR<0.01)",
+      FDR < 0.01 & logHR > 0  ~ "Riesgo (FDR<0.01)",
+      FDR < 0.05               ~ "FDR<0.05",
+      TRUE                     ~ "No sig."
+    )
+  )
+
+# Etiquetar top 15 genes por FDR
+top_label <- vol_df %>%
+  filter(FDR < 0.001) %>%
+  arrange(FDR) %>%
+  slice_head(n = 15)
+
+ggplot(vol_df, aes(logHR, neg_log_FDR, color = categoria)) +
+  geom_point(alpha = 0.5, size = 0.9) +
+  geom_text_repel(
+    data = top_label,
+    aes(label = SYMBOL),
+    size = 2.8, max.overlaps = 20
+  ) +
+  scale_color_manual(values = c(
+    "Protector (FDR<0.01)" = "#4DBBD5",
+    "Riesgo (FDR<0.01)"    = "#E64B35",
+    "FDR<0.05"             = "#F39B7F",
+    "No sig."              = "grey70"
+  )) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "grey40") +
+  labs(
+    title = "Volcano plot Cox transcriptómico — TCGA-SKCM",
+    subtitle = "Eje X: log(HR); Eje Y: -log10(FDR). Azul = protector, Rojo = riesgo",
+    x = "log(Hazard Ratio)",
+    y = expression(-log[10](FDR)),
+    color = NULL
+  ) +
+  theme_minimal(base_size = 11)
+
+# Guardar figura
+ggsave("figures/volcano_cox_transcriptomico.png",
+       width = 9, height = 6, dpi = 300)
+```
+
+---
+
+# 5. Análisis de sobrerrepresentación (ORA)
+
+Se realiza ORA sobre los genes con FDR < 0,05, separando genes protectores
+(HR < 1) y genes de riesgo (HR > 1) para facilitar la interpretación
+biológica.
+
+## 5.1 Preparación de listas génicas
+
+```{r listas-genes}
+# Genes con FDR < 0.05 y con Entrez ID válido
+sig_genes <- cox_genes %>%
+  filter(FDR < 0.05, !is.na(ENTREZID))
+
+protectores <- sig_genes %>% filter(HR < 1) %>% pull(ENTREZID) %>% unique()
+riesgo      <- sig_genes %>% filter(HR > 1) %>% pull(ENTREZID) %>% unique()
+universo    <- cox_genes %>% filter(!is.na(ENTREZID)) %>% pull(ENTREZID) %>% unique()
+
+cat("Genes protectores (FDR<0.05, HR<1):", length(protectores), "\n")
+cat("Genes de riesgo  (FDR<0.05, HR>1):", length(riesgo), "\n")
+cat("Universo (genes testados con Entrez):", length(universo), "\n")
+```
+
+## 5.2 ORA — genes protectores (alta expresión asociada a mejor supervivencia)
+
+```{r ora-protectores}
+set.seed(42)
+ora_prot <- enrichGO(
+  gene          = protectores,
+  universe      = universo,
+  OrgDb         = org.Hs.eg.db,
+  keyType       = "ENTREZID",
+  ont           = "BP",
+  pAdjustMethod = "BH",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.20,
+  readable      = TRUE
+)
+
+ora_prot_df <- as.data.frame(ora_prot)
+cat("Términos GO-BP significativos (protectores):", nrow(ora_prot_df), "\n")
+
+if (nrow(ora_prot_df) > 0) {
+  ora_prot_df %>%
+    dplyr::select(ID, Description, GeneRatio, BgRatio, p.adjust, Count) %>%
+    mutate(p.adjust = formatC(p.adjust, format = "e", digits = 2)) %>%
+    head(15)
+}
+```
+
+## 5.3 ORA — genes de riesgo (alta expresión asociada a peor supervivencia)
+
+```{r ora-riesgo}
+set.seed(42)
+ora_risk <- enrichGO(
+  gene          = riesgo,
+  universe      = universo,
+  OrgDb         = org.Hs.eg.db,
+  keyType       = "ENTREZID",
+  ont           = "BP",
+  pAdjustMethod = "BH",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.20,
+  readable      = TRUE
+)
+
+ora_risk_df <- as.data.frame(ora_risk)
+cat("Términos GO-BP significativos (riesgo):", nrow(ora_risk_df), "\n")
+
+if (nrow(ora_risk_df) > 0) {
+  ora_risk_df %>%
+    dplyr::select(ID, Description, GeneRatio, BgRatio, p.adjust, Count) %>%
+    mutate(p.adjust = formatC(p.adjust, format = "e", digits = 2)) %>%
+    head(15)
+}
+```
+
+## 5.4 Visualización — dotplot genes protectores
+
+```{r dotplot-prot}
+if (nrow(ora_prot_df) > 0) {
+  dotplot(ora_prot, showCategory = 15) +
+    labs(title = "ORA GO-BP — genes protectores (TCGA-SKCM)") +
+    theme(axis.text.y = element_text(size = 9))
+  ggsave("figures/ora_go_protectores.png", width = 9, height = 7, dpi = 300)
+}
+```
+
+## 5.5 Visualización — dotplot genes de riesgo
+
+```{r dotplot-risk}
+if (nrow(ora_risk_df) > 0) {
+  dotplot(ora_risk, showCategory = 15) +
+    labs(title = "ORA GO-BP — genes de riesgo (TCGA-SKCM)") +
+    theme(axis.text.y = element_text(size = 9))
+  ggsave("figures/ora_go_riesgo.png", width = 9, height = 7, dpi = 300)
+}
+```
+
+---
+
+# 6. Exportación de resultados
+
+```{r exportar}
+# Tabla completa anotada
+write_csv(cox_genes, "results/cox_transcriptome_results_annotated.csv")
+
+# ORA protectores
+if (nrow(ora_prot_df) > 0)
+  write_csv(ora_prot_df, "results/ora_go_protectores.csv")
+
+# ORA riesgo
+if (nrow(ora_risk_df) > 0)
+  write_csv(ora_risk_df, "results/ora_go_riesgo.csv")
+
+cat("Exportación completada.\n")
+```
+
+---
+
+# Interpretación
+
+Este análisis completa la cadena analítica del bloque pronóstico:
+
+1. **Anotación**: los identificadores Ensembl se convierten a símbolos génicos
+   y Entrez IDs, facilitando la interpretación y la comunicación de resultados.
+
+2. **Volcano plot Cox**: permite visualizar simultáneamente la magnitud del
+   efecto (log HR) y la significación (FDR) de los 5.002 genes, con etiquetas
+   sobre los candidatos más robustos.
+
+3. **ORA GO-BP**: identifica los procesos biológicos sobrerrepresentados en
+   los genes asociados a la supervivencia. Los genes protectores (HR < 1)
+   se espera que estén enriquecidos en procesos de activación inmune, respuesta
+   a IFN-gamma y citotoxicidad de células NK/CD8+. Los genes de riesgo (HR > 1)
+   pueden reflejar procesos de proliferación, invasión o supresión inmune.
+
+Los resultados del ORA constituyen la base para la selección de genes
+candidatos para firmas multigénicas y para la discusión biológica del TFM.

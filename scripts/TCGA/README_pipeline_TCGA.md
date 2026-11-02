@@ -14,10 +14,11 @@ Este directorio contiene el análisis del bloque pronóstico del TFM, basado en 
 | `05_tcga_skcm_kaplan_stage.Rmd` | Curvas Kaplan-Meier por estadio AJCC y agrupación simplificada (I-II vs III-IV). | ✅ |
 | `06_tcga_skcm_cox_univariante.Rmd` | Modelos Cox univariantes por variables clínicas (edad, sexo, estadio). Forest plot. | ✅ |
 | `07_tcga_skcm_cox_multivariante.Rmd` | Modelo Cox multivariante. Test proporcionalidad de hazards (Schoenfeld). | ✅ |
-| `08_tcga_skcm_transcriptomics_corregido.Rmd` | Descarga y normalización de expresión RNA-seq (log-CPM). Selección de genes más variables. | ⚠️ sin HTML |
+| `08_tcga_skcm_transcriptomics_corregido.Rmd` | Descarga y normalización de expresión RNA-seq (log-CPM). Selección de genes más variables. | ✅ |
 | `10_tcga_skcm_integracion_clinica_transcriptomica.Rmd` | Integración de datos clínicos y transcriptómicos. Construcción de master dataset. | ✅ |
 | `11_tcga_cox_transcriptomico.Rmd` | Screening Cox gen a gen. Ranking por FDR. Identificación de genes candidatos. | ✅ |
-| `12_tcga_kaplan_genes.Rmd` | Curvas Kaplan-Meier para top 10 genes candidatos (estratificación por mediana de expresión). | ✅ |
+| `12_tcga_kaplan_genes.Rmd` | Curvas Kaplan-Meier para top 10 genes candidatos (estratificación por mediana de expresión). | ⚠️ sin HTML |
+| `13_tcga_anotacion_ora.Rmd` | Anotación Ensembl → símbolo/Entrez, volcano plot del screening Cox y ORA GO-BP (genes protectores y de riesgo) con clusterProfiler. | ✅ |
 
 > **Nota:** Los scripts 03 y 09 no existen — los números se saltaron durante el desarrollo. No afecta al flujo.
 
@@ -29,14 +30,14 @@ Este directorio contiene el análisis del bloque pronóstico del TFM, basado en 
 |---------|-----------|
 | `data_raw/` | `tcga_skcm_clinical.csv` — datos clínicos crudos descargados de GDC |
 | `data_processed/` | Objetos `.rds` por etapa: survival, KM fits, Cox models, expression matrix, master dataset |
-| `figures/` | Curvas KM (global, sexo, estadio) y forest plot Cox multivariante |
-| `results/` | `cox_transcriptome_results.csv` — todos los genes rankeados por p-valor/FDR |
+| `figures/` | Curvas KM (global, sexo, estadio), forest plot Cox multivariante, volcano plot del screening Cox y dotplots del ORA GO-BP |
+| `results/` | `cox_transcriptome_results.csv` (genes rankeados por p-valor/FDR), `cox_transcriptome_results_annotated.csv` (con símbolo y Entrez) y `ora_go_protectores.csv` / `ora_go_riesgo.csv` (ORA GO-BP) |
 | `deprecated/` | Scripts obsoletos o superados por versiones corregidas |
 
 ---
 
 ## Pendiente
 
-- Compilar HTML de `08_tcga_skcm_transcriptomics_corregido.Rmd` (requiere descarga de GDC ~2 GB)
+- Compilar HTML de `12_tcga_kaplan_genes.Rmd`
 - Exportar figuras finales de KM y Cox para la memoria LaTeX
 - Seleccionar genes candidatos finales de `cox_transcriptome_results.csv` para el capítulo de resultados
