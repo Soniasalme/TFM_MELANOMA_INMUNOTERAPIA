@@ -1,0 +1,146 @@
+---
+title: "14 - Cox ajustado para los genes candidatos del screening"
+author: "Sonia Salmerón Fructuoso"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Objetivo
+
+El screening transcriptómico (script 11) ajusta un Cox univariante por gen, sin covariables clínicas. Este script comprueba si la asociación de los genes candidatos de la Tabla de resultados se mantiene al ajustar por **edad, sexo y estadio**.
+
+Se trata de un análisis de sensibilidad sobre los candidatos ya seleccionados: no sustituye al screening ni corrige el sesgo de selección posterior (los genes se eligieron por su asociación con la supervivencia en esta misma cohorte).
+
+---
+
+# Librerías
+
+```{r}
+library(dplyr)
+library(readr)
+library(survival)
+```
+
+---
+
+# 1. Datos
+
+```{r}
+master_dataset <- readRDS("data_processed/master_dataset_tcga_skcm.rds")
+
+annot <- read_csv("results/cox_transcriptome_results_annotated.csv", show_col_types = FALSE)
+
+dim(master_dataset)
+```
+
+---
+
+# 2. Genes candidatos
+
+Genes de la tabla de resultados del screening, identificados por símbolo y mapeados a su identificador Ensembl mediante la tabla anotada.
+
+```{r}
+candidatos <- c("GBP2", "GBP4", "IL15", "GIMAP2", "DDX60",
+                "KLRD1", "CCL8", "GCNT1", "APOBEC3G", "UBA7")
+
+genes <- annot %>%
+  filter(SYMBOL %in% candidatos) %>%
+  select(gene, SYMBOL, HR_screening = HR, FDR_screening = FDR) %>%
+  arrange(FDR_screening)
+
+stopifnot(nrow(genes) == length(candidatos), all(genes$gene %in% colnames(master_dataset)))
+
+genes
+```
+
+---
+
+# 3. Subconjunto con estadio conocido
+
+```{r}
+df_base <- master_dataset %>%
+  transmute(
+    time = OS_time,
+    event = OS_event,
+    age_years = age_years,
+    gender = factor(gender),
+    stage_group = factor(as.character(stage_group),
+                         levels = c("Stage I", "Stage II", "Stage III", "Stage IV"))
+  ) %>%
+  bind_cols(master_dataset[, genes$gene])
+
+df_base <- df_base %>% filter(!is.na(stage_group), !is.na(age_years), !is.na(gender))
+
+c(pacientes = nrow(df_base), eventos = sum(df_base$event))
+table(df_base$stage_group)
+```
+
+---
+
+# 4. Modelos por gen
+
+Para cada gen se ajustan, sobre el mismo subconjunto, el modelo univariante y el modelo ajustado por edad, sexo y estadio. La expresión está en escala log-CPM, igual que en el screening.
+
+```{r}
+ajusta_gen <- function(ensembl, symbol) {
+
+  d <- df_base
+  d$expr <- d[[ensembl]]
+
+  m_uni <- coxph(Surv(time, event) ~ expr, data = d)
+  m_adj <- coxph(Surv(time, event) ~ expr + age_years + gender + stage_group, data = d)
+
+  s_uni <- summary(m_uni)$coefficients["expr", ]
+  s_adj <- summary(m_adj)
+  ci <- s_adj$conf.int["expr", ]
+
+  tibble(
+    gene = symbol,
+    ensembl = ensembl,
+    HR_univariante = s_uni["exp(coef)"],
+    p_univariante = s_uni["Pr(>|z|)"],
+    HR_ajustado = ci["exp(coef)"],
+    IC95_inf = ci["lower .95"],
+    IC95_sup = ci["upper .95"],
+    p_ajustado = s_adj$coefficients["expr", "Pr(>|z|)"]
+  )
+}
+
+res <- bind_rows(Map(ajusta_gen, genes$gene, genes$SYMBOL)) %>%
+  mutate(FDR_ajustado = p.adjust(p_ajustado, method = "fdr")) %>%
+  arrange(p_ajustado)
+
+res
+```
+
+---
+
+# 5. Resumen
+
+```{r}
+data.frame(
+  n_pacientes = nrow(df_base),
+  n_eventos = sum(df_base$event),
+  genes_p_ajustado_menor_0.05 = sum(res$p_ajustado < 0.05),
+  genes_FDR_ajustado_menor_0.05 = sum(res$FDR_ajustado < 0.05),
+  genes_misma_direccion = sum(sign(log(res$HR_ajustado)) == sign(log(res$HR_univariante)))
+)
+```
+
+---
+
+# 6. Guardar resultados
+
+```{r}
+write_csv(res, "results/cox_ajustado_top10.csv")
+```
+
+# Interpretación
+
+El FDR ajustado se calcula únicamente entre los diez genes evaluados. Dado que los genes proceden de un screening sobre la misma cohorte, los valores de p ajustados son orientativos y deben interpretarse como comprobación de robustez frente a edad, sexo y estadio, no como validación independiente.

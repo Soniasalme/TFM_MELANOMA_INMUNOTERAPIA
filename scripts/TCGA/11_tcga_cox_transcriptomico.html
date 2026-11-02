@@ -1547,7 +1547,9 @@ table(master_dataset$stage_group)</code></pre>
 &quot;submitter_id&quot;,
 &quot;gender&quot;,
 &quot;age_years&quot;,
+&quot;ajcc_pathologic_stage&quot;,
 &quot;stage_group&quot;,
+&quot;vital_status&quot;,
 &quot;OS_time&quot;,
 &quot;OS_event&quot;
 )
@@ -1555,22 +1557,32 @@ table(master_dataset$stage_group)</code></pre>
 clinical_data &lt;- master_dataset[,clinical_vars]
 
 head(clinical_data)</code></pre>
-<pre><code>##   submitter_id gender age_years stage_group OS_time OS_event
-## 1 TCGA-3N-A9WB   male  71.66598     Stage I     518        1
-## 2 TCGA-3N-A9WC   male  82.91855    Stage II    2022        0
-## 3 TCGA-3N-A9WD   male  82.58179   Stage III     395        1
-## 4 TCGA-BF-A1PU female  46.61191    Stage II     484        0
-## 5 TCGA-BF-A1PV female  74.26146    Stage II      14        0
-## 6 TCGA-BF-A1PX   male  56.47091   Stage III     282        1</code></pre>
+<pre><code>##   submitter_id gender age_years ajcc_pathologic_stage stage_group vital_status
+## 1 TCGA-3N-A9WB   male  71.66598              Stage IA     Stage I         Dead
+## 2 TCGA-3N-A9WC   male  82.91855             Stage IIA    Stage II        Alive
+## 3 TCGA-3N-A9WD   male  82.58179            Stage IIIA   Stage III         Dead
+## 4 TCGA-BF-A1PU female  46.61191             Stage IIC    Stage II        Alive
+## 5 TCGA-BF-A1PV female  74.26146             Stage IIC    Stage II        Alive
+## 6 TCGA-BF-A1PX   male  56.47091            Stage IIIB   Stage III         Dead
+##   OS_time OS_event
+## 1     518        1
+## 2    2022        0
+## 3     395        1
+## 4     484        0
+## 5      14        0
+## 6     282        1</code></pre>
 <hr />
 </div>
 <div id="identificación-de-genes" class="section level1">
 <h1>5. Identificación de genes</h1>
-<p>Los genes empiezan después de las variables clínicas.</p>
+<p>Todas las columnas que no son variables clínicas son genes
+(identificadores Ensembl). <code>ajcc_pathologic_stage</code> y
+<code>vital_status</code> se listan como variables clínicas para que no
+entren en el screening.</p>
 <pre class="r"><code>gene_columns &lt;- setdiff(colnames(master_dataset), clinical_vars)
 
 length(gene_columns)</code></pre>
-<pre><code>## [1] 5002</code></pre>
+<pre><code>## [1] 5000</code></pre>
 <hr />
 </div>
 <div id="dataset-de-expresión" class="section level1">
@@ -1578,7 +1590,7 @@ length(gene_columns)</code></pre>
 <pre class="r"><code>expr_data &lt;- master_dataset[,gene_columns]
 
 dim(expr_data)</code></pre>
-<pre><code>## [1]  459 5002</code></pre>
+<pre><code>## [1]  459 5000</code></pre>
 <hr />
 </div>
 <div id="cox-univariante-por-gen" class="section level1">
@@ -1611,7 +1623,7 @@ dim(expr_data)</code></pre>
 <pre class="r"><code>results_cox &lt;- map_dfr(gene_columns, cox_gene)
 
 dim(results_cox)</code></pre>
-<pre><code>## [1] 5002    3</code></pre>
+<pre><code>## [1] 5000    3</code></pre>
 <hr />
 </div>
 <div id="corrección-por-múltiples-test" class="section level1">
@@ -1631,7 +1643,7 @@ head(top_genes,20)</code></pre>
 <pre><code>## # A tibble: 20 × 4
 ##    gene                  HR   pvalue         FDR
 ##    &lt;chr&gt;              &lt;dbl&gt;    &lt;dbl&gt;       &lt;dbl&gt;
-##  1 ENSG00000162645.13 0.775 4.15e-11 0.000000208
+##  1 ENSG00000162645.13 0.775 4.15e-11 0.000000207
 ##  2 ENSG00000162654.9  0.834 5.60e-10 0.00000112 
 ##  3 ENSG00000267369.1  0.816 1.06e- 9 0.00000112 
 ##  4 ENSG00000164136.17 0.793 8.54e-10 0.00000112 

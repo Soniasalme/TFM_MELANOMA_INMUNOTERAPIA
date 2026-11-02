@@ -23,7 +23,7 @@ Para facilitar la distribución y reducir el tamaño del archivo final, este doc
 
 ## Resumen
 
-El melanoma cutáneo es uno de los tumores con mayor agresividad y mortalidad. Aunque la inmunoterapia ha mejorado significativamente la supervivencia en estadios avanzados, entre un 50‑60% de los pacientes no responden al tratamiento, lo que subraya la necesidad de identificar biomarcadores predictivos fiables. El presente Trabajo de Fin de Máster tiene como objetivo desarrollar un pipeline bioinformático reproducible que integre datos clínicos y transcriptómicos de la cohorte TCGA‑SKCM para identificar biomarcadores asociados al pronóstico y a la respuesta a inmunoterapia. En esta primera fase se aborda la construcción de las bases metodológicas: descarga y limpieza de datos clínicos, creación de variables de supervivencia y estimación de las curvas de Kaplan‑Meier global y estratificada por sexo. Los resultados muestran una mediana de supervivencia de aproximadamente 3 años y ausencia de diferencias significativas entre hombres y mujeres (p = 0.3). Este análisis preliminar sienta las bases para las siguientes fases, en las que se incorporarán datos de expresión génica y se evaluarán modelos multivariantes de predicción pronóstica y de respuesta terapéutica.
+El melanoma cutáneo es uno de los tumores con mayor agresividad y mortalidad. Aunque la inmunoterapia ha mejorado significativamente la supervivencia en estadios avanzados, entre un 50‑60% de los pacientes no responden al tratamiento, lo que subraya la necesidad de identificar biomarcadores predictivos fiables. El presente Trabajo de Fin de Máster tiene como objetivo desarrollar un pipeline bioinformático reproducible que integre datos clínicos y transcriptómicos de la cohorte TCGA‑SKCM para identificar biomarcadores asociados al pronóstico y a la respuesta a inmunoterapia. En esta primera fase se aborda la construcción de las bases metodológicas: descarga y limpieza de datos clínicos, creación de variables de supervivencia y estimación de las curvas de Kaplan‑Meier global y estratificada por sexo. Los resultados muestran una mediana de supervivencia de aproximadamente 6,2 años (2.273 días) y ausencia de diferencias significativas entre hombres y mujeres (p = 0.3). Este análisis preliminar sienta las bases para las siguientes fases, en las que se incorporarán datos de expresión génica y se evaluarán modelos multivariantes de predicción pronóstica y de respuesta terapéutica.
 
 ---
 
@@ -460,7 +460,7 @@ Los resultados obtenidos servirán como línea base para comparar con modelos qu
 
 -   Se ha establecido un pipeline reproducible para el análisis de supervivencia en TCGA‑SKCM.
 
--   La mediana de supervivencia global es de aproximadamente 3 años.
+-   La mediana de supervivencia global es de aproximadamente 6,2 años (2.273 días).
 
 -   No se observan diferencias significativas en supervivencia entre hombres y mujeres.
 

@@ -80,7 +80,9 @@ clinical_vars <- c(
 "submitter_id",
 "gender",
 "age_years",
+"ajcc_pathologic_stage",
 "stage_group",
+"vital_status",
 "OS_time",
 "OS_event"
 )
@@ -94,7 +96,7 @@ head(clinical_data)
 
 # 5. Identificación de genes
 
-Los genes empiezan después de las variables clínicas.
+Todas las columnas que no son variables clínicas son genes (identificadores Ensembl). `ajcc_pathologic_stage` y `vital_status` se listan como variables clínicas para que no entren en el screening.
 
 ```{r}
 gene_columns <- setdiff(colnames(master_dataset), clinical_vars)

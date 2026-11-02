@@ -10,7 +10,7 @@ Estructura
 scripts/
 |-- GEO/           Preparacion de cada cohorte GEO
 |-- analysis/      Analisis final del bloque predictivo GEO (scripts 01-05)
-|-- TCGA/          Analisis del bloque pronostico TCGA-SKCM (scripts 01-13)
+|-- TCGA/          Analisis del bloque pronostico TCGA-SKCM (scripts 01-14)
 |-- integration/   Fase exploratoria inicial de integracion (referencia historica)
 
 Contenido de cada carpeta
@@ -60,7 +60,7 @@ Flujo de trabajo
   analysis/ (01 descubrimiento -> 02-03 validacion y sensibilidad ->
              04 consistencia -> 05 resumen)  ->  resultados/
 
-  TCGA/ (01-13, independiente del bloque GEO)  ->  resultados y figuras
+  TCGA/ (01-14, independiente del bloque GEO)  ->  resultados y figuras
 
 Los datos se descargan desde repositorios publicos con data/00_download_data.R
 (GEOquery y TCGAbiolinks) y el entorno R se verifica con environment.R, ambos
