@@ -78,7 +78,7 @@ Activa los paquetes instalados para poder usar sus funciones.
 
 # Cuarto chunk: crear carpetas de trabajo
 
-Esto te ordena el proyecto desde el principio. Esto es muy importante para que luego el TFM sea reproducible.
+Se crean las carpetas del proyecto para mantener la estructura ordenada y garantizar la reproducibilidad del análisis.
 
 
 ```{r folders}
@@ -96,7 +96,7 @@ dir.create("figures", showWarnings = FALSE)
 # Quinto chunk: descargar datos clínicos
 
 Descarga la **tabla clínica** del melanoma TCGA y la guarda en disco.  
-Esto te servirá para construir variables como:
+Estas columnas se utilizan para construir variables como:
 
 - edad,
 - sexo,
@@ -137,7 +137,7 @@ Te ayudará a responder estas preguntas:
 
 ¿Cuántos NA hay en las variables clave?
 
-Eso es muy importante antes de construir el dataset final.
+Esta comprobación es necesaria antes de construir el dataset final.
 
 - **1. Dimensión del dataset**
 
@@ -236,13 +236,13 @@ colSums(is.na(clinical_tcga[, c(
 )]))
 ```
 
-Interpretación típica en la memoria:
+Interpretación:
 
 Algunas variables clínicas presentan valores faltantes, lo cual es habitual en datasets clínicos retrospectivos.
 
 **- 7. Variables de supervivencia**
 
-Esto es MUY importante para tu TFM.
+Estas variables son la base del análisis de supervivencia del TFM.
 
 Exploramos:
 

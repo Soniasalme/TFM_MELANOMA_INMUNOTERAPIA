@@ -1663,8 +1663,7 @@ bloque</h3>
 <div id="cuarto-chunk-crear-carpetas-de-trabajo" class="section level1" number="4">
 <h1><span class="header-section-number">4</span> Cuarto chunk: crear
 carpetas de trabajo</h1>
-<p>Esto te ordena el proyecto desde el principio. Esto es muy importante
-para que luego el TFM sea reproducible.</p>
+<p>Se crean las carpetas del proyecto para mantener la estructura ordenada y garantizar la reproducibilidad del análisis.</p>
 <pre class="r"><code># Creamos carpetas para mantener el proyecto ordenado.
 # data_raw: archivos descargados sin procesar.
 # data_processed: archivos ya limpios o preparados.
@@ -1680,7 +1679,7 @@ dir.create(&quot;figures&quot;, showWarnings = FALSE)</code></pre>
 datos clínicos</h1>
 <p>Descarga la <strong>tabla clínica</strong> del melanoma TCGA y la
 guarda en disco.<br />
-Esto te servirá para construir variables como:</p>
+Estas columnas se utilizan para construir variables como:</p>
 <ul>
 <li>edad,</li>
 <li>sexo,</li>
@@ -1803,7 +1802,7 @@ melanoma)</h1>
 <p>¿Cuántos están vivos?</p>
 <p>¿Cuántos tienen estadio informado?</p>
 <p>¿Cuántos NA hay en las variables clave?</p>
-<p>Eso es muy importante antes de construir el dataset final.</p>
+<p>Esta comprobación es necesaria antes de construir el dataset final.</p>
 <ul>
 <li><strong>1. Dimensión del dataset</strong></li>
 </ul>
@@ -2331,11 +2330,11 @@ clave.</p>
 ##                      8                      0                      0 
 ##          days_to_death days_to_last_follow_up  ajcc_pathologic_stage 
 ##                    249                      8                     52</code></pre>
-<p>Interpretación típica en la memoria:</p>
+<p>Interpretación:</p>
 <p>Algunas variables clínicas presentan valores faltantes, lo cual es
 habitual en datasets clínicos retrospectivos.</p>
 <p><strong>- 7. Variables de supervivencia</strong></p>
-<p>Esto es MUY importante para tu TFM.</p>
+<p>Estas variables son la base del análisis de supervivencia del TFM.</p>
 <p>Exploramos:</p>
 <pre class="r"><code>summary(clinical_tcga$days_to_death)</code></pre>
 <pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA&#39;s 
