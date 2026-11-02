@@ -30,7 +30,14 @@ paquetes_cran <- c(
   "pROC",
   "knitr",
   "kableExtra",
-  "here"
+  "here",
+  "tidyr",
+  "purrr",
+  "broom",
+  "readxl",
+  "ggrepel",
+  "pheatmap",
+  "matrixStats"
 )
 
 for (pkg in paquetes_cran) {
@@ -48,7 +55,10 @@ paquetes_bioc <- c(
   "clusterProfiler", # >= 4.6  — ORA sobre Gene Ontology (GO-BP)
   "org.Hs.eg.db",    # >= 3.16 — Conversión de identificadores Ensembl -> Entrez
   "edgeR",           # Soporte para limma-voom en RNA-seq
-  "S4Vectors"
+  "S4Vectors",
+  "Biobase",
+  "AnnotationDbi",   # Mapeo de identificadores (select)
+  "enrichplot"       # Gráficos de enriquecimiento (dotplot ORA)
 )
 
 for (pkg in paquetes_bioc) {
