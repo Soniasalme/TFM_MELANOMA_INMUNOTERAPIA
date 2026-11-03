@@ -59,6 +59,7 @@ Edad: HR = 1,020 por año (p < 0,001) · Estadio III: HR = 1,819 (p = 0,002) · 
 ```
 TFM_MELANOMA_INMUNOTERAPIA/
 │
+├── LICENSE                   # Licencia MIT del código (véase sección Licencias)
 ├── environment.R             # Verificación/instalación de paquetes y registro del entorno
 ├── sessionInfo.txt           # Versiones de R y de los paquetes utilizados
 ├── data/
@@ -157,4 +158,15 @@ https://github.com/Soniasalme/TFM_MELANOMA_INMUNOTERAPIA
 
 ---
 
-*Licencia: CC BY-NC-ND 3.0 ES — [creativecommons.org/licenses/by-nc-nd/3.0/es](https://creativecommons.org/licenses/by-nc-nd/3.0/es)*
+## Licencias
+
+El repositorio combina material con licencias distintas:
+
+| Contenido | Licencia |
+|---|---|
+| Código (scripts R/Rmd/Python, `environment.R`) | [MIT](LICENSE) |
+| Memoria (PDF y fuente LaTeX), figuras y tablas elaboradas para ella | [CC BY-NC-ND 3.0 ES](https://creativecommons.org/licenses/by-nc-nd/3.0/es/) (véase [`memoria/LICENCIA.md`](memoria/LICENCIA.md)) |
+| Plantilla `TFUOC.cls`, logotipos de la UOC/EIMT/UB e iconos de Creative Commons | Titulares originales; no cubiertos por las licencias anteriores |
+| Datos de partida (GEO, TCGA/GDC) y objetos derivados incluidos (instantánea clínica de TCGA-SKCM, objetos `SummarizedExperiment` de la fase exploratoria) | Datos públicos de GEO y del GDC; se rigen por las condiciones de uso de esos repositorios y sus autores originales deben citarse. No deben usarse para reidentificar a los pacientes |
+
+Copyright (c) 2026 Sonia Salmerón Fructuoso.

@@ -272,7 +272,7 @@ I aquí tens el resultat \@parcla i el títol és: \@title
 \newcommand{\resumcode}{Resumen del trabajo}
 %-----Textos llicència
 \newcommand{\ccByNcNd}{
-Esta obra esta sujeta a una licencia de Reconocimiento-NoComercial-SinObraDerivada \\ \url{https://creativecommons.org/licenses/by-nc/3.0/es/}}
+Esta obra esta sujeta a una licencia de Reconocimiento-NoComercial-SinObraDerivada \\ \url{https://creativecommons.org/licenses/by-nc-nd/3.0/es/}}
 \newcommand{\ccByNcSa}{
 Esta obra esta sujeta a una licencia de Reconocimiento-NoComercial-CompartirIgual \\ \url{https://creativecommons.org/licenses/by-nc/3.0/es/}}
 \newcommand{\ccByNc}{
@@ -317,7 +317,7 @@ Reservados todos los derechos. Está prohibida la reproducción total o parcial 
 
 %-----Textos llicència
 \newcommand{\ccByNcNd}{
-Aquesta obra està subjecta a una llicència de Reconeixement-NoComercial-SenseObraDerivada \\ \url{https://creativecommons.org/licenses/by-nc/3.0/es/}}
+Aquesta obra està subjecta a una llicència de Reconeixement-NoComercial-SenseObraDerivada \\ \url{https://creativecommons.org/licenses/by-nc-nd/3.0/es/}}
 \newcommand{\ccByNcSa}{
 Aquesta obra està subjecta a una llicència de Reconeixement-NoComercial-CompartirIgual \\ \url{https://creativecommons.org/licenses/by-nc/3.0/es/}}
 \newcommand{\ccByNc}{
@@ -358,7 +358,7 @@ Reservats tots els drets. Està prohibit la reproducció total o parcial d'aques
 
 %-----Textos llicència
 \newcommand{\ccByNcNd}{
-This work is under the license Attribution-NonCommercial-NoDerivatives \\ \url{https://creativecommons.org/licenses/by-nc/3.0}}
+This work is under the license Attribution-NonCommercial-NoDerivatives \\ \url{https://creativecommons.org/licenses/by-nc-nd/3.0}}
 \newcommand{\ccByNcSa}{
 This work is under the license Attribution-NonCommercial-ShareAlike \\ \url{https://creativecommons.org/licenses/by-nc/3.0}}
 \newcommand{\ccByNc}{
