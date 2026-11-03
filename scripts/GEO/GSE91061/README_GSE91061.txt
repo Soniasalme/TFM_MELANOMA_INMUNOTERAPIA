@@ -35,9 +35,10 @@ Objeto generado localmente:
   colData: sample_id, patient_id, response_raw, response_binary, is_baseline,
   dataset, tissue, platform.
 
-Nota: en la fase exploratoria inicial esta cohorte se trato como sangre; en el
-analisis final se reclasifica como tumor RNA-seq (ver
-scripts/analysis/03_blood_sensitivity.Rmd).
+Nota: la cohorte procede de biopsias tumorales (no de sangre periferica) y se
+analiza como tumor RNA-seq (ver scripts/analysis/03_blood_sensitivity.Rmd). En
+la fase exploratoria de integracion (scripts/integration/) se trato como sangre;
+este enfoque esta descartado.
 
 El objeto RDS no se sube a GitHub porque los objetos SummarizedExperiment estan
 ignorados por .gitignore y son regenerables desde este Rmd.

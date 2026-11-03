@@ -68,7 +68,7 @@ El análisis bioinformático con datos públicos implica riesgos metodológicos 
 
   \item \textbf{Riesgo de confusión en el bloque pronóstico.} TCGA-SKCM incluye pacientes con y sin tratamiento sistémico, lo que introduce heterogeneidad en los tiempos de seguimiento. \textit{Mitigación}: el análisis transcriptómico se interpreta como pronóstico global, no como predicción de respuesta a inmunoterapia; los modelos de Cox clínicos multivariantes ajustan por edad, sexo y estadio AJCC, y los genes candidatos del screening se reajustan por esas mismas covariables.
 
-  \item \textbf{Riesgo de dependencia de repositorios externos.} La descarga de datos desde GEO y TCGA/GDC está sujeta a cambios en los metadatos o la disponibilidad de la API. \textit{Mitigación}: los accesos están fechados (mayo de 2026), los resultados derivados se guardan en ficheros CSV en el repositorio GitHub y cada script incluye \texttt{sessionInfo()} para garantizar la trazabilidad de versiones.
+  \item \textbf{Riesgo de dependencia de repositorios externos.} La descarga de datos desde GEO y TCGA/GDC está sujeta a cambios en los metadatos o la disponibilidad de la API. \textit{Mitigación}: los accesos están fechados (mayo de 2026), los resultados derivados se guardan en ficheros CSV en el repositorio GitHub y el entorno de ejecución se documenta en \texttt{environment.R} y en el fichero \texttt{sessionInfo.txt} del repositorio (R 4.5.1 y versiones de los paquetes) para garantizar la trazabilidad.
 \end{itemize}
 
 \section{Reproducibilidad}

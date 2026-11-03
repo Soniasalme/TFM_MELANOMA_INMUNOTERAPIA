@@ -52,7 +52,7 @@ Elegimos los **10 genes con menor FDR** del ranking global, sin filtros adiciona
 
 ```{r}
 annot <- read_csv("results/cox_transcriptome_results_annotated.csv", show_col_types = FALSE) %>%
-  select(gene, SYMBOL)
+  dplyr::select(gene, SYMBOL)
 
 top_genes <- cox_results %>%
   arrange(FDR) %>%
@@ -79,7 +79,7 @@ cox_results %>%
   mutate(posicion = row_number()) %>%
   left_join(annot, by = "gene") %>%
   filter(SYMBOL %in% tabla_memoria, !gene %in% top_genes$gene) %>%
-  select(posicion, SYMBOL, HR, FDR)
+  dplyr::select(posicion, SYMBOL, HR, FDR)
 ```
 
 Guardamos los nombres:

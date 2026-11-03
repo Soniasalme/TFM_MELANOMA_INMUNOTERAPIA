@@ -1,6 +1,6 @@
 ## fix_figures_labels.R
-## Regenera las dos figuras con etiquetas limpias en español
-## para sustituirlas en el PPT de defensa.
+## Regenera con etiquetas en español las dos figuras de la memoria
+## (Kaplan-Meier por estadio y forest plot del Cox multivariante).
 
 library(survival)
 library(survminer)
@@ -92,4 +92,4 @@ forest_out <- file.path(figures_dir, "cox_multivariate_forest_plot.png")
 ggsave(forest_out, plot = forest_plot, width = 8, height = 5, dpi = 200)
 message("Forest plot guardado: ", forest_out)
 
-message("Listo. Ahora ejecuta replace_ppt_figures.py para actualizar el PPT.")
+message("Figuras guardadas en ", figures_dir)

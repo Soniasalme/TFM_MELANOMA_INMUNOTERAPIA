@@ -23,7 +23,7 @@ knitr::opts_chunk$set(
 
 # Objetivo
 
-Este informe implementa el nuevo analisis principal propuesto por la tutora: usar `GSE78220` como cohorte de descubrimiento, al ser tumor, RNA-seq, anti-PD-1 y transcriptoma completo.
+Este informe implementa el analisis principal de descubrimiento: usar `GSE78220` como cohorte de descubrimiento, al ser tumor, RNA-seq, anti-PD-1 y transcriptoma completo.
 
 La finalidad es evitar que el analisis principal quede limitado por los genes incluidos en paneles NanoString y mantener una pregunta biologica mas homogenea: respondedores vs no respondedores a anti-PD-1 en tumor.
 

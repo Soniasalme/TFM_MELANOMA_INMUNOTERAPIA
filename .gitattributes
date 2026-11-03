@@ -1,0 +1,6 @@
+*.pdf binary
+*.png binary
+*.jpg binary
+*.rds binary
+*.docx binary
+*.html linguist-generated=true

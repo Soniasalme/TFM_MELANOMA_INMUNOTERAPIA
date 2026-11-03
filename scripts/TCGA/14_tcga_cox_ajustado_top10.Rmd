@@ -53,7 +53,7 @@ candidatos <- c("GBP2", "GBP4", "IL15", "GIMAP2", "DDX60",
 
 genes <- annot %>%
   filter(SYMBOL %in% candidatos) %>%
-  select(gene, SYMBOL, HR_screening = HR, FDR_screening = FDR) %>%
+  dplyr::select(gene, SYMBOL, HR_screening = HR, FDR_screening = FDR) %>%
   arrange(FDR_screening)
 
 stopifnot(nrow(genes) == length(candidatos), all(genes$gene %in% colnames(master_dataset)))

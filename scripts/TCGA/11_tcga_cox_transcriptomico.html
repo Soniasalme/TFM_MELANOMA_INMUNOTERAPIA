@@ -1557,20 +1557,16 @@ table(master_dataset$stage_group)</code></pre>
 clinical_data &lt;- master_dataset[,clinical_vars]
 
 head(clinical_data)</code></pre>
-<pre><code>##   submitter_id gender age_years ajcc_pathologic_stage stage_group vital_status
-## 1 TCGA-3N-A9WB   male  71.66598              Stage IA     Stage I         Dead
-## 2 TCGA-3N-A9WC   male  82.91855             Stage IIA    Stage II        Alive
-## 3 TCGA-3N-A9WD   male  82.58179            Stage IIIA   Stage III         Dead
-## 4 TCGA-BF-A1PU female  46.61191             Stage IIC    Stage II        Alive
-## 5 TCGA-BF-A1PV female  74.26146             Stage IIC    Stage II        Alive
-## 6 TCGA-BF-A1PX   male  56.47091            Stage IIIB   Stage III         Dead
-##   OS_time OS_event
-## 1     518        1
-## 2    2022        0
-## 3     395        1
-## 4     484        0
-## 5      14        0
-## 6     282        1</code></pre>
+<pre><code>## # A tibble: 6 × 8
+##   submitter_id gender age_years ajcc_pathologic_stage stage_group vital_status
+##   &lt;chr&gt;        &lt;fct&gt;      &lt;dbl&gt; &lt;fct&gt;                 &lt;fct&gt;       &lt;fct&gt;       
+## 1 TCGA-3N-A9WB male        71.7 Stage IA              Stage I     Dead        
+## 2 TCGA-3N-A9WC male        82.9 Stage IIA             Stage II    Alive       
+## 3 TCGA-3N-A9WD male        82.6 Stage IIIA            Stage III   Dead        
+## 4 TCGA-BF-A1PU female      46.6 Stage IIC             Stage II    Alive       
+## 5 TCGA-BF-A1PV female      74.3 Stage IIC             Stage II    Alive       
+## 6 TCGA-BF-A1PX male        56.5 Stage IIIB            Stage III   Dead        
+## # ℹ 2 more variables: OS_time &lt;dbl&gt;, OS_event &lt;dbl&gt;</code></pre>
 <hr />
 </div>
 <div id="identificación-de-genes" class="section level1">

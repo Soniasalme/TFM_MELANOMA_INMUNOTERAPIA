@@ -1540,7 +1540,7 @@ global, sin filtros adicionales. Se añade el símbolo génico de la tabla
 anotada (script 13) para identificarlos; <code>NA</code> indica que el
 transcrito no tiene símbolo en <code>org.Hs.eg.db</code>.</p>
 <pre class="r"><code>annot &lt;- read_csv(&quot;results/cox_transcriptome_results_annotated.csv&quot;, show_col_types = FALSE) %&gt;%
-  select(gene, SYMBOL)
+  dplyr::select(gene, SYMBOL)
 
 top_genes &lt;- cox_results %&gt;%
   arrange(FDR) %&gt;%
@@ -1575,7 +1575,7 @@ cox_results %&gt;%
   mutate(posicion = row_number()) %&gt;%
   left_join(annot, by = &quot;gene&quot;) %&gt;%
   filter(SYMBOL %in% tabla_memoria, !gene %in% top_genes$gene) %&gt;%
-  select(posicion, SYMBOL, HR, FDR)</code></pre>
+  dplyr::select(posicion, SYMBOL, HR, FDR)</code></pre>
 <pre><code>## # A tibble: 2 × 4
 ##   posicion SYMBOL      HR        FDR
 ##      &lt;int&gt; &lt;chr&gt;    &lt;dbl&gt;      &lt;dbl&gt;

@@ -12,7 +12,7 @@
 | Punto | Scripts de esta carpeta | Análisis final |
 |---|---|---|
 | Diseño | Dataset GEO integrado (multi-cohorte) | Cohortes independientes |
-| GSE91061 | Clasificado como cohorte de sangre | Reclasificado como tumor RNA-seq |
+| GSE91061 | Tratado como cohorte de sangre | Cohorte tumoral RNA-seq |
 | Batch correction | limma removeBatchEffect sobre dataset conjunto | No aplicable (análisis por separado) |
 | Scripts activos | ❌ No | ✅ En `scripts/analysis/` |
 

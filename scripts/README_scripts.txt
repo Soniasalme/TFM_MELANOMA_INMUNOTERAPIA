@@ -43,8 +43,8 @@ TCGA/
   de Cox gen a gen sobre expresion (log-CPM). Subcarpetas: data_processed/,
   figures/, results/ y deprecated/ (versiones superadas). Orden de ejecucion y
   descripcion de cada script en TCGA/README_pipeline_TCGA.md. Incluye ademas
-  tres scripts auxiliares para las figuras de la presentacion
-  (check_ppt_shapes.py, replace_ppt_figures.py, fix_figures_labels.R).
+  fix_figures_labels.R, que regenera con etiquetas en espanol dos figuras de la
+  memoria (Kaplan-Meier por estadio y forest plot del Cox multivariante).
 
 integration/
   Scripts de la fase exploratoria inicial, en la que se probo un dataset GEO

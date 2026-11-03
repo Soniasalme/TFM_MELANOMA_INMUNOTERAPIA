@@ -33,7 +33,8 @@ data/raw/
 # TCGA/GDC downloaded data: reproducible and too heavy for GitHub
 # =========================
 scripts/TCGA/GDCdata/
-scripts/TCGA/data_raw/
+scripts/TCGA/data_raw/*
+!scripts/TCGA/data_raw/tcga_skcm_clinical.csv
 scripts/TCGA/data_processed/expression_master_transposed_tcga_skcm.csv
 scripts/TCGA/gdc_manifest*.txt
 scripts/TCGA/MANIFEST.txt
@@ -55,7 +56,7 @@ tmp/
 # Exceptions: archived integrated objects kept for review
 # =========================
 !resultados/_archivo/geo_integrado_inicial/integrated_dataset/*.rds
-!resultados/_archivo/geo_integrado_inicial/batch_correction_geo_tumor/*.rds
+!resultados/_archivo/geo_integrado_inicial/batch_correction_geo_tumor/se_integrated_geo_tumor_batch_corrected_limma.rds
 
 # =========================
 # Duplicated/old generated outputs
@@ -68,10 +69,8 @@ scripts/integration/*\ \(1\).Rmd
 References/
 
 # =========================
-# Documentos internos de defensa (no públicos)
+# Material local no incluido en el repositorio
 # =========================
-PRESENTACION/Defensa_preguntas_cheatsheet.docx
-PRESENTACION/Guion_presentacion_oral.docx
-PRESENTACION/verify_slides/
-PRESENTACION/pptx final/slide-*.jpg
-PRESENTACION/pptx final/*.pdf
+PRESENTACION/
+video/
+desktop.ini

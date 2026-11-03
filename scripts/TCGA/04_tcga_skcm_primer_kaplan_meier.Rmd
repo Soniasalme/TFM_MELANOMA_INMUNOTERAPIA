@@ -201,17 +201,25 @@ dir.create("results", showWarnings = FALSE)
 dir.create("figures", showWarnings = FALSE)
 
 # Descarga de datos clínicos
-clinical_tcga <- GDCquery_clinic(
-  project = "TCGA-SKCM",
-  type = "clinical"
-)
+# Se reutiliza la descarga clínica de GDC guardada en data_raw/ (marzo de 2026) para que el
+# análisis sea reproducible; solo se consulta el GDC si ese fichero no existe.
+clinical_file <- "data_raw/tcga_skcm_clinical.csv"
+
+if (file.exists(clinical_file)) {
+  clinical_tcga <- read_csv(clinical_file, show_col_types = FALSE)
+} else {
+  clinical_tcga <- GDCquery_clinic(
+    project = "TCGA-SKCM",
+    type = "clinical"
+  )
+  write_csv(clinical_tcga, clinical_file)
+}
 dim(clinical_tcga) # dimension del dataset
 ```
 
 El conjunto de datos clínicos contiene 470 pacientes y 90 variables. Se guarda en formato CSV para su reutilización.
 
 ```{r}
-write_csv(clinical_tcga, "data_raw/tcga_skcm_clinical.csv")
 ```
 
 ---
@@ -354,7 +362,7 @@ surv_object[1:10]
 #### 3.4.2. Curva de Kaplan‑Meier global
 
 ```{r}
-km_fit_global <- survfit(surv_object ~ 1, data = clinical_surv)
+km_fit_global <- survfit(Surv(OS_time, OS_event) ~ 1, data = clinical_surv)
 # summary(km_fit_global)  # comentado o con results='hide'
 
 # Extraer mediana e IC

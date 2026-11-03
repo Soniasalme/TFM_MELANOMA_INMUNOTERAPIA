@@ -68,9 +68,15 @@ project_root <- here::here()
 output_dir   <- file.path(project_root, "resultados", "consistency_integrated")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
-# Objeto integrado — solo para extraer la lista de genes comunes
-integrated_path <- file.path(project_root, "integrated_dataset",
-                              "se_integrated_geo_tumor.rds")
+# Objeto integrado — solo para extraer la lista de genes comunes.
+# Se regenera con scripts/integration/reconstruccion_GEO_tumor_blood_SummarizedExperiment_v4.Rmd
+# (carpeta integrated_dataset/, no versionada); si no existe, se usa la copia archivada.
+integrated_candidates <- c(
+  file.path(project_root, "integrated_dataset", "se_integrated_geo_tumor.rds"),
+  file.path(project_root, "resultados", "_archivo", "geo_integrado_inicial",
+            "integrated_dataset", "se_integrated_geo_tumor.rds")
+)
+integrated_path <- integrated_candidates[file.exists(integrated_candidates)][1]
 
 # Objetos individuales por cohorte
 se_paths <- c(
@@ -83,7 +89,7 @@ se_paths <- c(
 discovery_path <- file.path(project_root, "resultados", "discovery_GSE78220",
                              "GSE78220_DEA_limma_response.csv")
 
-stopifnot(file.exists(integrated_path))
+stopifnot(!is.na(integrated_path), file.exists(integrated_path))
 stopifnot(all(file.exists(se_paths)))
 stopifnot(file.exists(discovery_path))
 

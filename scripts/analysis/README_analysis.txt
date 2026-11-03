@@ -1,6 +1,6 @@
 README - scripts/analysis
 
-Esta carpeta contiene la reestructuracion metodologica propuesta tras la revision de Teresa.
+Esta carpeta contiene el analisis final del bloque predictivo GEO (arquitectura descubrimiento, validacion y sensibilidad).
 
 Orden recomendado:
 
@@ -25,6 +25,8 @@ Orden recomendado:
    Analisis de consistencia exploratoria con el dataset integrado tumoral.
    Usa los 200 genes comunes entre GSE78220, GSE215868 y GSE211645.
    Compara la direccion del logFC por cohorte y genera una tabla cruzada.
+   Requiere el objeto integrado se_integrated_geo_tumor.rds: se regenera con
+   scripts/integration/ o se toma de resultados/_archivo/geo_integrado_inicial/.
 
 5. 05_summary_table.Rmd
    Tabla resumen final para revision.

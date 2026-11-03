@@ -59,7 +59,12 @@ Edad: HR = 1,020 por año (p < 0,001) · Estadio III: HR = 1,819 (p = 0,002) · 
 ```
 TFM_MELANOMA_INMUNOTERAPIA/
 │
-├── scripts/
+├── environment.R             # Verificación/instalación de paquetes y registro del entorno
+├── sessionInfo.txt           # Versiones de R y de los paquetes utilizados
+├── data/
+│   └── 00_download_data.R    # Descarga de datos públicos (GEO y TCGA/GDC)
+│
+├── scripts/                  # Descripción detallada en scripts/README_scripts.txt
 │   ├── GEO/                  # Construcción de objetos SummarizedExperiment por cohorte
 │   ├── analysis/             # Análisis bloque GEO (scripts 01–05)
 │   │   ├── 01_GSE78220_discovery.Rmd        # Descubrimiento RNA-seq anti-PD-1
@@ -67,8 +72,7 @@ TFM_MELANOMA_INMUNOTERAPIA/
 │   │   ├── 03_blood_sensitivity.Rmd         # Validación tumoral RNA-seq (GSE91061) + sensibilidad periférica (GSE94873)
 │   │   ├── 04_consistency_integrated.Rmd    # Consistencia multi-cohorte
 │   │   └── 05_summary_table.Rmd             # Tabla resumen de resultados
-│   ├── TCGA/                 # Análisis bloque pronóstico (scripts 01–14)
-│   │   └── 08_tcga_skcm_transcriptomics_corregido.Rmd  # Screening Cox transcriptómico
+│   ├── TCGA/                 # Análisis bloque pronóstico (scripts 01–14, ver README_pipeline_TCGA.md)
 │   └── integration/          # Integración multi-cohorte inicial (referencia histórica)
 │
 ├── resultados/
@@ -81,6 +85,7 @@ TFM_MELANOMA_INMUNOTERAPIA/
 │   └── _archivo/
 │       └── geo_integrado_inicial/  # Fase exploratoria inicial (trazabilidad)
 │
+├── memoria/                  # Memoria en PDF
 └── TFM_memoria/
     └── memoria_latex/        # Memoria en LaTeX (main.tex) + figuras
 ```
@@ -97,7 +102,7 @@ El código fuente LaTeX está en `TFM_memoria/memoria_latex/main.tex`.
 
 ## Reproducibilidad
 
-Todos los análisis están documentados en **R Markdown** compilados a HTML. Cada informe incluye `sessionInfo()` para trazabilidad de versiones de paquetes.
+Todos los análisis están documentados en **R Markdown** compilados a HTML. Las versiones de R y de los paquetes con las que se ejecutó el trabajo se registran en [`sessionInfo.txt`](sessionInfo.txt) (R 4.5.1).
 
 ### Descarga de datos
 
@@ -114,7 +119,7 @@ Los resultados derivados (tablas CSV) se guardan en `resultados/` para permitir 
 
 ### Entorno R
 
-Ejecutar `environment.R` (raíz del repositorio) para verificar e instalar los paquetes necesarios y guardar el `sessionInfo()` completo.
+Ejecutar `environment.R` (raíz del repositorio) para verificar e instalar los paquetes necesarios y regenerar `sessionInfo.txt`.
 
 ### Paquetes principales
 

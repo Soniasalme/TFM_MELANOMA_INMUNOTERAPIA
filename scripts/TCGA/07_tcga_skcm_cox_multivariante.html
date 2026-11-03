@@ -11,7 +11,7 @@
 
 <meta name="author" content="Sonia Salmerón Fructuoso" />
 
-<meta name="date" content="2026-03-06" />
+<meta name="date" content="2026-11-03" />
 
 <title>TFM melanoma - Cox multivariante en TCGA-SKCM</title>
 
@@ -1482,7 +1482,7 @@ border-radius: 0px;
 <h1 class="title toc-ignore">TFM melanoma - Cox multivariante en
 TCGA-SKCM</h1>
 <h4 class="author">Sonia Salmerón Fructuoso</h4>
-<h4 class="date">2026-03-06</h4>
+<h4 class="date">2026-11-03</h4>
 
 </div>
 
@@ -1518,127 +1518,15 @@ for (p in paquetes_cran) {
 <h1><span class="header-section-number">2</span> 2. Carga de
 librerías</h1>
 <pre class="r"><code>library(TCGAbiolinks)
-library(SummarizedExperiment)</code></pre>
-<pre><code>## Cargando paquete requerido: MatrixGenerics</code></pre>
-<pre><code>## Cargando paquete requerido: matrixStats</code></pre>
-<pre><code>## 
-## Adjuntando el paquete: &#39;MatrixGenerics&#39;</code></pre>
-<pre><code>## The following objects are masked from &#39;package:matrixStats&#39;:
-## 
-##     colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,
-##     colCounts, colCummaxs, colCummins, colCumprods, colCumsums,
-##     colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,
-##     colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,
-##     colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,
-##     colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,
-##     colWeightedMeans, colWeightedMedians, colWeightedSds,
-##     colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,
-##     rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,
-##     rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,
-##     rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,
-##     rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,
-##     rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,
-##     rowWeightedMads, rowWeightedMeans, rowWeightedMedians,
-##     rowWeightedSds, rowWeightedVars</code></pre>
-<pre><code>## Cargando paquete requerido: GenomicRanges</code></pre>
-<pre><code>## Cargando paquete requerido: stats4</code></pre>
-<pre><code>## Cargando paquete requerido: BiocGenerics</code></pre>
-<pre><code>## Cargando paquete requerido: generics</code></pre>
-<pre><code>## 
-## Adjuntando el paquete: &#39;generics&#39;</code></pre>
-<pre><code>## The following objects are masked from &#39;package:base&#39;:
-## 
-##     as.difftime, as.factor, as.ordered, intersect, is.element, setdiff,
-##     setequal, union</code></pre>
-<pre><code>## 
-## Adjuntando el paquete: &#39;BiocGenerics&#39;</code></pre>
-<pre><code>## The following objects are masked from &#39;package:stats&#39;:
-## 
-##     IQR, mad, sd, var, xtabs</code></pre>
-<pre><code>## The following objects are masked from &#39;package:base&#39;:
-## 
-##     anyDuplicated, aperm, append, as.data.frame, basename, cbind,
-##     colnames, dirname, do.call, duplicated, eval, evalq, Filter, Find,
-##     get, grep, grepl, is.unsorted, lapply, Map, mapply, match, mget,
-##     order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
-##     rbind, Reduce, rownames, sapply, saveRDS, table, tapply, unique,
-##     unsplit, which.max, which.min</code></pre>
-<pre><code>## Cargando paquete requerido: S4Vectors</code></pre>
-<pre><code>## 
-## Adjuntando el paquete: &#39;S4Vectors&#39;</code></pre>
-<pre><code>## The following object is masked from &#39;package:utils&#39;:
-## 
-##     findMatches</code></pre>
-<pre><code>## The following objects are masked from &#39;package:base&#39;:
-## 
-##     expand.grid, I, unname</code></pre>
-<pre><code>## Cargando paquete requerido: IRanges</code></pre>
-<pre><code>## 
-## Adjuntando el paquete: &#39;IRanges&#39;</code></pre>
-<pre><code>## The following object is masked from &#39;package:grDevices&#39;:
-## 
-##     windows</code></pre>
-<pre><code>## Cargando paquete requerido: GenomeInfoDb</code></pre>
-<pre><code>## Cargando paquete requerido: Biobase</code></pre>
-<pre><code>## Welcome to Bioconductor
-## 
-##     Vignettes contain introductory material; view with
-##     &#39;browseVignettes()&#39;. To cite Bioconductor, see
-##     &#39;citation(&quot;Biobase&quot;)&#39;, and for packages &#39;citation(&quot;pkgname&quot;)&#39;.</code></pre>
-<pre><code>## 
-## Adjuntando el paquete: &#39;Biobase&#39;</code></pre>
-<pre><code>## The following object is masked from &#39;package:MatrixGenerics&#39;:
-## 
-##     rowMedians</code></pre>
-<pre><code>## The following objects are masked from &#39;package:matrixStats&#39;:
-## 
-##     anyMissing, rowMedians</code></pre>
-<pre class="r"><code>library(dplyr)</code></pre>
-<pre><code>## 
-## Adjuntando el paquete: &#39;dplyr&#39;</code></pre>
-<pre><code>## The following object is masked from &#39;package:Biobase&#39;:
-## 
-##     combine</code></pre>
-<pre><code>## The following objects are masked from &#39;package:GenomicRanges&#39;:
-## 
-##     intersect, setdiff, union</code></pre>
-<pre><code>## The following object is masked from &#39;package:GenomeInfoDb&#39;:
-## 
-##     intersect</code></pre>
-<pre><code>## The following objects are masked from &#39;package:IRanges&#39;:
-## 
-##     collapse, desc, intersect, setdiff, slice, union</code></pre>
-<pre><code>## The following objects are masked from &#39;package:S4Vectors&#39;:
-## 
-##     first, intersect, rename, setdiff, setequal, union</code></pre>
-<pre><code>## The following objects are masked from &#39;package:BiocGenerics&#39;:
-## 
-##     combine, intersect, setdiff, setequal, union</code></pre>
-<pre><code>## The following object is masked from &#39;package:generics&#39;:
-## 
-##     explain</code></pre>
-<pre><code>## The following object is masked from &#39;package:matrixStats&#39;:
-## 
-##     count</code></pre>
-<pre><code>## The following objects are masked from &#39;package:stats&#39;:
-## 
-##     filter, lag</code></pre>
-<pre><code>## The following objects are masked from &#39;package:base&#39;:
-## 
-##     intersect, setdiff, setequal, union</code></pre>
-<pre class="r"><code>library(tibble)
+library(SummarizedExperiment)
+library(dplyr)
+library(tibble)
 library(readr)
 library(stringr)
 library(ggplot2)
 library(survival)
-library(survminer)</code></pre>
-<pre><code>## Cargando paquete requerido: ggpubr</code></pre>
-<pre><code>## 
-## Adjuntando el paquete: &#39;survminer&#39;</code></pre>
-<pre><code>## The following object is masked from &#39;package:survival&#39;:
-## 
-##     myeloma</code></pre>
-<pre class="r"><code>library(broom)</code></pre>
+library(survminer)
+library(broom)</code></pre>
 </div>
 <div id="creación-de-carpetas-de-trabajo" class="section level1" number="3">
 <h1><span class="header-section-number">3</span> 3. Creación de carpetas
@@ -1651,12 +1539,20 @@ dir.create(&quot;figures&quot;, showWarnings = FALSE)</code></pre>
 <div id="descarga-y-preparación-de-datos-clínicos" class="section level1" number="4">
 <h1><span class="header-section-number">4</span> 4. Descarga y
 preparación de datos clínicos</h1>
-<pre class="r"><code>clinical_tcga &lt;- GDCquery_clinic(
-  project = &quot;TCGA-SKCM&quot;,
-  type = &quot;clinical&quot;
-)
+<pre class="r"><code># Se reutiliza la descarga clínica de GDC guardada en data_raw/ (marzo de 2026) para que el
+# análisis sea reproducible; solo se consulta el GDC si ese fichero no existe.
+clinical_file &lt;- &quot;data_raw/tcga_skcm_clinical.csv&quot;
 
-write_csv(clinical_tcga, &quot;data_raw/tcga_skcm_clinical.csv&quot;)
+if (file.exists(clinical_file)) {
+  clinical_tcga &lt;- read_csv(clinical_file, show_col_types = FALSE)
+} else {
+  clinical_tcga &lt;- GDCquery_clinic(
+    project = &quot;TCGA-SKCM&quot;,
+    type = &quot;clinical&quot;
+  )
+  write_csv(clinical_tcga, clinical_file)
+}
+
 
 clinical_tcga$gender &lt;- factor(clinical_tcga$gender)
 clinical_tcga$vital_status &lt;- factor(clinical_tcga$vital_status)
@@ -1683,7 +1579,7 @@ clinical_surv &lt;- clinical_tcga %&gt;%
   filter(!is.na(OS_time), !is.na(OS_event), OS_time &gt;= 0)
 
 dim(clinical_surv)</code></pre>
-<pre><code>## [1] 460  92</code></pre>
+<pre><code>## [1] 460  93</code></pre>
 </div>
 <div id="preparación-de-covariables-clínicas" class="section level1" number="6">
 <h1><span class="header-section-number">6</span> 6. Preparación de

@@ -31,7 +31,7 @@ Este directorio contiene el análisis del bloque pronóstico del TFM, basado en 
 |---------|-----------|
 | `data_raw/` | Datos crudos descargados de GDC (no versionados; se regeneran con el script 01) |
 | `data_processed/` | Objetos intermedios por etapa (survival, ajustes KM, matriz de expresión, master dataset). Los `.rds` y la matriz de expresión no se versionan (véase `.gitignore`) y se regeneran ejecutando los scripts en orden; en el repositorio se incluyen solo los CSV clínicos |
-| `figures/` | Curvas KM (global, sexo, estadio), forest plot Cox multivariante, volcano plot del screening Cox y dotplots del ORA GO-BP. Las curvas KM de los genes candidatos (script 12) se muestran en su informe HTML y no se exportan como ficheros |
+| `figures/` | Curvas KM (global, sexo, estadio), forest plot Cox multivariante, volcano plot del screening Cox y dotplots del ORA GO-BP. Las curvas KM de los genes candidatos (script 12) se muestran en su informe HTML y no se exportan como ficheros. Las figuras de la memoria están en `TFM_memoria/memoria_latex/figures/`: coinciden con estas salvo `km_stage_group_plot.png` y `cox_multivariate_forest_plot.png` (versiones con etiquetas en español generadas por `fix_figures_labels.R`) y el volcano (misma figura; solo cambia la posición de las etiquetas al regenerarla) |
 | `results/` | `cox_transcriptome_results.csv` (5.000 genes con HR, p-valor y FDR), `cox_transcriptome_results_annotated.csv` (con símbolo y Entrez), `ora_go_protectores.csv` / `ora_go_riesgo.csv` (ORA GO-BP), `cox_ajustado_top10.csv` (Cox ajustado de los diez genes de la tabla de la memoria) y las tablas de los modelos clínicos univariante y multivariante |
 | `deprecated/` | Scripts obsoletos o superados por versiones corregidas |
 
@@ -51,5 +51,6 @@ Los genes de menor FDR están empatados en bloques (por ejemplo, cinco genes com
 
 ## Ficheros de procedencia
 
+- `data_raw/tcga_skcm_clinical.csv`: instantánea de la tabla clínica del GDC (470 pacientes, 91 variables) que leen los scripts 02, 04-07 y 10; solo se vuelve a consultar el GDC si el fichero no existe. El script 01 (descarga inicial del 6 de marzo de 2026) registra 90 variables: la instantánea se guardó después (18 de marzo de 2026, según la fecha del fichero) y contiene una columna más, `sex_at_birth`, que no interviene en el análisis.
 - `clinical.project-tcga-skcm.2026-03-06.tar.gz`: descarga clínica del proyecto desde el portal GDC (6 de marzo de 2026).
 - `project  melanoma.png`: captura de la página del proyecto TCGA-SKCM en el GDC (470 casos), que documenta el tamaño inicial de la cohorte.

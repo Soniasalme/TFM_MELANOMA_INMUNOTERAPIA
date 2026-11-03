@@ -32,7 +32,7 @@ Este informe evalua la transferibilidad externa de la firma transcriptomica deri
 | Salidas GSE91061 | `resultados/external_validation/` | Resultados de validacion tumoral RNA-seq |
 | Salidas GSE94873 | `resultados/sensitivity_blood/` | Resultados de sensibilidad periferica |
 
-Esta separacion corrige la clasificacion anterior de `GSE91061`: la cohorte procede de biopsias tumorales, no de sangre periferica. Por tanto, el unico analisis de sensibilidad en sangre de este informe es `GSE94873`.
+`GSE91061` procede de biopsias tumorales, no de sangre periferica. Por tanto, el unico analisis de sensibilidad en sangre de este informe es `GSE94873`.
 
 # Librerias
 
@@ -470,7 +470,7 @@ stopifnot(all(checks$estado))
 
 # Conclusion
 
-`GSE91061` se reclasifica como cohorte tumoral RNA-seq independiente y se usa como validacion externa exploratoria de la firma derivada de `GSE78220`. `GSE94873` queda como unico bloque de sensibilidad en sangre, con la cautela adicional de que corresponde a NanoString y a un checkpoint diferente (tremelimumab, anti-CTLA-4).
+`GSE91061` es una cohorte tumoral RNA-seq independiente y se usa como validacion externa exploratoria de la firma derivada de `GSE78220`. `GSE94873` queda como unico bloque de sensibilidad en sangre, con la cautela adicional de que corresponde a NanoString y a un checkpoint diferente (tremelimumab, anti-CTLA-4).
 
 # Informacion de sesion
 

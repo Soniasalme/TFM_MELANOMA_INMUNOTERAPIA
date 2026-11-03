@@ -66,13 +66,21 @@ dir.create("figures", showWarnings = FALSE)
 # 4. Descarga de datos clínicos
 
 ```{r clinical}
-clinical_tcga <- GDCquery_clinic(
-  project = "TCGA-SKCM",
-  type = "clinical"
-)
+# Se reutiliza la descarga clínica de GDC guardada en data_raw/ (marzo de 2026) para que el
+# análisis sea reproducible; solo se consulta el GDC si ese fichero no existe.
+clinical_file <- "data_raw/tcga_skcm_clinical.csv"
+
+if (file.exists(clinical_file)) {
+  clinical_tcga <- read_csv(clinical_file, show_col_types = FALSE)
+} else {
+  clinical_tcga <- GDCquery_clinic(
+    project = "TCGA-SKCM",
+    type = "clinical"
+  )
+  write_csv(clinical_tcga, clinical_file)
+}
 
 dim(clinical_tcga)
-write_csv(clinical_tcga, "data_raw/tcga_skcm_clinical.csv")
 ```
 
 # 5. Preparación básica de variables clínicas

@@ -1533,7 +1533,7 @@ literal.</p>
 
 genes &lt;- annot %&gt;%
   filter(SYMBOL %in% candidatos) %&gt;%
-  select(gene, SYMBOL, HR_screening = HR, FDR_screening = FDR) %&gt;%
+  dplyr::select(gene, SYMBOL, HR_screening = HR, FDR_screening = FDR) %&gt;%
   arrange(FDR_screening)
 
 stopifnot(nrow(genes) == length(candidatos), all(genes$gene %in% colnames(master_dataset)))

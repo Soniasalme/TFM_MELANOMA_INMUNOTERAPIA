@@ -11,7 +11,7 @@
 
 <meta name="author" content="Sonia Salmerón Fructuoso" />
 
-<meta name="date" content="2026-03-18" />
+<meta name="date" content="2026-11-03" />
 
 <title>TFM melanoma - Kaplan-Meier inicial en TCGA-SKCM</title>
 
@@ -241,7 +241,7 @@ div.tocify {
 <h1 class="title toc-ignore">TFM melanoma - Kaplan-Meier inicial en
 TCGA-SKCM</h1>
 <h4 class="author">Sonia Salmerón Fructuoso</h4>
-<h4 class="date">2026-03-18</h4>
+<h4 class="date">2026-11-03</h4>
 
 </div>
 
@@ -277,10 +277,10 @@ a inmunoterapia. En esta primera fase se aborda la construcción de las
 bases metodológicas: descarga y limpieza de datos clínicos, creación de
 variables de supervivencia y estimación de las curvas de Kaplan‑Meier
 global y estratificada por sexo. Los resultados muestran una mediana de
-supervivencia de aproximadamente 6,2 años (2.273 días) y ausencia de diferencias
-significativas entre hombres y mujeres (p = 0.3). Este análisis
-preliminar sienta las bases para las siguientes fases, en las que se
-incorporarán datos de expresión génica y se evaluarán modelos
+supervivencia de aproximadamente 6,2 años (2.273 días) y ausencia de
+diferencias significativas entre hombres y mujeres (p = 0.3). Este
+análisis preliminar sienta las bases para las siguientes fases, en las
+que se incorporarán datos de expresión génica y se evaluarán modelos
 multivariantes de predicción pronóstica y de respuesta terapéutica.</p>
 <hr />
 </div>
@@ -635,15 +635,23 @@ dir.create(&quot;results&quot;, showWarnings = FALSE)
 dir.create(&quot;figures&quot;, showWarnings = FALSE)
 
 # Descarga de datos clínicos
-clinical_tcga &lt;- GDCquery_clinic(
-  project = &quot;TCGA-SKCM&quot;,
-  type = &quot;clinical&quot;
-)
+# Se reutiliza la descarga clínica de GDC guardada en data_raw/ (marzo de 2026) para que el
+# análisis sea reproducible; solo se consulta el GDC si ese fichero no existe.
+clinical_file &lt;- &quot;data_raw/tcga_skcm_clinical.csv&quot;
+
+if (file.exists(clinical_file)) {
+  clinical_tcga &lt;- read_csv(clinical_file, show_col_types = FALSE)
+} else {
+  clinical_tcga &lt;- GDCquery_clinic(
+    project = &quot;TCGA-SKCM&quot;,
+    type = &quot;clinical&quot;
+  )
+  write_csv(clinical_tcga, clinical_file)
+}
 dim(clinical_tcga) # dimension del dataset</code></pre>
 <pre><code>## [1] 470  91</code></pre>
 <p>El conjunto de datos clínicos contiene 470 pacientes y 90 variables.
 Se guarda en formato CSV para su reutilización.</p>
-<pre class="r"><code>write_csv(clinical_tcga, &quot;data_raw/tcga_skcm_clinical.csv&quot;)</code></pre>
 <hr />
 </div>
 <div id="análisis-exploratorio-de-datos-clínicos" class="section level3"
@@ -1058,7 +1066,7 @@ surv_object[1:10]</code></pre>
 number="5.4.2">
 <h4><span class="header-section-number">5.4.2</span> 3.4.2. Curva de
 Kaplan‑Meier global</h4>
-<pre class="r"><code>km_fit_global &lt;- survfit(surv_object ~ 1, data = clinical_surv)
+<pre class="r"><code>km_fit_global &lt;- survfit(Surv(OS_time, OS_event) ~ 1, data = clinical_surv)
 # summary(km_fit_global)  # comentado o con results=&#39;hide&#39;
 
 # Extraer mediana e IC
@@ -1231,7 +1239,8 @@ perspectivas</h2>
 <ul>
 <li><p>Se ha establecido un pipeline reproducible para el análisis de
 supervivencia en TCGA‑SKCM.</p></li>
-<li><p>La mediana de supervivencia global es de aproximadamente 6,2 años (2.273 días).</p></li>
+<li><p>La mediana de supervivencia global es de aproximadamente 6,2 años
+(2.273 días).</p></li>
 <li><p>No se observan diferencias significativas en supervivencia entre
 hombres y mujeres.</p></li>
 </ul>
